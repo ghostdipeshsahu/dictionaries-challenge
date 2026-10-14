@@ -49,7 +49,7 @@ function stopLive(){if(es){es.close();es=null}clearInterval(poll);poll=null}
 function startPoll(){if(!poll){poll=setInterval(()=>{if(!document.hidden)load(true)},5000)}setLive('poll')}
 function startLive(){
   stopLive();
-  if(!('EventSource' in window))return startPoll();
+  if(!('EventSource' in window)||(data&&data.push===false))return startPoll();  // push is off on some hosts (Vercel)
   es=new EventSource('/api/teacher/dicts/stream?token='+encodeURIComponent(token)+(section?'&section='+encodeURIComponent(section):''));
   es.onopen=()=>{clearInterval(poll);poll=null;setLive('live')};
   es.onmessage=e=>{let d;try{d=JSON.parse(e.data)}catch(err){return}if(checkBuild(d))return;clearInterval(poll);poll=null;data=d;setLive('live');if(!$('#rows'))render();else{tiles();panels();attention();rows();stamp()}};
@@ -58,7 +58,7 @@ function startLive(){
 function setLive(m){liveMode=m;stamp()}
 /* The server was updated while this page was open: reload so the page has the new buttons, not just new numbers. */
 function checkBuild(d){if(!d||!d.build)return false;if(BUILD===null){BUILD=d.build;return false}if(d.build===BUILD)return false;stopLive();location.reload();return true}
-function stamp(){const u=$('#updated');if(u)u.innerHTML=`<span class="livedot ${liveMode}"></span>${liveMode==='live'?'Live':liveMode==='poll'?'Updating every 5 seconds':'Connecting…'} · updated ${new Date().toLocaleTimeString()}`}
+function stamp(){const u=$('#updated');if(u)u.innerHTML=`<span class="livedot ${liveMode}"></span>${liveMode==='live'?'Live':liveMode==='poll'?'Live · refreshes every 5 s':'Connecting…'} · updated ${new Date().toLocaleTimeString()}`}
 function tiles(){
   const o=data.overview,started=data.students.filter(s=>s.status!=='not started');
   const avgMin=started.length?Math.round(started.reduce((a,s)=>a+s.used_minutes,0)/started.length):0;
@@ -75,6 +75,7 @@ function render(){
   const d=data;
   view.innerHTML=`<section class="dash">
     <div class="dhead2"><div><h1>${d.section?esc(d.section):'All sections'}</h1><p class="sub">Dictionaries: The Python Challenge · ${d.mission_minutes}-minute timed, proctored mission. ${d.max_tab_switches?`A mission ends at ${d.max_tab_switches} tab switches.`:'Tab switches are recorded only.'} <span id="updated"></span></p></div></div>
+    ${d.storage==='temporary'?`<div class="endbanner proctor"><b>No database connected: student progress will be lost.</b><p>In Vercel, open this project → Storage → Create Database → Neon (Postgres), connect it to the project, then redeploy.</p></div>`:''}
     <div class="tiles" id="tiles"></div>
     <div class="panel attn" id="attnPanel"><h2>Needs attention <span class="acount" id="attnCount"></span></h2><div id="pAttn"></div></div>
     <div class="cols">

@@ -40,9 +40,16 @@ def clock(monkeypatch):
     return ft
 
 
+TEST_PG = os.environ.get("TEST_DATABASE_URL")  # run the same suite against Postgres (see tests/run_pg.py)
+
+
 @pytest.fixture()
 def client(clock):
-    db.connect(":memory:")
+    if TEST_PG:
+        db.connect(TEST_PG)
+        db._run("TRUNCATE students, events, teacher_tokens RESTART IDENTITY")
+    else:
+        db.connect(":memory:")
     main.TEACHER_PASSWORD = "test-pass"
     return TestClient(main.app)
 
@@ -597,6 +604,20 @@ def test_teacher_resume_does_not_mark_student_online(client, clock):
     client.post(f"/api/teacher/dicts/{sid}/resume", headers=t)
     r = client.get("/api/teacher/dicts", headers=t).json()["students"][0]
     assert r["online"] is False and r["activity"] == "offline"
+
+
+def test_simultaneous_answers_are_counted_once(client):
+    # A double-clicked Check, or two servers handling the same student at once (Vercel), must not award XP
+    # twice: each change runs in a transaction that locks the student's row.
+    import concurrent.futures
+    h = login(client)
+    start(client, h)
+    client.post("/api/dicts/open", json={"qid": "L0-1"}, headers=h)
+    with concurrent.futures.ThreadPoolExecutor(8) as ex:
+        results = list(ex.map(lambda _: client.post("/api/dicts/answer", json={"qid": "L0-1", "answer": 0}, headers=h).json(), range(8)))
+    assert sum(1 for r in results if r["correct"] and not r.get("already_solved")) == 1
+    st = client.get("/api/dicts/mission", headers=h).json()["state"]
+    assert st["xp"] == 12 and st["combo"] == 1
 
 
 def test_scripts_are_never_stale_and_dashboard_knows_the_build(client):

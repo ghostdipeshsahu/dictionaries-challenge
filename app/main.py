@@ -64,7 +64,20 @@ class NoCacheStatic(StaticFiles):
 
 
 app = FastAPI(title="Dictionaries: The Python Challenge", version="1.0.0")
-db.connect(os.environ.get("DB_PATH", str(ROOT / "data" / "dicts.db")))
+DATABASE_URL = os.environ.get("DATABASE_URL") or os.environ.get("POSTGRES_URL") or ""
+if DATABASE_URL.startswith(("postgres://", "postgresql://")):
+    STORAGE = "postgres"
+    db.connect(DATABASE_URL)
+elif os.environ.get("VERCEL"):
+    # Vercel's disk is temporary: anything written here disappears. Run, but warn loudly on the dashboard.
+    STORAGE = "temporary"
+    db.connect(os.environ.get("DB_PATH", "/tmp/dicts.db"))
+else:
+    STORAGE = "sqlite"
+    db.connect(os.environ.get("DB_PATH", str(ROOT / "data" / "dicts.db")))
+# On Vercel each request may land on a different short-lived server, so a long-lived push stream cannot see
+# every change. The dashboard then polls every 5 seconds instead (it does this by itself when push is False).
+LIVE_PUSH = not os.environ.get("VERCEL")
 
 
 @app.exception_handler(E.MissionError)
@@ -112,7 +125,7 @@ def bearer(authorization: Optional[str]):
 
 
 def student(authorization: Optional[str] = Header(default=None)):
-    with db.LOCK:
+    with db.tx():
         s = db.by_token(bearer(authorization))
     if not s:
         raise HTTPException(401, "Sign in to continue.")
@@ -120,7 +133,7 @@ def student(authorization: Optional[str] = Header(default=None)):
 
 
 def teacher(authorization: Optional[str] = Header(default=None)):
-    with db.LOCK:
+    with db.tx():
         ok = db.teacher_token_ok(bearer(authorization), TEACHER_TOKEN_AGE)
     if not ok:
         raise HTTPException(401, "Teacher sign-in needed.")
@@ -138,7 +151,8 @@ def clean(text, n):
 # ---------- shared ----------
 @app.get("/api/health")
 def health():
-    return {"ok": True, "app": "dictionaries", "sections": SECTIONS, "class_code_required": bool(CLASS_CODE), "build": BUILD}
+    return {"ok": True, "app": "dictionaries", "sections": SECTIONS, "class_code_required": bool(CLASS_CODE), "build": BUILD,
+            "storage": STORAGE}
 
 
 @app.post("/api/login")
@@ -151,7 +165,18 @@ def login(body: LoginIn):
     if CLASS_CODE and not hmac.compare_digest((body.class_code or "").strip().upper(), CLASS_CODE.upper()):
         raise HTTPException(403, "That class code is not right. Ask your teacher.")
     token = secrets.token_urlsafe(24)
-    with db.LOCK:
+    try:
+        return _login(name, roll, section, token)
+    except HTTPException:
+        raise
+    except Exception as e:  # the same roll number signing in twice at the same instant (unique key)
+        if "unique" in str(e).lower() or "duplicate" in str(e).lower():
+            raise HTTPException(409, "That sign-in clashed with another one for this roll number. Try again.")
+        raise
+
+
+def _login(name, roll, section, token):
+    with db.tx():
         s = db.by_roll(roll)
         if s:
             if s["name"].casefold() != name.casefold() or s["section"] != section:
@@ -168,22 +193,22 @@ def login(body: LoginIn):
 
 @app.post("/api/logout")
 def logout(s=Depends(student)):
-    with db.LOCK:
+    with db.tx():
         db.set_token(s["id"], None, seen=False)
     return {"ok": True}
 
 
 @app.get("/api/me")
 def me(s=Depends(student)):
-    with db.LOCK:
+    with db.tx():
         db.touch(s["id"])
     return {"student": public_student(s)}
 
 
 @app.post("/api/ping")
 def ping(s=Depends(student)):
-    with db.LOCK:
-        cur = db.by_id(s["id"])
+    with db.tx():
+        cur = db.by_id(s["id"], lock=True)
         if E.tick(cur["state"], RULES):
             db.save_state(cur["id"], cur["state"])
         else:
@@ -194,8 +219,8 @@ def ping(s=Depends(student)):
 # ---------- mission ----------
 def mutate(s, fn, *args, **kw):
     """Load fresh state under the lock, apply the clock, run an engine action, save."""
-    with db.LOCK:
-        cur = db.by_id(s["id"])
+    with db.tx():
+        cur = db.by_id(s["id"], lock=True)
         st = cur["state"]
         E.tick(st, RULES)
         try:
@@ -207,8 +232,8 @@ def mutate(s, fn, *args, **kw):
 
 @app.get("/api/dicts/mission")
 def mission(s=Depends(student)):
-    with db.LOCK:
-        cur = db.by_id(s["id"])
+    with db.tx():
+        cur = db.by_id(s["id"], lock=True)
         if E.tick(cur["state"], RULES):
             db.save_state(cur["id"], cur["state"])
     m = E.mission_payload(RULES)
@@ -248,15 +273,15 @@ def answer(body: AnswerIn, s=Depends(student)):
 
 @app.post("/api/dicts/proctor")
 def proctor(body: ProctorIn, s=Depends(student)):
-    with db.LOCK:
+    with db.tx():
         db.log_event(s["id"], body.type[:20], (body.qid or "")[:12] or None, max(0, min(body.duration_ms, 86_400_000)))
     return mutate(s, E.proctor, body.type, body.duration_ms)
 
 
 @app.get("/api/dicts/review")
 def review(s=Depends(student)):
-    with db.LOCK:
-        cur = db.by_id(s["id"])
+    with db.tx():
+        cur = db.by_id(s["id"], lock=True)
     return E.review(cur["state"])
 
 
@@ -268,7 +293,7 @@ def rank_key(st, now):
 @app.get("/api/dicts/leaderboard")
 def leaderboard(s=Depends(student)):
     now = time.time()
-    with db.LOCK:
+    with db.tx():
         mates = [x for x in db.all_students(s["section"]) if x["state"]["started_at"] or x["id"] == s["id"]]
     for x in mates:
         E.tick(x["state"], RULES, now)
@@ -291,14 +316,14 @@ def teacher_login(body: TeacherLoginIn):
     if not hmac.compare_digest(body.password.encode(), TEACHER_PASSWORD.encode()):
         raise HTTPException(401, "That password is not right.")
     token = secrets.token_urlsafe(24)
-    with db.LOCK:
+    with db.tx():
         db.add_teacher_token(token)
     return {"token": token}
 
 
 def dashboard(section=None):
     now = time.time()
-    with db.LOCK:
+    with db.tx():
         studs = db.all_students(section or None)
     rows = []
     stage_cleared = {l["id"]: 0 for l in C.LEVELS}
@@ -366,7 +391,7 @@ def dashboard(section=None):
         "stages": [{"id": l["id"], "name": l["name"], "cleared": stage_cleared[l["id"]], "total": len(l["main"])} for l in C.LEVELS],
         "concepts": [{"concept": d["key"], "accuracy": d["accuracy"], "answers": d["answers"]} for d in acc(concept_tot)],
         "types": [{"qtype": d["key"], "accuracy": d["accuracy"], "answers": d["answers"]} for d in acc(type_tot)],
-        "students": rows, "version": db.VERSION["n"], "server_time": E.iso(now), "build": BUILD,
+        "students": rows, "version": db.VERSION["n"], "server_time": E.iso(now), "build": BUILD, "push": LIVE_PUSH, "storage": STORAGE,
     }
 
 
@@ -378,9 +403,11 @@ def teacher_dicts(section: str = "", _t=Depends(teacher)):
 @app.get("/api/teacher/dicts/stream")
 async def teacher_stream(request: Request, token: str = Query(...), section: str = ""):
     """Server-sent events: pushes the dashboard whenever anything changes (checked every second)."""
-    with db.LOCK:
+    with db.tx():
         if not db.teacher_token_ok(token, TEACHER_TOKEN_AGE):
             raise HTTPException(401, "Teacher sign-in needed.")
+    if not LIVE_PUSH:
+        raise HTTPException(404, "Live push is off on this host; the dashboard polls every 5 seconds.")
 
     async def gen():
         last, last_sent = -1, 0.0
@@ -422,7 +449,7 @@ def teacher_export(section: str = "", _t=Depends(teacher)):
 
 @app.post("/api/teacher/dicts/{student_id}/reset")
 def teacher_reset(student_id: int, _t=Depends(teacher)):
-    with db.LOCK:
+    with db.tx():
         if not db.by_id(student_id):
             raise HTTPException(404, "No such student.")
         db.reset_state(student_id, E.new_state())
@@ -432,8 +459,8 @@ def teacher_reset(student_id: int, _t=Depends(teacher)):
 @app.post("/api/teacher/dicts/{student_id}/resume")
 def teacher_resume(student_id: int, _t=Depends(teacher)):
     """Reopen a mission that ended on tab switches or time, from where the student stopped."""
-    with db.LOCK:
-        cur = db.by_id(student_id)
+    with db.tx():
+        cur = db.by_id(student_id, lock=True)
         if not cur:
             raise HTTPException(404, "No such student.")
         st = cur["state"]
@@ -445,7 +472,7 @@ def teacher_resume(student_id: int, _t=Depends(teacher)):
 
 @app.post("/api/teacher/students/{student_id}/release")
 def teacher_release(student_id: int, _t=Depends(teacher)):
-    with db.LOCK:
+    with db.tx():
         if not db.by_id(student_id):
             raise HTTPException(404, "No such student.")
         db.set_token(student_id, None, seen=False)
@@ -454,7 +481,7 @@ def teacher_release(student_id: int, _t=Depends(teacher)):
 
 @app.delete("/api/teacher/students/{student_id}")
 def teacher_delete(student_id: int, _t=Depends(teacher)):
-    with db.LOCK:
+    with db.tx():
         if not db.by_id(student_id):
             raise HTTPException(404, "No such student.")
         db.delete_student(student_id)

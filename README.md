@@ -31,6 +31,7 @@ which is only for trying it on a laptop; always set your own).
 | `MAX_TAB_SWITCHES` | `3` | The mission ends at this many tab switches (`0` = record only) |
 | `REVEAL_AFTER` | `2` | Wrong tries before "Show the solution" appears |
 | `IDLE_SECONDS` | `120` | Mission running, page open, no step for this long: flagged "idle" to the teacher |
+| `DATABASE_URL` | empty | Postgres URL (Vercel + Neon). When set, used instead of SQLite |
 | `DB_PATH` | `data/dicts.db` | SQLite file |
 
 ## Tests
@@ -57,6 +58,18 @@ The browser tests delete the students they create when they finish.
 - **Needs attention** panel at the top of the dashboard: students who are **idle** (page open, mission running, no
   step for `IDLE_SECONDS`), **offline** (mission running, page stopped responding) or whose mission **ended** (with
   the Resume button). The "Now on" column shows the same tags.
+
+## Deploy on Vercel
+
+1. Import the GitHub repo in Vercel (FastAPI is detected from `app/main.py`; `vercel.json` sets the Mumbai region).
+2. **Storage → Create Database → Neon (Postgres)** and connect it to the project. This sets `DATABASE_URL`.
+   Without it, the dashboard shows a red warning: Vercel's disk is temporary and progress would be lost.
+3. Set `TEACHER_PASSWORD` (and `SECTIONS` if needed) under Settings → Environment Variables, then redeploy.
+
+On Vercel the teacher dashboard refreshes every 5 seconds (each request may reach a different short-lived server,
+so the push stream is turned off). Python for the coding challenges loads from the jsDelivr CDN.
+Each change to a student runs in a transaction that locks that student's row, so parallel servers stay consistent.
+Test the Postgres path locally with `python tests/run_pg.py` (needs `pip install pgserver`).
 
 ## Deploy on Render
 
