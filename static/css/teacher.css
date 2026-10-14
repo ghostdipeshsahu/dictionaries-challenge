@@ -93,6 +93,7 @@ td.curcell small{display:block;max-width:230px;overflow:hidden;text-overflow:ell
 .atag{display:inline-block;margin-left:6px;padding:1px 7px;border-radius:999px;font:700 11px/1.6 var(--f-mono);vertical-align:1px}
 .atag.idle{background:var(--gold-soft);color:var(--gold)}
 .atag.off{background:var(--bad-soft);color:var(--bad)}
-td .del.go,.alist .del.go{color:var(--blue);font-weight:700}
-td .del.go.armed,.alist .del.go.armed{color:var(--bad)}
+/* Resume is the action a teacher needs most: a real button, not a text link like the others */
+td .del.go,.alist .del.go{text-decoration:none;color:#fff;background:var(--good);padding:5px 12px;border-radius:9px;font:700 12.5px var(--f-display);box-shadow:0 2px 0 color-mix(in srgb,var(--good) 55%,#000)}
+td .del.go.armed,.alist .del.go.armed{background:var(--gold);color:#1A1200;box-shadow:0 2px 0 color-mix(in srgb,var(--gold) 55%,#000)}
 @media (max-width:700px){.alist li{grid-template-columns:minmax(0,1fr)}}

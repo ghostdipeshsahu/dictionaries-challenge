@@ -83,7 +83,7 @@ function render(){
     </div>
     <div class="panel"><h2>Question types, hardest first</h2><div class="typegrid" id="pTypes"></div></div>
     <div class="panel"><h2>Students</h2>
-      <div class="tools"><input id="find" type="search" placeholder="Search by name or roll number" value="${esc(filter)}"><span class="hint2">Release login: lets a student sign in on another device. Reset mission: gives a fresh attempt.</span></div>
+      <div class="tools"><input id="find" type="search" placeholder="Search by name or roll number" value="${esc(filter)}"><span class="hint2"><b>Resume</b>: continue an ended mission from exactly where it stopped. Release login: lets a student sign in on another device. Reset mission: erases everything and starts again from zero.</span></div>
       <div class="tablewrap"><table><thead><tr>
         ${[['rank','#'],['name','Name'],['roll_no','Roll no'],['section','Section'],['status','Status'],['current','Now on'],['done','Cleared'],['first_try','First try'],['timed_out','Timed out'],['revealed','Solutions viewed'],['used_minutes','Time used'],['tab_switches','Tab switches'],['copy_paste','Copy/paste'],['weak','Weakest idea'],['last_seen','Last seen']]
           .map(([k,l])=>`<th data-k="${k}"${sortKey===k?` aria-sort="${sortDir>0?'ascending':'descending'}"`:''}>${l}</th>`).join('')}<th>Actions</th>
