@@ -38,6 +38,31 @@ IDLE_SECONDS = int(os.environ.get("IDLE_SECONDS", "120"))  # page open, mission 
 DEVICE_LOCK = 75          # a roll number signed in elsewhere within this window cannot sign in again
 TEACHER_TOKEN_AGE = 12 * 3600
 
+def _build_id():
+    """Fingerprint of the front-end files. An open dashboard compares it and reloads itself after an update."""
+    import hashlib
+    h = hashlib.sha1()
+    for f in sorted(STATIC.rglob("*")):
+        if f.is_file() and f.suffix in (".html", ".js", ".css") and "vendor" not in f.parts:
+            h.update(f.name.encode())
+            h.update(f.read_bytes())
+    return h.hexdigest()[:12]
+
+
+BUILD = _build_id()
+
+
+class NoCacheStatic(StaticFiles):
+    """Browsers must re-check scripts and styles on every load (cheap: unchanged files answer 304 via ETag),
+    so a reload never runs an old copy. The large Pyodide runtime may be cached."""
+
+    async def get_response(self, path, scope):
+        resp = await super().get_response(path, scope)
+        if not path.startswith("vendor/"):
+            resp.headers["Cache-Control"] = "no-cache"
+        return resp
+
+
 app = FastAPI(title="Dictionaries: The Python Challenge", version="1.0.0")
 db.connect(os.environ.get("DB_PATH", str(ROOT / "data" / "dicts.db")))
 
@@ -113,7 +138,7 @@ def clean(text, n):
 # ---------- shared ----------
 @app.get("/api/health")
 def health():
-    return {"ok": True, "app": "dictionaries", "sections": SECTIONS, "class_code_required": bool(CLASS_CODE)}
+    return {"ok": True, "app": "dictionaries", "sections": SECTIONS, "class_code_required": bool(CLASS_CODE), "build": BUILD}
 
 
 @app.post("/api/login")
@@ -341,7 +366,7 @@ def dashboard(section=None):
         "stages": [{"id": l["id"], "name": l["name"], "cleared": stage_cleared[l["id"]], "total": len(l["main"])} for l in C.LEVELS],
         "concepts": [{"concept": d["key"], "accuracy": d["accuracy"], "answers": d["answers"]} for d in acc(concept_tot)],
         "types": [{"qtype": d["key"], "accuracy": d["accuracy"], "answers": d["answers"]} for d in acc(type_tot)],
-        "students": rows, "version": db.VERSION["n"], "server_time": E.iso(now),
+        "students": rows, "version": db.VERSION["n"], "server_time": E.iso(now), "build": BUILD,
     }
 
 
@@ -455,4 +480,4 @@ def teacher_page():
     return FileResponse(STATIC / "teacher.html", headers=NO_CACHE)
 
 
-app.mount("/static", StaticFiles(directory=STATIC), name="static")
+app.mount("/static", NoCacheStatic(directory=STATIC), name="static")

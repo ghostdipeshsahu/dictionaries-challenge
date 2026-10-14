@@ -599,6 +599,14 @@ def test_teacher_resume_does_not_mark_student_online(client, clock):
     assert r["online"] is False and r["activity"] == "offline"
 
 
+def test_scripts_are_never_stale_and_dashboard_knows_the_build(client):
+    # an open dashboard compares `build` and reloads itself after a server update
+    t = teacher(client)
+    assert client.get("/api/teacher/dicts", headers=t).json()["build"] == main.BUILD
+    for path in ("/static/js/teacher.js", "/static/js/dicts.js", "/static/css/teacher.css"):
+        assert client.get(path).headers["cache-control"] == "no-cache", path
+
+
 # ---------------------------------------------------------------- full mission
 def test_full_mission_complete(client):
     h = login(client)

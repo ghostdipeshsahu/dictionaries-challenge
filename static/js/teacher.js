@@ -11,7 +11,7 @@ const CONCEPTS={pairs:'Key-value pairs',creation:'Creating a dictionary',empty:'
 const TYPES={mcq:'Multiple choice',msq:'Multiple select',tf:'True or false',ar:'Assertion and reasoning',fill:'Fill in the blanks',match:'Match the columns',
   order:'Put in order',categorize:'Sort into groups',numeric:'Numeric answer',predict:'Predict the output',debug:'Debug mission',coding:'Coding challenge',board:'Board build'};
 const STATUS_CLS={complete:'hi',time:'mid',proctor:'lo','in progress':'','not started':''};
-let token=null,section='',data=null,sortKey='rank',sortDir=1,filter='',es=null,poll=null,liveMode='',armed=null;
+let BUILD=null,token=null,section='',data=null,sortKey='rank',sortDir=1,filter='',es=null,poll=null,liveMode='',armed=null;
 try{token=localStorage.getItem(KEY)}catch(e){}
 
 async function api(path,opts){
@@ -38,6 +38,7 @@ async function load(quiet){
   $('#tbar').hidden=false;
   if(!quiet)view.innerHTML='<section class="dash"><p class="empty">Loading the class…</p></section>';
   try{data=await api('/teacher/dicts'+(section?'?section='+encodeURIComponent(section):'')).then(r=>r.json())}catch(e){return}
+  if(checkBuild(data))return;
   const sel=$('#secSel');sel.innerHTML='<option value="">All sections</option>'+data.sections.map(s=>`<option${s===section?' selected':''}>${esc(s)}</option>`).join('');
   if(quiet&&$('#rows')){tiles();panels();attention();rows();stamp();return}
   render();
@@ -51,10 +52,12 @@ function startLive(){
   if(!('EventSource' in window))return startPoll();
   es=new EventSource('/api/teacher/dicts/stream?token='+encodeURIComponent(token)+(section?'&section='+encodeURIComponent(section):''));
   es.onopen=()=>{clearInterval(poll);poll=null;setLive('live')};
-  es.onmessage=e=>{let d;try{d=JSON.parse(e.data)}catch(err){return}clearInterval(poll);poll=null;data=d;setLive('live');if(!$('#rows'))render();else{tiles();panels();attention();rows();stamp()}};
+  es.onmessage=e=>{let d;try{d=JSON.parse(e.data)}catch(err){return}if(checkBuild(d))return;clearInterval(poll);poll=null;data=d;setLive('live');if(!$('#rows'))render();else{tiles();panels();attention();rows();stamp()}};
   es.onerror=()=>startPoll();
 }
 function setLive(m){liveMode=m;stamp()}
+/* The server was updated while this page was open: reload so the page has the new buttons, not just new numbers. */
+function checkBuild(d){if(!d||!d.build)return false;if(BUILD===null){BUILD=d.build;return false}if(d.build===BUILD)return false;stopLive();location.reload();return true}
 function stamp(){const u=$('#updated');if(u)u.innerHTML=`<span class="livedot ${liveMode}"></span>${liveMode==='live'?'Live':liveMode==='poll'?'Updating every 5 seconds':'Connecting…'} · updated ${new Date().toLocaleTimeString()}`}
 function tiles(){
   const o=data.overview,started=data.students.filter(s=>s.status!=='not started');
