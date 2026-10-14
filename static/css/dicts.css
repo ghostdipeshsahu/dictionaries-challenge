@@ -345,6 +345,14 @@ body.dicts-app input,body.dicts-app textarea{-webkit-user-select:text;user-selec
 .tally.small b{font-size:20px}
 .drawer.timeup .dr-icon svg{width:26px;height:26px}
 
+/* waiting for a teacher resume */
+.resumewait{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:14px;align-items:center;padding:14px 16px;border-radius:18px;border:1px solid color-mix(in srgb,var(--blue) 35%,var(--line));background:color-mix(in srgb,var(--blue) 7%,var(--surface))}
+.resumewait p{margin:4px 0 0;color:var(--muted);font-size:14px}
+.rwdot{width:12px;height:12px;border-radius:50%;background:var(--blue);box-shadow:0 0 0 0 color-mix(in srgb,var(--blue) 40%,transparent);animation:rwpulse 1.8s ease-out infinite}
+@keyframes rwpulse{70%{box-shadow:0 0 0 10px transparent}100%{box-shadow:0 0 0 0 transparent}}
+@media (prefers-reduced-motion:reduce){.rwdot{animation:none}}
+@media (max-width:560px){.resumewait{grid-template-columns:auto minmax(0,1fr)}.resumewait .btn{grid-column:1/-1}}
+
 @media (max-width:980px){
   .cgrid,.labgrid,.repgrid{grid-template-columns:minmax(0,1fr)}
   .tally.four{grid-template-columns:repeat(2,minmax(0,1fr))}

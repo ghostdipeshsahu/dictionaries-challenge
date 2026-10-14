@@ -30,6 +30,7 @@ which is only for trying it on a laptop; always set your own).
 | `MISSION_MINUTES` | `45` | Mission clock |
 | `MAX_TAB_SWITCHES` | `3` | The mission ends at this many tab switches (`0` = record only) |
 | `REVEAL_AFTER` | `2` | Wrong tries before "Show the solution" appears |
+| `IDLE_SECONDS` | `120` | Mission running, page open, no step for this long: flagged "idle" to the teacher |
 | `DB_PATH` | `data/dicts.db` | SQLite file |
 
 ## Tests
@@ -41,7 +42,21 @@ python -m pytest -q tests                 # backend rules: login, timers, XP, co
 python tests/e2e_walkthrough.py http://localhost:8000 shots
 MISSION_MINUTES=1 DB_PATH=data/timers.db uvicorn app.main:app --port 8011   # separate server for the clock test
 python tests/e2e_timers.py http://localhost:8011 shots-timers
+IDLE_SECONDS=20 DB_PATH=data/scratch.db uvicorn app.main:app --port 8012           # separate server for resume + idle
+python tests/e2e_resume.py http://localhost:8012 shots-resume
 ```
+The browser tests delete the students they create when they finish.
+
+## Teacher controls added beyond the Sets app
+
+- **Resume** (dashboard, tap twice): reopens a mission that ended on tab switches or time, from where the student
+  stopped. XP, cleared challenges, stars and badges are kept. Time spent ended is not counted, so the student gets
+  back the time they had left (at least 5 minutes); the open question keeps its remaining seconds; the tab-switch
+  limit starts again (the Tab switches column keeps the total). The student's page notices within 5 seconds and
+  continues by itself, or the student presses **Check again**.
+- **Needs attention** panel at the top of the dashboard: students who are **idle** (page open, mission running, no
+  step for `IDLE_SECONDS`), **offline** (mission running, page stopped responding) or whose mission **ended** (with
+  the Resume button). The "Now on" column shows the same tags.
 
 ## Deploy on Render
 

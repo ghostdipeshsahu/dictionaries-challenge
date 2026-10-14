@@ -486,6 +486,119 @@ def test_leaderboard_is_per_section(client):
     assert [r["name"] for r in lb["rows"]] == ["Top", "Second"] and lb["me"]["rank"] == 2 and lb["count"] == 2
 
 
+# ---------------------------------------------------------------- teacher resume + idle / offline
+def end_by_tab_switches(client, h):
+    for _ in range(3):
+        r = client.post("/api/dicts/proctor", json={"type": "tab_switch", "duration_ms": 2000}, headers=h).json()
+    assert r["state"]["ended_reason"] == "proctor"
+
+
+def sid_of(client, h):
+    return client.get("/api/me", headers=h).json()["student"]["id"]
+
+
+def test_resume_after_tab_switches_keeps_progress_and_time(client, clock):
+    t = teacher(client)
+    h = login(client)
+    start(client, h)
+    solve(client, h, "L0-1")
+    clock.t += 600                                   # 10 minutes used
+    client.post("/api/dicts/open", json={"qid": "L0-2"}, headers=h)
+    clock.t += 10                                    # 10 of L0-2's 30 seconds used
+    end_by_tab_switches(client, h)
+    xp = client.get("/api/dicts/mission", headers=h).json()["state"]["xp"]
+    clock.t += 1800                                  # the teacher notices 30 minutes later
+    st = client.get("/api/dicts/mission", headers=h).json()["state"]
+    assert st["ended_reason"] == "proctor"           # still ended: those 30 minutes are not the clock running out
+    r = client.post(f"/api/teacher/dicts/{sid_of(client, h)}/resume", headers=t)
+    assert r.status_code == 200
+    st = client.get("/api/dicts/mission", headers=h).json()["state"]
+    assert st["ended_at"] is None and st["xp"] == xp and st["questions"]["L0-1"]["solved"]
+    assert st["remaining"] == pytest.approx(45 * 60 - 610)           # exactly the time that was left
+    assert st["proctor"]["tab_switches"] == 0                         # a fresh allowance of 3
+    o = client.post("/api/dicts/open", json={"qid": "L0-2"}, headers=h).json()
+    assert o["remaining"] == pytest.approx(C.QUESTIONS["L0-2"]["time"] - 10)  # the open question keeps its seconds
+    assert solve(client, h, "L0-2")["correct"]
+    row = client.get("/api/teacher/dicts", headers=t).json()["students"][0]
+    assert row["tab_switches"] == 3 and row["resumes"] == 1 and row["status"] == "in progress"
+
+
+def test_resume_after_time_gives_at_least_five_minutes(client, clock):
+    t = teacher(client)
+    h = login(client)
+    start(client, h)
+    clock.t += 45 * 60 + 5
+    assert client.get("/api/dicts/mission", headers=h).json()["state"]["ended_reason"] == "time"
+    client.post(f"/api/teacher/dicts/{sid_of(client, h)}/resume", headers=t)
+    st = client.get("/api/dicts/mission", headers=h).json()["state"]
+    assert st["ended_at"] is None and st["remaining"] == pytest.approx(300)
+    clock.t += 301
+    assert client.get("/api/dicts/mission", headers=h).json()["state"]["ended_reason"] == "time"
+
+
+def test_resume_refused_when_not_ended_or_complete(client):
+    t = teacher(client)
+    h = login(client)
+    sid = sid_of(client, h)
+    assert client.post(f"/api/teacher/dicts/{sid}/resume", headers=t).status_code == 409   # not started
+    start(client, h)
+    assert client.post(f"/api/teacher/dicts/{sid}/resume", headers=t).status_code == 409   # running
+    for l in C.LEVELS:
+        clear_stage(client, h, l["id"])
+    assert client.post(f"/api/teacher/dicts/{sid}/resume", headers=t).status_code == 409   # completed
+    assert client.post("/api/teacher/dicts/999/resume", headers=t).status_code == 404
+    assert client.post(f"/api/teacher/dicts/{sid}/resume").status_code == 401             # teacher only
+
+
+def test_resume_works_on_a_state_saved_before_this_feature(client, clock):
+    t = teacher(client)
+    h = login(client)
+    start(client, h)
+    end_by_tab_switches(client, h)
+    sid = sid_of(client, h)
+    old = db.by_id(sid)["state"]
+    for k in ("paused", "grace", "resumes", "last_action"):
+        old.pop(k)
+    old["proctor"].pop("tab_total")
+    db.save_state(sid, old)
+    assert client.post(f"/api/teacher/dicts/{sid}/resume", headers=t).status_code == 200
+    assert client.get("/api/dicts/mission", headers=h).json()["state"]["ended_at"] is None
+
+
+def test_idle_and_offline_are_shown_to_the_teacher(client, clock):
+    t = teacher(client)
+    h = login(client)
+    start(client, h)
+    row = lambda: client.get("/api/teacher/dicts", headers=t).json()["students"][0]  # noqa: E731
+    assert row()["activity"] == "active"
+    clock.t += 60
+    client.post("/api/ping", headers=h)                 # page open, heartbeat only
+    clock.t += 65
+    client.post("/api/ping", headers=h)
+    r = row()
+    assert r["activity"] == "idle" and r["idle_seconds"] >= 120
+    assert client.get("/api/teacher/dicts", headers=t).json()["overview"]["attention"] == 1
+    client.post("/api/dicts/open", json={"qid": "L0-1"}, headers=h)   # a real step clears it
+    assert row()["activity"] == "active"
+    clock.t += main.ONLINE_WINDOW + 1                     # page closed: no heartbeat
+    assert row()["activity"] == "offline"
+    end_by_tab_switches(client, h)
+    r = row()
+    assert r["activity"] is None and r["can_resume"] and r["current"]["qid"] == "L0-1"  # shows where they stopped
+
+
+def test_teacher_resume_does_not_mark_student_online(client, clock):
+    t = teacher(client)
+    h = login(client)
+    start(client, h)
+    sid = sid_of(client, h)  # read before the clock moves: /api/me is the student's own call and counts as "seen"
+    end_by_tab_switches(client, h)
+    clock.t += main.ONLINE_WINDOW + 5
+    client.post(f"/api/teacher/dicts/{sid}/resume", headers=t)
+    r = client.get("/api/teacher/dicts", headers=t).json()["students"][0]
+    assert r["online"] is False and r["activity"] == "offline"
+
+
 # ---------------------------------------------------------------- full mission
 def test_full_mission_complete(client):
     h = login(client)

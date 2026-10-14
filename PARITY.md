@@ -73,6 +73,8 @@ changed (content text, labels, Board, Dict Lab, field guide, exact output check)
 - [x] Release login / Reset mission / Remove, each with a second tap — API; double-tap UI — SAME (kept armed across live refreshes for 8 s)
 - [~] Live: server push on every change (SSE), automatic 5 s polling if the push drops; green "Live" dot — E2E (student appears, progresses and completes without a reload)
 - [~] Extra column "Now on": stage + question the student is on — E2E, API; also in the CSV
+- [~] **Resume** a mission that ended on tab switches or time, from the last checkpoint (progress, time left and the open question's seconds kept; fresh tab allowance); the student's page continues by itself — API (6 tests), E2E (`tests/e2e_resume.py`)
+- [~] **Needs attention** panel + idle / offline tags (idle = no step for 2 minutes with the page open) — API, E2E
 
 ## Not done / differences to know
 - Per-stage question counts and the type mix of the Sets mission cannot be read without a student login, so they were designed to the same total (42 over 7 stages) and the same shape (warm-up → coding → boss).

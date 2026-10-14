@@ -88,8 +88,12 @@ def touch(sid):
     bump()
 
 
-def save_state(sid, state):
-    _conn.execute("UPDATE students SET state=?, last_seen=? WHERE id=?", (json.dumps(state), time.time(), sid))
+def save_state(sid, state, seen=True):
+    """seen=False when someone else (the teacher) changes the state: it must not mark the student as online."""
+    if seen:
+        _conn.execute("UPDATE students SET state=?, last_seen=? WHERE id=?", (json.dumps(state), time.time(), sid))
+    else:
+        _conn.execute("UPDATE students SET state=? WHERE id=?", (json.dumps(state), sid))
     bump()
 
 

@@ -192,6 +192,18 @@ function netError(e){
   // fetch() throws TypeError when the network is down; API.call throws Error(detail) for HTTP errors.
   toast(e instanceof TypeError?'Could not reach the server. Your answer was not saved.':(e&&e.message)||'Something went wrong. Try again.','err');
 }
+/* ---------- teacher resume: an ended mission (tab switches / time) can be reopened from the dashboard ---------- */
+let resumeTimer=null;
+function watchResume(){clearInterval(resumeTimer);resumeTimer=setInterval(()=>{if(!document.hidden)checkResume(false)},5000)}
+async function checkResume(byHand){
+  const b=$('#checkResume');if(byHand&&b){b.disabled=true;b.textContent='Checking…'}
+  let m;try{m=await api('GET','/mission')}catch(e){if(b){b.disabled=false;b.textContent='Check again'}return}
+  if(m.state.ended_at){
+    if(m.state.ended_reason==='complete'||!['time','proctor'].includes(m.state.ended_reason))clearInterval(resumeTimer);
+    if(b){b.disabled=false;b.textContent='Check again'}if(byHand)toast('Not resumed yet. Ask your teacher.','err');return}
+  clearInterval(resumeTimer);resumeTimer=null;overHandled=false;
+  await loadMission();sfx.win();toast('Your teacher resumed your mission','rank');
+}
 async function onMissionOver(){
   if(overHandled)return;overHandled=true;stopQTimer();closeDrawer();
   try{const m=await api('GET','/mission');adopt(m.state)}catch(e){}
@@ -1007,7 +1019,8 @@ async function renderSummary(){
     ${banner}
     <div class="tally four"><div><b>${ST.xp}</b><span>Total XP</span></div><div><b>${attempted?Math.round(firstTry/attempted*100):0}%</b><span>First-try accuracy</span></div><div><b>${mins(ST.used_seconds)}</b><span>Time used / ${Math.round(ST.mission_seconds/60)}m</span></div><div><b>${p.done}/${p.total}</b><span>Challenges cleared</span></div></div>
     <div class="tally four small"><div><b>${ST.best_combo}</b><span>Best combo</span></div><div><b>${timedOut}</b><span>Timed out</span></div><div><b>${pr.tab_switches}</b><span>Tab switches</span></div><div><b>${pr.copy_paste}</b><span>Copy/paste tries</span></div></div>
-    ${reason?'<p class="muted small attempt-note">Each student gets one attempt at the mission. If you need another attempt, ask your teacher.</p>':''}
+    ${reason==='time'||reason==='proctor'?`<div class="resumewait" id="resumeWait"><span class="rwdot" aria-hidden="true"></span><div><b>Your teacher can resume your mission from where you stopped.</b><p>Your XP, cleared challenges and the time you had left are kept. This page checks every few seconds and continues by itself.</p></div><button class="btn" id="checkResume" type="button">Check again</button></div>`
+      :reason?'<p class="muted small attempt-note">Each student gets one attempt at the mission. If you need another attempt, ask your teacher.</p>':''}
     <div class="repgrid">
       <div class="card lbcard" id="lbReport"><h4>Class leaderboard</h4><p class="muted">Loading…</p></div>
       <div class="card"><h4>Badges · ${ST.badges.length} / ${Object.keys(M.badges).length}</h4><div class="badges">${Object.keys(M.badges).map(id=>badgeHTML(id,ST.badges.includes(id))).join('')}</div></div>
@@ -1018,6 +1031,7 @@ async function renderSummary(){
   </section>`;
   $('#toMap').onclick=renderMap;$('#backBtn').onclick=renderMap;$('#lab').onclick=renderLab;$('#guide2').onclick=openGuide;window.scrollTo(0,0);
   mark('report');loadLeaderboard('#lbReport');
+  if(reason==='time'||reason==='proctor'){$('#checkResume').onclick=()=>checkResume(true);watchResume()}
   if(reason==='complete'){rain(120)}
 }
 

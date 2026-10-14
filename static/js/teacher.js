@@ -39,7 +39,7 @@ async function load(quiet){
   if(!quiet)view.innerHTML='<section class="dash"><p class="empty">Loading the class…</p></section>';
   try{data=await api('/teacher/dicts'+(section?'?section='+encodeURIComponent(section):'')).then(r=>r.json())}catch(e){return}
   const sel=$('#secSel');sel.innerHTML='<option value="">All sections</option>'+data.sections.map(s=>`<option${s===section?' selected':''}>${esc(s)}</option>`).join('');
-  if(quiet&&$('#rows')){tiles();panels();rows();stamp();return}
+  if(quiet&&$('#rows')){tiles();panels();attention();rows();stamp();return}
   render();
   if(!quiet||!es)startLive();
 }
@@ -51,7 +51,7 @@ function startLive(){
   if(!('EventSource' in window))return startPoll();
   es=new EventSource('/api/teacher/dicts/stream?token='+encodeURIComponent(token)+(section?'&section='+encodeURIComponent(section):''));
   es.onopen=()=>{clearInterval(poll);poll=null;setLive('live')};
-  es.onmessage=e=>{let d;try{d=JSON.parse(e.data)}catch(err){return}clearInterval(poll);poll=null;data=d;setLive('live');if(!$('#rows'))render();else{tiles();panels();rows();stamp()}};
+  es.onmessage=e=>{let d;try{d=JSON.parse(e.data)}catch(err){return}clearInterval(poll);poll=null;data=d;setLive('live');if(!$('#rows'))render();else{tiles();panels();attention();rows();stamp()}};
   es.onerror=()=>startPoll();
 }
 function setLive(m){liveMode=m;stamp()}
@@ -73,6 +73,7 @@ function render(){
   view.innerHTML=`<section class="dash">
     <div class="dhead2"><div><h1>${d.section?esc(d.section):'All sections'}</h1><p class="sub">Dictionaries: The Python Challenge · ${d.mission_minutes}-minute timed, proctored mission. ${d.max_tab_switches?`A mission ends at ${d.max_tab_switches} tab switches.`:'Tab switches are recorded only.'} <span id="updated"></span></p></div></div>
     <div class="tiles" id="tiles"></div>
+    <div class="panel attn" id="attnPanel"><h2>Needs attention <span class="acount" id="attnCount"></span></h2><div id="pAttn"></div></div>
     <div class="cols">
       <div class="panel"><h2>How far the class got</h2><div id="pStages"></div></div>
       <div class="panel"><h2>Hardest ideas first</h2><div id="pConcepts"></div></div>
@@ -85,7 +86,7 @@ function render(){
           .map(([k,l])=>`<th data-k="${k}"${sortKey===k?` aria-sort="${sortDir>0?'ascending':'descending'}"`:''}>${l}</th>`).join('')}<th>Actions</th>
       </tr></thead><tbody id="rows"></tbody></table></div>
     </div></section>`;
-  tiles();panels();stamp();
+  tiles();panels();attention();stamp();
   $$('th[data-k]').forEach(th=>th.onclick=()=>{const k=th.dataset.k;if(sortKey===k)sortDir=-sortDir;else{sortKey=k;sortDir=['name','roll_no','section','status','weak','rank','current'].includes(k)?1:-1}render()});
   $('#find').oninput=e=>{filter=e.target.value;rows()};
   rows();
@@ -99,18 +100,41 @@ function rows(){
     .sort((a,b)=>{const x=val(a,sortKey),y=val(b,sortKey);return (typeof x==='string'?x.localeCompare(y):x-y)*sortDir});
   $('#rows').innerHTML=list.map(s=>{const w=weakest(s);
     return `<tr><td>${s.rank}</td><td><b>${esc(s.name)}</b>${s.online?' <span class="dot" title="Signed in right now"></span>':''}</td><td>${esc(s.roll_no)}</td><td>${esc(s.section)}</td>
-    <td class="m ${STATUS_CLS[s.status]||''}">${esc(s.status_label)}</td><td class="curcell">${s.current?`<b>${esc(s.current.stage)}</b><small title="${esc(s.current.title)}">Q${s.current.n}/${s.current.of} · ${esc(s.current.title)}${s.current.cleared?' (done)':''}</small>`:'–'}</td><td>${s.done}/${s.total}</td><td>${s.first_try}</td><td>${s.timed_out}</td><td>${s.revealed}</td><td>${s.used_minutes} min</td>
+    <td class="m ${STATUS_CLS[s.status]||''}">${esc(s.status_label)}</td><td class="curcell">${s.current?`<b>${esc(s.current.stage)}${actTag(s)}</b><small title="${esc(s.current.title)}">Q${s.current.n}/${s.current.of} · ${esc(s.current.title)}${s.current.cleared?' (done)':''}</small>`:actTag(s)||'–'}</td><td>${s.done}/${s.total}</td><td>${s.first_try}</td><td>${s.timed_out}</td><td>${s.revealed}</td><td>${s.used_minutes} min</td>
     <td class="${s.tab_switches?(max&&s.tab_switches>=max?'m lo':'m mid'):''}">${s.tab_switches}</td><td class="${s.copy_paste?'m mid':''}">${s.copy_paste}</td>
     <td>${w?esc(w[0])+' · '+Math.round(w[1]*100)+'%':'–'}</td><td>${esc((s.last_seen||'').replace('T',' ').slice(0,16))}</td>
-    <td class="acts"><button class="del" data-a="release" data-id="${s.id}" type="button"${s.online?'':' disabled'}>Release login</button><button class="del" data-a="reset" data-id="${s.id}" type="button">Reset mission</button><button class="del" data-a="remove" data-id="${s.id}" type="button">Remove</button></td></tr>`}).join('')
+    <td class="acts">${s.can_resume?`<button class="del go" data-a="resume" data-id="${s.id}" type="button">Resume</button>`:''}<button class="del" data-a="release" data-id="${s.id}" type="button"${s.online?'':' disabled'}>Release login</button><button class="del" data-a="reset" data-id="${s.id}" type="button">Reset mission</button><button class="del" data-a="remove" data-id="${s.id}" type="button">Remove</button></td></tr>`}).join('')
     ||`<tr><td colspan="16" class="empty">No students yet. Share the link to the app; students appear here after they sign in.</td></tr>`;
-  const LABEL={release:'Tap again: sign out',reset:'Tap again: erase and restart',remove:'Tap again: delete student'};
+  bindActs();
+}
+const LABEL={resume:'Tap again: resume',release:'Tap again: sign out',reset:'Tap again: erase and restart',remove:'Tap again: delete student'};
+function bindActs(){
   const arm=b=>{b.classList.add('armed');b.textContent=LABEL[b.dataset.a]};
-  if(armed){const b=$(`#rows .del[data-id="${armed.id}"][data-a="${armed.a}"]`);if(b&&!b.disabled&&Date.now()-armed.t<8000)arm(b);else armed=null}
-  $$('#rows .del').forEach(b=>b.onclick=async()=>{if(!b.classList.contains('armed')){armed={id:b.dataset.id,a:b.dataset.a,t:Date.now()};arm(b);return}
+  if(armed){const bs=$$(`#tview .del[data-id="${armed.id}"][data-a="${armed.a}"]`).filter(b=>!b.disabled);if(bs.length&&Date.now()-armed.t<8000)bs.forEach(arm);else armed=null}
+  $$('#tview .del').forEach(b=>b.onclick=async()=>{if(!b.classList.contains('armed')){armed={id:b.dataset.id,a:b.dataset.a,t:Date.now()};$$(`#tview .del[data-id="${b.dataset.id}"][data-a="${b.dataset.a}"]`).forEach(arm);return}
     armed=null;const id=b.dataset.id,a=b.dataset.a;b.disabled=true;
-    try{if(a==='release')await api(`/teacher/students/${id}/release`,{method:'POST'});else if(a==='reset')await api(`/teacher/dicts/${id}/reset`,{method:'POST'});else await api('/teacher/students/'+id,{method:'DELETE'})}catch(e){}
+    try{if(a==='resume')await api(`/teacher/dicts/${id}/resume`,{method:'POST'});else if(a==='release')await api(`/teacher/students/${id}/release`,{method:'POST'});else if(a==='reset')await api(`/teacher/dicts/${id}/reset`,{method:'POST'});else await api('/teacher/students/'+id,{method:'DELETE'})}catch(e){}
     load(true)});
+}
+const ago=sec=>sec<60?sec+' s':Math.floor(sec/60)+' min';
+function actTag(s){
+  if(s.activity==='idle')return ` <span class="atag idle" title="Page open, but no step for ${ago(s.idle_seconds)}">idle ${ago(s.idle_seconds)}</span>`;
+  if(s.activity==='offline')return ` <span class="atag off" title="The mission is running but the student's page is not responding">offline</span>`;
+  if(s.can_resume)return ` <span class="atag off">${s.status==='proctor'?'ended: tabs':'ended: time'}</span>`;
+  return '';
+}
+/* Students who need the teacher now: stopped moving, dropped off, or had their mission ended. */
+function attention(){
+  const list=data.students.filter(s=>s.activity==='idle'||s.activity==='offline'||s.can_resume)
+    .sort((a,b)=>(b.can_resume-a.can_resume)||(b.idle_seconds-a.idle_seconds));
+  $('#attnCount').textContent=list.length?list.length:'';
+  $('#attnPanel').classList.toggle('hot',list.length>0);
+  const where=s=>s.current?`${esc(s.current.stage)} · Q${s.current.n}/${s.current.of}`:'not on a question';
+  const why=s=>s.can_resume?(s.status==='proctor'?`Mission ended: left the tab ${s.tab_switches_now} times`:'Mission ended: time ran out')
+    :s.activity==='offline'?'Offline: the page stopped responding':`Not moving for ${ago(s.idle_seconds)}`;
+  $('#pAttn').innerHTML=list.length?`<ul class="alist">${list.map(s=>`<li class="${s.can_resume?'end':s.activity}"><span class="aname"><b>${esc(s.name)}</b><small>${esc(s.roll_no)} · ${esc(s.section)}</small></span><span class="awhy">${why(s)}<small>${where(s)}${s.resumes?` · resumed ${s.resumes}×`:''}</small></span>${s.can_resume?`<button class="del go" data-a="resume" data-id="${s.id}" type="button">Resume</button>`:'<span></span>'}</li>`).join('')}</ul>`
+    :`<p class="empty">Everyone is moving. Students show up here when they are idle for ${data.idle_minutes} min, go offline, or their mission ends.</p>`;
+  bindActs();
 }
 
 $('#secSel').onchange=e=>{section=e.target.value;stopLive();load()};

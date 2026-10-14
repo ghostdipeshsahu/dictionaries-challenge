@@ -91,9 +91,24 @@ def mission_payload(rules):
 # ---------------------------------------------------------------------------------------------
 # state
 def new_state():
-    return {"started_at": None, "ended_at": None, "ended_reason": None, "xp": 0, "combo": 0, "best_combo": 0,
-            "q": {}, "badges": [], "current": None, "answers": 0, "correct": 0,
-            "proctor": {"tab_switches": 0, "copy_paste": 0, "devtools": 0, "multi_tab": 0, "away_ms": 0}}
+    return normalize({"started_at": None, "ended_at": None, "ended_reason": None, "xp": 0, "combo": 0, "best_combo": 0,
+                      "q": {}, "badges": [], "current": None, "answers": 0, "correct": 0,
+                      "proctor": {"tab_switches": 0, "copy_paste": 0, "devtools": 0, "multi_tab": 0, "away_ms": 0}})
+
+
+def normalize(state):
+    """Fill fields added after the first release, so older saved states load (and can be resumed)."""
+    state.setdefault("paused", 0.0)       # seconds the mission spent ended before a teacher resumed it (not counted as used)
+    state.setdefault("grace", 0.0)        # extra seconds a teacher's resume added (a resume always leaves at least 5 minutes)
+    state.setdefault("resumes", [])       # [{at, reason}] one entry per teacher resume
+    state.setdefault("last_action", None)  # last real step by the learner (open, answer, hint, reveal, start)
+    p = state["proctor"]
+    p.setdefault("tab_total", p.get("tab_switches", 0))  # every switch ever; tab_switches counts since the last resume
+    return state
+
+
+def deadline(state, rules):
+    return state["started_at"] + rules.mission_seconds + state["paused"] + state["grace"]
 
 
 def qst(state, qid):
@@ -108,8 +123,9 @@ def is_cleared(s):
 def tick(state, rules, now=None):
     """Apply the mission clock lazily. Returns True if this call ended the mission."""
     now = now or time.time()
-    if state["started_at"] and not state["ended_at"] and now >= state["started_at"] + rules.mission_seconds:
-        state["ended_at"] = state["started_at"] + rules.mission_seconds
+    normalize(state)
+    if state["started_at"] and not state["ended_at"] and now >= deadline(state, rules):
+        state["ended_at"] = deadline(state, rules)
         state["ended_reason"] = "time"
         return True
     return False
@@ -162,7 +178,7 @@ def used_seconds(state, now=None):
     if not state["started_at"]:
         return 0
     end = state["ended_at"] or (now or time.time())
-    return max(0, int(end - state["started_at"]))
+    return max(0, int(end - state["started_at"] - state.get("paused", 0)))
 
 
 def public_state(state, rules, now=None):
@@ -179,8 +195,8 @@ def public_state(state, rules, now=None):
         "started_at": iso(state["started_at"]), "ended_at": iso(state["ended_at"]), "ended_reason": state["ended_reason"],
         # Exact seconds, not rounded down: the browser counts down from this, and must not reach 0:00
         # before the server's clock does (otherwise its "mission over" check finds the mission still running).
-        "remaining": (round(max(0.0, state["started_at"] + rules.mission_seconds - now), 3) if live(state) else 0) if state["started_at"] else None,
-        "mission_seconds": rules.mission_seconds, "used_seconds": used_seconds(state, now),
+        "remaining": (round(max(0.0, deadline(state, rules) - now), 3) if live(state) else 0) if state["started_at"] else None,
+        "mission_seconds": rules.mission_seconds + int(state.get("grace", 0)), "used_seconds": used_seconds(state, now),
         "progress": {"done": done, "total": C.TOTAL},
         "levels": levels,
         "questions": {qid: {"solved": s["solved"], "wrong": s["wrong"], "revealed": s["revealed"],
@@ -415,6 +431,7 @@ def start(state, rules, accept, now=None):
         raise MissionError("Accept the rules to start.", 422)
     if not state["started_at"]:
         state["started_at"] = now or time.time()
+    state["last_action"] = now or time.time()
     return {"state": public_state(state, rules, now)}
 
 
@@ -423,6 +440,7 @@ def open_q(state, rules, qid, now=None):
     q = _question(state, qid)
     s = qst(state, qid)
     state["current"] = qid
+    state["last_action"] = now
     if is_cleared(s):
         return {"cleared": True}
     if not s["deadline"]:
@@ -457,6 +475,7 @@ def expire(state, rules, qid, now=None):
 def hint(state, rules, qid):
     q = _question(state, qid)
     s = qst(state, qid)
+    state["last_action"] = time.time()
     if not is_cleared(s) and s["hints"] < len(q["hints"]):
         s["hints"] += 1
     n = max(1, s["hints"])
@@ -467,6 +486,7 @@ def reveal(state, rules, qid, now=None):
     now = now or time.time()
     q = _question(state, qid)
     s = qst(state, qid)
+    state["last_action"] = now
     if not is_cleared(s):
         if s["wrong"] < rules.reveal_after:
             raise MissionError(f"The solution opens after {rules.reveal_after} wrong tries.", 403)
@@ -479,6 +499,7 @@ def answer(state, rules, qid, ans, code=None, now=None):
     now = now or time.time()
     q = _question(state, qid)
     s = qst(state, qid)
+    state["last_action"] = now
     if is_cleared(s):
         # replay or a second look: graded for practice, nothing changes
         ok, d = grade(q, ans, code)
@@ -532,6 +553,7 @@ def proctor(state, rules, kind, duration_ms=0, now=None):
     if live(state):
         if kind == "tab_switch":
             p["tab_switches"] += 1
+            p["tab_total"] = p.get("tab_total", 0) + 1
             p["away_ms"] += max(0, int(duration_ms or 0))
             counted = True
             if rules.max_tab_switches and p["tab_switches"] >= rules.max_tab_switches:
@@ -572,10 +594,38 @@ def status_of(state):
     return "in progress" if state["started_at"] else "not started"
 
 
+RESUME_MIN_SECONDS = 300
+
+
+def resume(state, rules, now=None):
+    """Teacher action: reopen a mission that ended on tab switches or time, from where the learner stopped.
+
+    Nothing the learner earned is touched. The time the mission spent ended is not counted, so the learner gets
+    back exactly the time they had left (at least 5 minutes), the open question keeps its remaining seconds,
+    and the tab-switch limit starts again (the total stays visible to the teacher)."""
+    now = now or time.time()
+    normalize(state)
+    if not state["started_at"] or not state["ended_at"] or state["ended_reason"] not in ("proctor", "time"):
+        raise MissionError("Only a mission that ended on tab switches or time can be resumed.", 409)
+    pause = max(0.0, now - state["ended_at"])
+    state["paused"] += pause
+    for s in state["q"].values():
+        if s.get("deadline") and not is_cleared(s):
+            s["deadline"] += pause
+    state["resumes"].append({"at": now, "reason": state["ended_reason"]})
+    state["ended_at"] = state["ended_reason"] = None
+    left = deadline(state, rules) - now
+    if left < RESUME_MIN_SECONDS:
+        state["grace"] += RESUME_MIN_SECONDS - left
+    state["proctor"]["tab_switches"] = 0
+    state["last_action"] = now
+    return {"state": public_state(state, rules, now)}
+
+
 def current_of(state):
-    """Where the learner is now: the last question they opened, if it is still open."""
+    """Where the learner is (or stopped): the last question they opened. None before the start and after completion."""
     qid = state.get("current")
-    if not qid or not state["started_at"] or state["ended_at"]:
+    if not qid or not state["started_at"] or state["ended_reason"] == "complete":
         return None
     q = C.QUESTIONS[qid]
     lvl = C.LEVEL_BY_ID[q["stage"]]

@@ -80,3 +80,19 @@ td .del.armed{color:var(--bad)}
 @media (prefers-reduced-motion:reduce){.livedot.live{animation:none}}
 td.curcell b{display:block;font:700 13px var(--f-display)}
 td.curcell small{display:block;max-width:230px;overflow:hidden;text-overflow:ellipsis;color:var(--muted);font-size:12px}
+
+/* Needs attention panel + activity tags */
+.attn.hot{border-color:color-mix(in srgb,var(--gold) 55%,var(--line))}
+.attn h2{display:flex;align-items:center;gap:8px}
+.acount:not(:empty){display:inline-grid;place-items:center;min-width:22px;height:22px;padding:0 6px;border-radius:999px;background:var(--gold);color:#1A1200;font:800 12px var(--f-mono);letter-spacing:0}
+.alist{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.alist li{display:grid;grid-template-columns:minmax(140px,.8fr) minmax(0,1.6fr) auto;gap:12px;align-items:center;padding:9px 12px;border-radius:12px;background:var(--surface-2);border-left:4px solid var(--gold)}
+.alist li.offline,.alist li.end{border-left-color:var(--bad)}
+.alist small{display:block;color:var(--muted);font-size:12.5px}
+.alist .awhy{font-weight:600;font-size:14px}
+.atag{display:inline-block;margin-left:6px;padding:1px 7px;border-radius:999px;font:700 11px/1.6 var(--f-mono);vertical-align:1px}
+.atag.idle{background:var(--gold-soft);color:var(--gold)}
+.atag.off{background:var(--bad-soft);color:var(--bad)}
+td .del.go,.alist .del.go{color:var(--blue);font-weight:700}
+td .del.go.armed,.alist .del.go.armed{color:var(--bad)}
+@media (max-width:700px){.alist li{grid-template-columns:minmax(0,1fr)}}

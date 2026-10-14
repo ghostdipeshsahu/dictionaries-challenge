@@ -34,6 +34,7 @@ RULES = E.Rules(mission_minutes=float(os.environ.get("MISSION_MINUTES", "45")),
                 max_tab_switches=int(os.environ.get("MAX_TAB_SWITCHES", "3")),
                 reveal_after=int(os.environ.get("REVEAL_AFTER", "2")))
 ONLINE_WINDOW = 75        # seconds since the last heartbeat that still counts as "signed in right now"
+IDLE_SECONDS = int(os.environ.get("IDLE_SECONDS", "120"))  # page open, mission running, but no step for this long
 DEVICE_LOCK = 75          # a roll number signed in elsewhere within this window cannot sign in again
 TEACHER_TOKEN_AGE = 12 * 3600
 
@@ -298,6 +299,11 @@ def dashboard(section=None):
         status = E.status_of(st)
         qv = st["q"].values()
         online = bool(x["token"] and x["last_seen"] and now - x["last_seen"] < ONLINE_WINDOW)
+        # activity while the mission runs: active, idle (page open, no step for IDLE_SECONDS) or offline (page gone)
+        activity, idle_for = None, 0
+        if E.live(st):
+            idle_for = int(now - (st.get("last_action") or st["started_at"]))
+            activity = "offline" if not online else "idle" if idle_for >= IDLE_SECONDS else "active"
         rows.append({
             "id": x["id"], "name": x["name"], "roll_no": x["roll_no"], "section": x["section"],
             "status": status, "status_label": E.STATUS_LABEL[status], "xp": ps["xp"],
@@ -306,7 +312,10 @@ def dashboard(section=None):
             "timed_out": sum(1 for q in qv if q["timed_out"]),
             "revealed": sum(1 for q in qv if q["revealed"]),
             "used_minutes": round(ps["used_seconds"] / 60),
-            "tab_switches": st["proctor"]["tab_switches"], "copy_paste": st["proctor"]["copy_paste"],
+            "tab_switches": st["proctor"].get("tab_total", st["proctor"]["tab_switches"]),
+            "tab_switches_now": st["proctor"]["tab_switches"], "copy_paste": st["proctor"]["copy_paste"],
+            "activity": activity, "idle_seconds": idle_for, "resumes": len(st.get("resumes", [])),
+            "can_resume": st["ended_reason"] in ("proctor", "time"),
             "multi_tab": st["proctor"]["multi_tab"], "devtools": st["proctor"]["devtools"],
             "concepts": {k: v["c"] / v["a"] for k, v in ps["concepts"].items()},
             "last_seen": E.iso(x["last_seen"]), "online": online, "current": E.current_of(st),
@@ -322,11 +331,12 @@ def dashboard(section=None):
         "avg_done": round(sum(r["done"] for r in started) / len(started), 1) if started else 0,
         "accuracy": (correct / answers) if answers else None, "answers": answers,
         "flagged": sum(1 for r in rows if r["tab_switches"] or r["copy_paste"] or r["multi_tab"] or r["devtools"]),
+        "attention": sum(1 for r in rows if r["activity"] in ("idle", "offline") or r["can_resume"]),
     }
     acc = lambda t: sorted(({"key": k, "accuracy": c / n, "answers": n} for k, (c, n) in t.items()), key=lambda d: d["accuracy"])
     return {
         "section": section or "", "sections": SECTIONS, "total_questions": C.TOTAL, "max_tab_switches": RULES.max_tab_switches,
-        "mission_minutes": round(RULES.mission_seconds / 60),
+        "mission_minutes": round(RULES.mission_seconds / 60), "idle_minutes": round(IDLE_SECONDS / 60, 1),
         "overview": overview,
         "stages": [{"id": l["id"], "name": l["name"], "cleared": stage_cleared[l["id"]], "total": len(l["main"])} for l in C.LEVELS],
         "concepts": [{"concept": d["key"], "accuracy": d["accuracy"], "answers": d["answers"]} for d in acc(concept_tot)],
@@ -353,8 +363,8 @@ async def teacher_stream(request: Request, token: str = Query(...), section: str
         while not await request.is_disconnected():
             v = db.VERSION["n"]
             now = time.time()
-            # resend at least every 20 s so "online" dots and the clock column stay fresh
-            if v != last or now - last_sent > 20:
+            # resend at least every 10 s so online dots, idle times and time used stay fresh
+            if v != last or now - last_sent > 10:
                 data = await asyncio.to_thread(dashboard, section)
                 last, last_sent = v, now
                 yield "data: " + json.dumps(data, separators=(",", ":")) + "\n\n"
@@ -371,7 +381,7 @@ def teacher_export(section: str = "", _t=Depends(teacher)):
     w = csv.writer(buf)
     w.writerow(["rank", "name", "roll_no", "section", "status", "xp", "cleared", "total", "stars", "first_try", "timed_out",
                 "solutions_viewed", "time_used_min", "tab_switches", "copy_paste", "second_tab", "weakest_idea",
-                "current_stage", "current_question", "last_seen"])
+                "current_stage", "current_question", "activity", "idle_minutes", "teacher_resumes", "last_seen"])
     for r in d["students"]:
         weak = min(r["concepts"].items(), key=lambda kv: kv[1]) if r["concepts"] else None
         cur = r["current"] or {}
@@ -379,7 +389,8 @@ def teacher_export(section: str = "", _t=Depends(teacher)):
                     r["stars"], r["first_try"], r["timed_out"], r["revealed"], r["used_minutes"], r["tab_switches"],
                     r["copy_paste"], r["multi_tab"],
                     f"{C.CONCEPTS.get(weak[0], weak[0])} ({round(weak[1] * 100)}%)" if weak else "",
-                    cur.get("stage", ""), f"{cur['n']}/{cur['of']} {cur['title']}" if cur else "", r["last_seen"] or ""])
+                    cur.get("stage", ""), f"{cur['n']}/{cur['of']} {cur['title']}" if cur else "",
+                    r["activity"] or "", round(r["idle_seconds"] / 60, 1) if r["activity"] else "", r["resumes"], r["last_seen"] or ""])
     name = f"dictionaries-{(section or 'all').lower().replace(' ', '-')}.csv"
     return Response(buf.getvalue(), media_type="text/csv", headers={"Content-Disposition": f'attachment; filename="{name}"'})
 
@@ -391,6 +402,20 @@ def teacher_reset(student_id: int, _t=Depends(teacher)):
             raise HTTPException(404, "No such student.")
         db.reset_state(student_id, E.new_state())
     return {"ok": True}
+
+
+@app.post("/api/teacher/dicts/{student_id}/resume")
+def teacher_resume(student_id: int, _t=Depends(teacher)):
+    """Reopen a mission that ended on tab switches or time, from where the student stopped."""
+    with db.LOCK:
+        cur = db.by_id(student_id)
+        if not cur:
+            raise HTTPException(404, "No such student.")
+        st = cur["state"]
+        E.tick(st, RULES)
+        body = E.resume(st, RULES)
+        db.save_state(student_id, st, seen=False)
+    return {"ok": True, "remaining": body["state"]["remaining"]}
 
 
 @app.post("/api/teacher/students/{student_id}/release")
