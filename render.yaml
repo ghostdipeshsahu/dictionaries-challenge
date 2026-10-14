@@ -1,0 +1,29 @@
+# Render blueprint: one Python web service, SQLite on a persistent disk.
+# Set TEACHER_PASSWORD in the Render dashboard before the first class (it is not stored here).
+services:
+  - type: web
+    name: dictionaries-challenge
+    runtime: python
+    plan: starter            # a persistent disk needs a paid plan; on free, data is lost on every restart
+    buildCommand: pip install -r requirements.txt && python scripts/vendor_pyodide.py
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT --proxy-headers
+    healthCheckPath: /api/health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: TEACHER_PASSWORD
+        sync: false
+      - key: SECTIONS
+        value: S-001,S-002,S-003,S-004
+      - key: DB_PATH
+        value: /var/data/dicts.db
+      - key: MISSION_MINUTES
+        value: "45"
+      - key: MAX_TAB_SWITCHES
+        value: "3"
+      - key: REVEAL_AFTER
+        value: "2"
+    disk:
+      name: data
+      mountPath: /var/data
+      sizeGB: 1

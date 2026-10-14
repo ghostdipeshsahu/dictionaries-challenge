@@ -1,0 +1,433 @@
+"""Dictionaries: The Python Challenge · FastAPI backend.
+
+Same endpoint design as the Set Operations app, under /api/dicts and /api/teacher/dicts.
+Run:  uvicorn app.main:app --port 8000
+"""
+import asyncio
+import csv
+import hmac
+import io
+import json
+import os
+import secrets
+import time
+from pathlib import Path
+from typing import Any, Optional
+
+from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request
+from fastapi.responses import FileResponse, JSONResponse, Response, StreamingResponse
+from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel, Field
+
+from . import content as C
+from . import db
+from . import engine as E
+
+ROOT = Path(__file__).resolve().parent.parent
+STATIC = ROOT / "static"
+
+SECTIONS = [s.strip() for s in os.environ.get("SECTIONS", "S-001,S-002,S-003,S-004").split(",") if s.strip()]
+CLASS_CODE = os.environ.get("CLASS_CODE", "").strip()
+# Set TEACHER_PASSWORD in the environment. The fallback is for a laptop demo only.
+TEACHER_PASSWORD = os.environ.get("TEACHER_PASSWORD") or "change-me"
+RULES = E.Rules(mission_minutes=float(os.environ.get("MISSION_MINUTES", "45")),
+                max_tab_switches=int(os.environ.get("MAX_TAB_SWITCHES", "3")),
+                reveal_after=int(os.environ.get("REVEAL_AFTER", "2")))
+ONLINE_WINDOW = 75        # seconds since the last heartbeat that still counts as "signed in right now"
+DEVICE_LOCK = 75          # a roll number signed in elsewhere within this window cannot sign in again
+TEACHER_TOKEN_AGE = 12 * 3600
+
+app = FastAPI(title="Dictionaries: The Python Challenge", version="1.0.0")
+db.connect(os.environ.get("DB_PATH", str(ROOT / "data" / "dicts.db")))
+
+
+@app.exception_handler(E.MissionError)
+async def _mission_error(_req, exc: E.MissionError):
+    return JSONResponse({"detail": exc.detail}, status_code=exc.status)
+
+
+# ---------- request bodies (same shapes as the Sets app) ----------
+class LoginIn(BaseModel):
+    name: str
+    roll_no: str
+    section: str
+    class_code: Optional[str] = None
+
+
+class StartIn(BaseModel):
+    accept_rules: bool = False
+
+
+class QidIn(BaseModel):
+    qid: str
+
+
+class AnswerIn(BaseModel):
+    qid: str
+    answer: Any = None
+    code: Optional[str] = Field(default=None, max_length=8000)
+
+
+class ProctorIn(BaseModel):
+    type: str
+    duration_ms: int = 0
+    qid: Optional[str] = None
+
+
+class TeacherLoginIn(BaseModel):
+    password: str
+
+
+# ---------- auth ----------
+def bearer(authorization: Optional[str]):
+    if authorization and authorization.lower().startswith("bearer "):
+        return authorization[7:].strip()
+    return None
+
+
+def student(authorization: Optional[str] = Header(default=None)):
+    with db.LOCK:
+        s = db.by_token(bearer(authorization))
+    if not s:
+        raise HTTPException(401, "Sign in to continue.")
+    return s
+
+
+def teacher(authorization: Optional[str] = Header(default=None)):
+    with db.LOCK:
+        ok = db.teacher_token_ok(bearer(authorization), TEACHER_TOKEN_AGE)
+    if not ok:
+        raise HTTPException(401, "Teacher sign-in needed.")
+    return True
+
+
+def public_student(s):
+    return {"id": s["id"], "name": s["name"], "roll_no": s["roll_no"], "section": s["section"]}
+
+
+def clean(text, n):
+    return " ".join(str(text or "").split())[:n]
+
+
+# ---------- shared ----------
+@app.get("/api/health")
+def health():
+    return {"ok": True, "app": "dictionaries", "sections": SECTIONS, "class_code_required": bool(CLASS_CODE)}
+
+
+@app.post("/api/login")
+def login(body: LoginIn):
+    name, roll, section = clean(body.name, 60), clean(body.roll_no, 30), clean(body.section, 40)
+    if not name or not roll or not section:
+        raise HTTPException(422, "Fill in every field to join.")
+    if section not in SECTIONS:
+        raise HTTPException(422, "Choose your section from the list.")
+    if CLASS_CODE and not hmac.compare_digest((body.class_code or "").strip().upper(), CLASS_CODE.upper()):
+        raise HTTPException(403, "That class code is not right. Ask your teacher.")
+    token = secrets.token_urlsafe(24)
+    with db.LOCK:
+        s = db.by_roll(roll)
+        if s:
+            if s["name"].casefold() != name.casefold() or s["section"] != section:
+                raise HTTPException(409, "This roll number is already used by another student. Check it, or ask your teacher.")
+            if s["token"] and s["last_seen"] and time.time() - s["last_seen"] < DEVICE_LOCK:
+                raise HTTPException(409, "This roll number is signed in on another device. Sign out there, or ask your teacher to release it.")
+            db.set_token(s["id"], token)
+            s = db.by_id(s["id"])
+        else:
+            sid = db.insert_student(name, roll, section, token, E.new_state())
+            s = db.by_id(sid)
+    return {"token": token, "student": public_student(s)}
+
+
+@app.post("/api/logout")
+def logout(s=Depends(student)):
+    with db.LOCK:
+        db.set_token(s["id"], None, seen=False)
+    return {"ok": True}
+
+
+@app.get("/api/me")
+def me(s=Depends(student)):
+    with db.LOCK:
+        db.touch(s["id"])
+    return {"student": public_student(s)}
+
+
+@app.post("/api/ping")
+def ping(s=Depends(student)):
+    with db.LOCK:
+        cur = db.by_id(s["id"])
+        if E.tick(cur["state"], RULES):
+            db.save_state(cur["id"], cur["state"])
+        else:
+            db.touch(s["id"])
+    return {"ok": True}
+
+
+# ---------- mission ----------
+def mutate(s, fn, *args, **kw):
+    """Load fresh state under the lock, apply the clock, run an engine action, save."""
+    with db.LOCK:
+        cur = db.by_id(s["id"])
+        st = cur["state"]
+        E.tick(st, RULES)
+        try:
+            body = fn(st, RULES, *args, **kw)
+        finally:
+            db.save_state(cur["id"], st)
+    return body
+
+
+@app.get("/api/dicts/mission")
+def mission(s=Depends(student)):
+    with db.LOCK:
+        cur = db.by_id(s["id"])
+        if E.tick(cur["state"], RULES):
+            db.save_state(cur["id"], cur["state"])
+    m = E.mission_payload(RULES)
+    m["state"] = E.public_state(cur["state"], RULES)
+    return m
+
+
+@app.post("/api/dicts/start")
+def start(body: StartIn, s=Depends(student)):
+    return mutate(s, E.start, body.accept_rules)
+
+
+@app.post("/api/dicts/open")
+def open_question(body: QidIn, s=Depends(student)):
+    return mutate(s, E.open_q, body.qid)
+
+
+@app.post("/api/dicts/expire")
+def expire(body: QidIn, s=Depends(student)):
+    return mutate(s, E.expire, body.qid)
+
+
+@app.post("/api/dicts/hint")
+def hint(body: QidIn, s=Depends(student)):
+    return mutate(s, E.hint, body.qid)
+
+
+@app.post("/api/dicts/reveal")
+def reveal(body: QidIn, s=Depends(student)):
+    return mutate(s, E.reveal, body.qid)
+
+
+@app.post("/api/dicts/answer")
+def answer(body: AnswerIn, s=Depends(student)):
+    return mutate(s, E.answer, body.qid, body.answer, body.code)
+
+
+@app.post("/api/dicts/proctor")
+def proctor(body: ProctorIn, s=Depends(student)):
+    with db.LOCK:
+        db.log_event(s["id"], body.type[:20], (body.qid or "")[:12] or None, max(0, min(body.duration_ms, 86_400_000)))
+    return mutate(s, E.proctor, body.type, body.duration_ms)
+
+
+@app.get("/api/dicts/review")
+def review(s=Depends(student)):
+    with db.LOCK:
+        cur = db.by_id(s["id"])
+    return E.review(cur["state"])
+
+
+def rank_key(st, now):
+    ps = E.public_state(st["state"], RULES, now)
+    return (-ps["xp"], -ps["progress"]["done"], ps["used_seconds"] or 10**9)
+
+
+@app.get("/api/dicts/leaderboard")
+def leaderboard(s=Depends(student)):
+    now = time.time()
+    with db.LOCK:
+        mates = [x for x in db.all_students(s["section"]) if x["state"]["started_at"] or x["id"] == s["id"]]
+    for x in mates:
+        E.tick(x["state"], RULES, now)
+    mates.sort(key=lambda x: rank_key(x, now))
+    rows, me_row = [], None
+    for i, x in enumerate(mates, 1):
+        ps = E.public_state(x["state"], RULES, now)
+        r = {"rank": i, "name": x["name"], "xp": ps["xp"], "done": ps["progress"]["done"], "total": C.TOTAL,
+             "status": E.STATUS_LABEL[E.status_of(x["state"])].lower(), "me": x["id"] == s["id"]}
+        if r["me"]:
+            me_row = {"rank": i, "xp": ps["xp"]}
+        if i <= 10:
+            rows.append(r)
+    return {"section": s["section"], "rows": rows, "me": me_row, "count": len(mates)}
+
+
+# ---------- teacher ----------
+@app.post("/api/teacher/login")
+def teacher_login(body: TeacherLoginIn):
+    if not hmac.compare_digest(body.password.encode(), TEACHER_PASSWORD.encode()):
+        raise HTTPException(401, "That password is not right.")
+    token = secrets.token_urlsafe(24)
+    with db.LOCK:
+        db.add_teacher_token(token)
+    return {"token": token}
+
+
+def dashboard(section=None):
+    now = time.time()
+    with db.LOCK:
+        studs = db.all_students(section or None)
+    rows = []
+    stage_cleared = {l["id"]: 0 for l in C.LEVELS}
+    concept_tot, type_tot = {}, {}
+    answers = correct = 0
+    for x in studs:
+        st = x["state"]
+        E.tick(st, RULES, now)
+        ps = E.public_state(st, RULES, now)
+        answers += st["answers"]
+        correct += st["correct"]
+        for l in ps["levels"]:
+            if l["done"]:
+                stage_cleared[l["id"]] += 1
+        for qid, q in st["q"].items():
+            if q["first"] is None:
+                continue
+            qq = C.QUESTIONS[qid]
+            for bucket, k in ((concept_tot, qq["concept"]), (type_tot, qq["type"])):
+                b = bucket.setdefault(k, [0, 0])
+                b[0] += 1 if q["first"] else 0
+                b[1] += 1
+        status = E.status_of(st)
+        qv = st["q"].values()
+        online = bool(x["token"] and x["last_seen"] and now - x["last_seen"] < ONLINE_WINDOW)
+        rows.append({
+            "id": x["id"], "name": x["name"], "roll_no": x["roll_no"], "section": x["section"],
+            "status": status, "status_label": E.STATUS_LABEL[status], "xp": ps["xp"],
+            "done": ps["progress"]["done"], "total": C.TOTAL,
+            "first_try": sum(1 for q in qv if q["solved"] and not q["wrong"]),
+            "timed_out": sum(1 for q in qv if q["timed_out"]),
+            "revealed": sum(1 for q in qv if q["revealed"]),
+            "used_minutes": round(ps["used_seconds"] / 60),
+            "tab_switches": st["proctor"]["tab_switches"], "copy_paste": st["proctor"]["copy_paste"],
+            "multi_tab": st["proctor"]["multi_tab"], "devtools": st["proctor"]["devtools"],
+            "concepts": {k: v["c"] / v["a"] for k, v in ps["concepts"].items()},
+            "last_seen": E.iso(x["last_seen"]), "online": online, "current": E.current_of(st),
+            "stars": sum(l["stars"] for l in ps["levels"]),
+        })
+    rows.sort(key=lambda r: (-r["xp"], -r["done"], r["used_minutes"] if r["status"] != "not started" else 10**9, r["name"].lower()))
+    for i, r in enumerate(rows, 1):
+        r["rank"] = i
+    started = [r for r in rows if r["status"] != "not started"]
+    overview = {
+        "students": len(rows), "started": len(started), "online": sum(r["online"] for r in rows),
+        "completed": sum(r["status"] == "complete" for r in rows),
+        "avg_done": round(sum(r["done"] for r in started) / len(started), 1) if started else 0,
+        "accuracy": (correct / answers) if answers else None, "answers": answers,
+        "flagged": sum(1 for r in rows if r["tab_switches"] or r["copy_paste"] or r["multi_tab"] or r["devtools"]),
+    }
+    acc = lambda t: sorted(({"key": k, "accuracy": c / n, "answers": n} for k, (c, n) in t.items()), key=lambda d: d["accuracy"])
+    return {
+        "section": section or "", "sections": SECTIONS, "total_questions": C.TOTAL, "max_tab_switches": RULES.max_tab_switches,
+        "mission_minutes": round(RULES.mission_seconds / 60),
+        "overview": overview,
+        "stages": [{"id": l["id"], "name": l["name"], "cleared": stage_cleared[l["id"]], "total": len(l["main"])} for l in C.LEVELS],
+        "concepts": [{"concept": d["key"], "accuracy": d["accuracy"], "answers": d["answers"]} for d in acc(concept_tot)],
+        "types": [{"qtype": d["key"], "accuracy": d["accuracy"], "answers": d["answers"]} for d in acc(type_tot)],
+        "students": rows, "version": db.VERSION["n"], "server_time": E.iso(now),
+    }
+
+
+@app.get("/api/teacher/dicts")
+def teacher_dicts(section: str = "", _t=Depends(teacher)):
+    return dashboard(section)
+
+
+@app.get("/api/teacher/dicts/stream")
+async def teacher_stream(request: Request, token: str = Query(...), section: str = ""):
+    """Server-sent events: pushes the dashboard whenever anything changes (checked every second)."""
+    with db.LOCK:
+        if not db.teacher_token_ok(token, TEACHER_TOKEN_AGE):
+            raise HTTPException(401, "Teacher sign-in needed.")
+
+    async def gen():
+        last, last_sent = -1, 0.0
+        yield "retry: 3000\n\n"
+        while not await request.is_disconnected():
+            v = db.VERSION["n"]
+            now = time.time()
+            # resend at least every 20 s so "online" dots and the clock column stay fresh
+            if v != last or now - last_sent > 20:
+                data = await asyncio.to_thread(dashboard, section)
+                last, last_sent = v, now
+                yield "data: " + json.dumps(data, separators=(",", ":")) + "\n\n"
+            await asyncio.sleep(1)
+
+    return StreamingResponse(gen(), media_type="text/event-stream",
+                             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+
+
+@app.get("/api/teacher/dicts/export.csv")
+def teacher_export(section: str = "", _t=Depends(teacher)):
+    d = dashboard(section)
+    buf = io.StringIO()
+    w = csv.writer(buf)
+    w.writerow(["rank", "name", "roll_no", "section", "status", "xp", "cleared", "total", "stars", "first_try", "timed_out",
+                "solutions_viewed", "time_used_min", "tab_switches", "copy_paste", "second_tab", "weakest_idea",
+                "current_stage", "current_question", "last_seen"])
+    for r in d["students"]:
+        weak = min(r["concepts"].items(), key=lambda kv: kv[1]) if r["concepts"] else None
+        cur = r["current"] or {}
+        w.writerow([r["rank"], r["name"], r["roll_no"], r["section"], r["status_label"], r["xp"], r["done"], r["total"],
+                    r["stars"], r["first_try"], r["timed_out"], r["revealed"], r["used_minutes"], r["tab_switches"],
+                    r["copy_paste"], r["multi_tab"],
+                    f"{C.CONCEPTS.get(weak[0], weak[0])} ({round(weak[1] * 100)}%)" if weak else "",
+                    cur.get("stage", ""), f"{cur['n']}/{cur['of']} {cur['title']}" if cur else "", r["last_seen"] or ""])
+    name = f"dictionaries-{(section or 'all').lower().replace(' ', '-')}.csv"
+    return Response(buf.getvalue(), media_type="text/csv", headers={"Content-Disposition": f'attachment; filename="{name}"'})
+
+
+@app.post("/api/teacher/dicts/{student_id}/reset")
+def teacher_reset(student_id: int, _t=Depends(teacher)):
+    with db.LOCK:
+        if not db.by_id(student_id):
+            raise HTTPException(404, "No such student.")
+        db.reset_state(student_id, E.new_state())
+    return {"ok": True}
+
+
+@app.post("/api/teacher/students/{student_id}/release")
+def teacher_release(student_id: int, _t=Depends(teacher)):
+    with db.LOCK:
+        if not db.by_id(student_id):
+            raise HTTPException(404, "No such student.")
+        db.set_token(student_id, None, seen=False)
+    return {"ok": True}
+
+
+@app.delete("/api/teacher/students/{student_id}")
+def teacher_delete(student_id: int, _t=Depends(teacher)):
+    with db.LOCK:
+        if not db.by_id(student_id):
+            raise HTTPException(404, "No such student.")
+        db.delete_student(student_id)
+    return {"ok": True}
+
+
+# ---------- pages ----------
+NO_CACHE = {"Cache-Control": "no-cache"}
+
+
+@app.get("/", include_in_schema=False)
+def index():
+    return FileResponse(STATIC / "index.html", headers=NO_CACHE)
+
+
+@app.get("/favicon.ico", include_in_schema=False)
+def favicon():
+    return FileResponse(STATIC / "favicon.svg", media_type="image/svg+xml")
+
+
+@app.get("/teacher", include_in_schema=False)
+def teacher_page():
+    return FileResponse(STATIC / "teacher.html", headers=NO_CACHE)
+
+
+app.mount("/static", StaticFiles(directory=STATIC), name="static")
