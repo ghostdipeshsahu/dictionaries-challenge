@@ -35,15 +35,38 @@ const BADGE_ICON={
   'clean-sweep':'<path d="m12 2.5 2.9 6 6.6.8-4.9 4.6 1.3 6.6L12 17.3l-5.9 3.2 1.3-6.6L2.5 9.3l6.6-.8z"/>',
   'board-pro':'<path d="M2 6.5h10.5L16.5 12l-4 5.5H2zm4 4a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3zM18 6.5h4v11h-4z"/>'
 };
-const CONCEPTS={pairs:'Key-value pairs',creation:'Creating a dictionary',empty:'Empty {} and dict()',unique_keys:'Unique keys',access:'menu[key] takes a key',
+let CONCEPTS={pairs:'Key-value pairs',creation:'Creating a dictionary',empty:'Empty {} and dict()',unique_keys:'Unique keys',access:'menu[key] takes a key',
   keyerror_get:'KeyError vs get()',membership:'in checks keys',add_change:'Add or change a key',case:'Keys are case-sensitive',delete_len:'del and len()',
   views_methods:'keys(), values(), items()',looping:'Looping over a dictionary',live_views:'Live views vs list() copies',dict_from_pairs:'dict() from pairs',
   hashable_keys:'Keys must be immutable',compare_types:'Dict vs list, tuple, set'};
-const TYPE_LABEL={mcq:'Multiple choice',msq:'Multiple select',tf:'True or false',ar:'Assertion and reasoning',fill:'Fill in the blanks',match:'Match the columns',
+let TYPE_LABEL={mcq:'Multiple choice',msq:'Multiple select',tf:'True or false',ar:'Assertion and reasoning',fill:'Fill in the blanks',match:'Match the columns',
   order:'Put in order',categorize:'Sort into groups',numeric:'Numeric answer',predict:'Predict the output',debug:'Debug mission',coding:'Coding challenge',board:'Board build'};
 const PRAISE={predict:['You read it like Python.','Python agrees.','Exactly what Python prints.'],debug:['Bug squashed.','Sharp debugging.'],coding:['All tests green.','Shipped it.'],
-  board:['Board perfect.','Built to spec.'],_:['Correct.','Spot on.','Nailed it.']};
+  board:['Board perfect.','Built to spec.'],land:['Every argument in its place.','Landed it.'],_:['Correct.','Spot on.','Nailed it.']};
 const pick=a=>a[Math.floor(Math.random()*a.length)];
+/* Instructional guidance: the same three-step "how to answer" for each kind of question, shown on the question
+   (Your task), on the first-time coach card, and as the "what to do next" line under Check. */
+const HOWTO={
+  mcq:{steps:['Read the question and any code.','Tap the <b>one</b> answer you think is right.','Press <b>Check</b>.'],wait:'Tap an answer to turn on Check.'},
+  predict:{steps:['Read the code line by line, like Python does.','Tap what it prints. A red line means Python stops with an error.','Press <b>Check</b>.'],wait:'Tap what the code prints to turn on Check.'},
+  ar:{steps:['Read the Assertion (A) and the Reason (R).','Decide: is each one true? Does R explain A?','Tap one option, then press <b>Check</b>.'],wait:'Tap an option to turn on Check.'},
+  msq:{steps:['More than one answer is right.','Tap <b>every</b> correct option. Tap again to unselect.','Press <b>Check</b>.'],wait:'Tap every correct option to turn on Check.'},
+  tf:{steps:['Read the statement.','Tap <b>True</b> or <b>False</b>.','Press <b>Check</b>.'],wait:'Tap True or False to turn on Check.'},
+  numeric:{steps:['Trace the code and work out the number.','Type the number in the box.','Press <b>Check</b> or Enter.'],wait:'Type a number to turn on Check.'},
+  fill:{steps:['Find the highlighted gaps in the code.','Type the missing code into each gap.','Press <b>Check</b>.'],wait:'Fill every gap to turn on Check.'},
+  match:{steps:['Tap an item on the left.','Tap its partner on the right. A pair gets the same number.','Match every item, then press <b>Check</b>.'],wait:'Match every item to turn on Check.'},
+  order:{steps:['The lines of a program are mixed up.','Move lines with the <b>▲ ▼</b> arrows.','When the program is in order, press <b>Check</b>.'],wait:'Put the lines in order, then press Check.'},
+  categorize:{steps:['Read each item.','Tap the group it belongs to.','Sort every item, then press <b>Check</b>.'],wait:'Choose a group for every item to turn on Check.'},
+  debug:{steps:['Find the line that goes wrong and <b>tap it in the code</b>.','Choose what goes wrong.','Press <b>Check</b>.'],wait:'Tap a line and choose what goes wrong.'},
+  board:{steps:['Read the goal in the yellow box.','Type a key and a value, then press a Python button: add/change or delete.','When the board matches the goal, press <b>Check</b>.'],wait:'Change the board to turn on Check.'},
+  land:{steps:['Tap an argument from the call.','Tap the box it lands in, or <b>No box</b> if Python stops.','Place every argument, then press <b>Check</b>.'],wait:'Place every argument to turn on Check.'},
+  coding:{steps:['Read the task and the sample tests.','Write your code in the editor.','Press <b>Run samples</b> to test it, then <b>Submit all tests</b>.'],wait:''},
+};
+const howtoHTML=(t,cls)=>`<div class="howto ${cls||''}"><b class="hthead">Your task</b><ol>${(HOWTO[t]||HOWTO.mcq).steps.map(x=>`<li>${x}</li>`).join('')}</ol></div>`;
+/* What a learner has already been shown, per mission and roll number (stored in this browser only). */
+const seenKey=k=>`dicts-${(M&&M.ui&&M.ui.id)||'x'}-${(API.user&&API.user.roll_no)||'anon'}-${k}`;
+function seen(k){try{return JSON.parse(localStorage.getItem(seenKey(k))||'false')}catch(e){return false}}
+function markSeen(k,v){try{localStorage.setItem(seenKey(k),JSON.stringify(v===undefined?true:v))}catch(e){}}
 const mins=sec=>{const s=Math.max(0,Math.ceil(sec));return Math.floor(s/60)+':'+String(s%60).padStart(2,'0')};
 
 /* ---------- state ---------- */
@@ -210,6 +233,26 @@ async function onMissionOver(){
   renderSummary();
 }
 
+/* ---------- How to play: a short tour on the first visit (reopen from the map) ---------- */
+const TOUR=[
+  ['Your mission',`The map has <b>stages</b>. They unlock one at a time. Each stage starts with a short <b>briefing</b>: what you will learn and an example you can watch line by line.`],
+  ['Answering a question',`Every question has a <b>Your task</b> box with the steps. Answer, then press <b>Check</b>. The first time you meet a new kind of question, we show you how it works and its timer waits for you.`],
+  ['When you are stuck',`Press <b>Hint</b>: it points to the idea you need (it costs a little XP). A wrong answer never takes XP away. After ${'${'}M.rules.reveal_after} wrong tries you can <b>show the solution</b>.`],
+  ['The rules',`One <b>${'${'}M.rules.mission_minutes}-minute clock</b> for the whole mission, and a countdown on each question. <b>Stay on this tab</b>: ${'${'}M.rules.max_tab_switches} switches end the mission (your teacher can resume it). Copy and paste are off.`]];
+function showTour(){
+  let k=0;modal.dataset.locked='';
+  const draw=()=>{const [h,body]=TOUR[k],last=k===TOUR.length-1;
+    openModal(`<div class="ghead"><h2 id="modalTitle">${ICON.bulb} How to play · ${k+1} of ${TOUR.length}</h2></div>
+      <div class="tour"><h3>${h}</h3><p>${new Function('M','return `'+body+'`')(M)}</p></div>
+      <div class="tourdots" aria-hidden="true">${TOUR.map((_,i)=>`<i class="${i===k?'on':''}"></i>`).join('')}</div>
+      <div class="power-row">${k?'<button class="btn ghost" id="tourBack" type="button">Back</button>':''}<button class="btn primary" id="tourNext" type="button">${last?ICON.play+'Let\'s go':'Next'}</button>${last?'':'<button class="btn ghost" id="tourSkip" type="button">Skip</button>'}</div>`);
+    const nb=$('#tourNext',modal);nb.onclick=()=>{sfx.tap();if(last){markSeen('tour');modal.close()}else{k++;draw()}};
+    const bb=$('#tourBack',modal);if(bb)bb.onclick=()=>{k--;draw()};
+    const sk=$('#tourSkip',modal);if(sk)sk.onclick=()=>{markSeen('tour');modal.close()};
+    setTimeout(()=>nb.focus(),50)};
+  draw();
+}
+
 /* ---------- modal (rules, proctoring warnings) ---------- */
 function openModal(html,onClose){
   modal.innerHTML=`<div class="gin">${html}</div>`;modal.onclose=()=>{onClose&&onClose()};
@@ -317,19 +360,19 @@ function starsHTML(n,cls){return `<span class="${cls||'stars'}" aria-label="${n}
 function badgeHTML(id,earned,small){const b=M.badges[id];return `<div class="badge${earned?' got':''}${small?' sm':''}" title="${esc(b.name)}: ${esc(b.desc)}"><span class="bico"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">${BADGE_ICON[id]||''}</svg></span><span><b>${esc(b.name)}</b><small>${esc(b.desc)}</small></span></div>`}
 function nextLevel(){return M.levels.find(l=>lvState(l.id).unlocked&&!lvState(l.id).done)}
 function renderMap(){
-  R=null;Q=null;stopQTimer();closeDrawer();document.title='Dictionaries: The Python Challenge';
+  R=null;Q=null;stopQTimer();closeDrawer();document.title=M.ui.title;
   const nx=nextLevel(),done=ST.levels.filter(l=>l.done).length,ended=!!ST.ended_at;
   const p=ST.progress,pct=p.total?Math.round(p.done/p.total*100):0;
   view.innerHTML=`<section class="home dicts-home">
     <div>
       <div class="hero enter">
         <div class="eyebrow">Mission · ${M.levels.length} stages · ${p.total} challenges</div>
-        <h1>Dictionaries: <em>The Python Challenge</em></h1>
-        <p>The canteen price board is a mess: wrong prices, missing items, and a bill that charged 32 instead of 42. Master Python dictionaries, stage by stage, to fix it. Every stage is harder than the last, and the Final Boss puts it all together.</p>
+        <h1>${M.ui.hero_h1}</h1>
+        <p>${M.ui.hero_p}</p>
         <div class="hero-row">
           ${ended?`<button class="btn gold" id="go" type="button">${ICON.trophy.replace('width="26" height="26"','width="20" height="20"')}See your mission report</button>`
             :`<button class="btn primary" id="go" type="button">${ICON.play}${ST.started_at?'Continue':'Start mission'}: ${esc(nx?nx.name:'')}</button>`}
-          <button class="btn" id="labBtn" type="button">${ICON.board}Dict Lab</button>
+          <button class="btn" id="labBtn" type="button">${ICON.board}${esc(M.ui.lab_name)}</button><button class="btn ghost" id="tourBtn" type="button">${ICON.bulb}How to play</button>
         </div>
         <div class="mbar-big" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}" aria-label="Mission progress"><i style="width:${pct}%"></i><span>${p.done} / ${p.total} challenges · ${done} / ${M.levels.length} stages</span></div>
       </div>
@@ -337,7 +380,7 @@ function renderMap(){
         <svg class="trail" aria-hidden="true"><path class="base"/><path class="done"/></svg>
         ${M.levels.map((l,i)=>{const s=lvState(l.id),open=s.unlocked&&!ended;
           return `<button class="node${s.done?' cleared':''}${!open?' locked':''}${nx&&nx.id===l.id&&!ended?' next':''}${l.id==='BOSS'?' boss':''}" type="button" data-l="${l.id}" ${open?'':'aria-disabled="true"'} aria-label="${esc(l.name)}${open?'':' (locked)'}">
-            <span class="orb">${!open&&!s.done?ICON.lock:l.id==='BOSS'?ICON.trophy:i===0?ICON.play.replace('class="i"','width="26" height="26"'):i}</span>
+            ${nx&&nx.id===l.id&&!ended?'<span class="starthere">Start here</span>':''}<span class="orb">${!open&&!s.done?ICON.lock:l.id==='BOSS'?ICON.trophy:i===0?ICON.play.replace('class="i"','width="26" height="26"'):i}</span>
             <span><h3>${esc(l.name)}</h3><p>${esc(l.difficulty)} · ${s.total} challenge${s.total>1?'s':''}</p>
               <span class="nmm${s.done?' done':''}"><i style="width:${s.total?Math.round(s.cleared/s.total*100):0}%"></i></span><small class="nmt">${s.done?'Cleared':ended?'Mission over':open?`${s.cleared} / ${s.total} cleared`:'Clear the stage before to unlock'}</small></span>
             ${starsHTML(s.stars)}</button>`}).join('')}
@@ -355,11 +398,13 @@ function renderMap(){
     </aside></section>`;
   $('#go').onclick=()=>{ac();ended?renderSummary():nx&&renderBriefing(nx.id)};
   $('#labBtn').onclick=()=>{ac();renderLab()};
+  $('#tourBtn').onclick=()=>showTour();
   $$('.node[data-l]').forEach(n=>n.onclick=()=>{
     if(ended)return renderSummary();
     const s=lvState(n.dataset.l);if(!s.unlocked){n.classList.remove('shake');void n.offsetWidth;n.classList.add('shake');sfx.bad();toast('Clear the stage before this one first','rank');return}
     ac();renderBriefing(n.dataset.l)});
   drawTrail();hud();window.scrollTo(0,0);mark('map');loadLeaderboard('#lbCard');
+  if(!seen('tour')&&!ST.started_at)setTimeout(showTour,350);
 }
 function conceptBars(){
   const ent=Object.entries(ST.concepts);
@@ -386,17 +431,39 @@ function renderBriefing(id){
     ${backBar()}
     <div class="eyebrow">${id==='BOSS'?'Final Boss':id==='L0'?'Mission briefing':'Stage '+i} · ${esc(l.difficulty)}</div>
     <h2>${esc(l.name)}</h2>
-    ${id==='L0'?`<p class="story">Agent, the canteen price board is a mess: wrong prices, missing items, and a bill that charged <b>32</b> instead of <b>42</b>. Your tool: the Python <b>dictionary</b>. Clear each stage to unlock the next. Every stage is harder than the last. Ready?</p>`:''}
+    ${id==='L0'?`<p class="story">${M.ui.story}</p>`:''}
+    ${l.learn&&l.learn.length?`<div class="learn"><h3>You will learn to</h3><ul>${l.learn.map(t=>`<li>${esc(t)}</li>`).join('')}</ul></div>`:''}
     <div class="intel"><h3>Field intel</h3><ul>${l.intel.map(t=>`<li>${t}</li>`).join('')}</ul></div>
-    ${codePanel(l.demo,{run:true,file:id==='BOSS'?'scenario.py':'intel.py'})}
+    ${l.walk&&l.walk.length?`<div class="walk" id="walk"><div class="walkhead"><h3>Watch it first</h3><span id="walkStep"></span></div>${codePanel(l.demo,{run:true,file:id==='BOSS'?'scenario.py':'example.py'})}
+      <p class="walksay" id="walkSay" aria-live="polite"></p><div class="walkbtns"><button class="btn ghost" id="walkBack" type="button">${ICON.back}Back</button><button class="btn primary" id="walkNext" type="button">Next step</button></div></div>`
+      :codePanel(l.demo,{run:true,file:id==='BOSS'?'scenario.py':'intel.py'})}
     <p class="tipline">${ICON.bulb}<span>Stuck on a question? Open its <b>hint</b>. It names the concept and nudges you towards it. The <b>field guide</b> (book icon, top right) has every rule in one place.</span></p>
     <div class="stages"><div><b>${mains.length} challenge${mains.length>1?'s':''}</b><span>${s.cleared} cleared so far</span><small>${types.join(' · ')}</small></div><div><b>Up to ${mins(secs)}</b><span>question countdowns in total</span><small>Each question shows its own timer</small></div></div>
     <div class="power-row"><button class="btn primary" id="begin" type="button">${ICON.play}${s.done?'Replay stage (no new XP)':s.cleared?'Continue stage':'Start stage'}</button><button class="btn ghost" id="toMap" type="button">Mission map</button><span>Keys: 1–9 pick · Enter checks</span></div>
   </section>`;
-  bindRun($('.code',view),l.demo);
+  bindRun($('.code',view),l.demo);if(l.walk&&l.walk.length)walkThrough(l);
   $('#toMap').onclick=renderMap;$('#backBtn').onclick=renderMap;
   $('#begin').onclick=()=>{sfx.tap();if(!ST.started_at)return showRules(()=>startLevel(id));startLevel(id)};
   window.scrollTo(0,0);$('#view').focus({preventScroll:true});mark('brief',id);
+}
+/* Worked example: one line at a time, what it does, and what it prints. Learners watch before they practise. */
+function walkThrough(l){
+  const panel=$('#walk .code'),steps=l.walk;let k=-1;
+  const outBox=()=>{let c=$('.console',panel);if(!c){panel.insertAdjacentHTML('beforeend','<div class="console"><div class="con-head"><span>Output</span><span class="con-state">so far</span></div><pre class="con-out"></pre></div>');c=$('.console',panel)}c.hidden=false;return $('.con-out',panel)};
+  const draw=()=>{
+    $$('.ln',panel).forEach(x=>{x.classList.remove('ran','now');$$('.tag',x).forEach(t=>t.remove())});
+    steps.slice(0,k+1).forEach((st,i)=>{const ln=panel.querySelector(`.ln[data-n="${st.line}"]`);if(ln){ln.classList.add('ran');if(i===k)ln.classList.add('now')}});
+    const shown=steps.slice(0,k+1).filter(st=>st.shows!=null).map(st=>st.shows);
+    if(k>=0&&shown.length)outBox().textContent=shown.join('\n');else{const c=$('.console',panel);if(c&&!c.dataset.ran)c.hidden=true}
+    $('#walkSay').innerHTML=k<0?'Press <b>Next step</b> to run this example one line at a time.':`<b>Line ${steps[k].line}.</b> ${steps[k].say}`;
+    $('#walkStep').textContent=k<0?`${steps.length} steps`:`Step ${k+1} of ${steps.length}`;
+    $('#walkBack').disabled=k<0;
+    const last=k>=steps.length-1;$('#walkNext').textContent=last?'Watched: start again':'Next step';
+    if(last){markSeen('walk-'+l.id);$('#begin').classList.add('pulse')}
+  };
+  $('#walkNext').onclick=()=>{sfx.tap();k=k>=steps.length-1?-1:k+1;draw()};
+  $('#walkBack').onclick=()=>{if(k>=0){k--;draw()}};
+  draw();
 }
 function startLevel(id){
   const l=LVM[id],s=lvState(id);mark('q',id);
@@ -462,7 +529,7 @@ function segsHTML(cur){return R.mains.map(id=>{const s=qs(id);return `<i class="
 function qtopHTML(q){
   const l=LVM[R.level];
   return `<div class="qtop"><button class="backbtn sm" id="quit" type="button" aria-label="Back to the mission map (the question timer keeps running)" title="The question timer keeps running">${ICON.back}<span>Map</span></button><span class="where">${esc(l.name)}</span><div class="segs" aria-hidden="true">${segsHTML(q.id)}</div>
-    <span class="qcount">${R.mains.indexOf(q.id)+1} / ${R.mains.length}</span>${timerHTML(q,R.replay)}</div>`;
+    <span class="qcount">Question ${R.mains.indexOf(q.id)+1} of ${R.mains.length}</span>${timerHTML(q,R.replay)}</div>`;
 }
 function actionsHTML(){
   const st=qs(Q.q.id),can=(st.wrong||0)>=M.rules.reveal_after&&!cleared(Q.q.id);
@@ -485,17 +552,33 @@ function renderQuestion(id){
       <div class="qside">
         <span class="qchip">${R.replay?'Replay · no XP · ':''}${TYPE_LABEL[q.type]}${R.replay?'':` · ${q.xp} XP`}</span>
         <h2 class="qtitle" id="qtitle">${esc(q.title)}</h2>
+        ${howtoHTML(q.type)}
         <div id="pad"></div>
         <div id="hintSlot" aria-live="polite"></div>
         <div class="actions" id="actions">${actionsHTML()}<button class="btn primary" id="check" type="button" disabled>Check</button></div>
+        <p class="nextline" id="nextLine" aria-live="polite"></p>
       </div></section>`;
   $('#quit').onclick=renderMap;bindActions();$('#check').onclick=check;
   Q.panel=$('.code',view);
-  PADS[q.type](q);
+  PADS[q.type](q);if(!$('#check').disabled)canCheck(true);else canCheck(false);
   if(Q.hint)showHint(true);
   window.scrollTo(0,0);
-  const first=$('#pad button, #pad input, #pad .ln.tappable, .code .ln.tappable, .board input');if(first&&!matchMedia('(pointer: coarse)').matches)first.focus({preventScroll:true});
-  startQTimer(q);
+  const first=$('#pad button, #pad input, #pad .ln.tappable, .code .ln.tappable, .board input, .land button');if(first&&!matchMedia('(pointer: coarse)').matches)first.focus({preventScroll:true});
+  coachThen(q,()=>startQTimer(q));
+}
+/* First time a kind of question appears: show how it works. Its countdown starts only after "Got it". */
+function coachThen(q,go){
+  const k='type-'+q.type;
+  if(seen(k)||R&&R.replay)return go();
+  modal.dataset.locked='1';
+  openModal(`<div class="ghead"><h2 id="modalTitle">${ICON.bulb} New kind of question: ${esc(TYPE_LABEL[q.type]||q.type)}</h2></div>
+    <p class="muted">Here is how to answer it. Its timer starts when you press the button.</p>
+    ${howtoHTML(q.type,'big')}
+    <div class="power-row"><button class="btn primary" id="coachGo" type="button">${ICON.play}Got it, start the timer</button></div>`,()=>{modal.dataset.locked=''});
+  // Start the timer however this dialog ends: "Got it", or another notice (a tab-switch warning) replacing it.
+  let started=false;const start=()=>{if(started)return;started=true;markSeen(k);go()};
+  modal.addEventListener('close',start,{once:true});
+  $('#coachGo',modal).onclick=()=>{modal.dataset.locked='';modal.close();sfx.tap()};
 }
 function bindActions(){const hb=$('#hint');if(hb)hb.onclick=()=>showHint();const rb=$('#revealBtn');if(rb)rb.onclick=revealSolution}
 function refreshActions(){
@@ -503,7 +586,8 @@ function refreshActions(){
   const a=$('#actions');if(!a||$('#revealBtn'))return;
   if((qs(Q.q.id).wrong||0)>=M.rules.reveal_after&&!Q.done){$('#hint').insertAdjacentHTML('afterend','<button class="btn ghost" id="revealBtn" type="button">Show the solution</button>');bindActions()}
 }
-const canCheck=v=>{const b=$('#check');if(b)b.disabled=!v||Q.done};
+const canCheck=v=>{const b=$('#check');if(b)b.disabled=!v||Q.done;
+  const n=$('#nextLine');if(n&&Q&&!Q.done)n.innerHTML=v?`${ICON.check}<span>Ready. Press <b>Check</b> (or Enter).</span>`:`<span>${(HOWTO[Q.q.type]||HOWTO.mcq).wait}</span>`};
 function outHTML(o){
   const lines=o.split('\n'),err=lines[lines.length-1].startsWith('!')?lines.pop().slice(1):null;
   return `<span class="o-wrap">${lines.length?`<pre class="o-out">${esc(lines.join('\n'))}</pre>`:''}${err?`<span class="o-err">${esc(err)}<small>Python stops with an error</small></span>`:''}</span>`;
@@ -515,7 +599,7 @@ function choicePad(q,multi){
   const pad=$('#pad');
   const head=q.type==='ar'?`<div class="arbox"><div><b>Assertion (A)</b><p>${esc(q.assertion)}</p></div><div><b>Reason (R)</b><p>${esc(q.reason)}</p></div></div>`:'';
   const instr=multi?`<div class="instr multi" id="instr"><span class="instr-ico" aria-hidden="true"><i></i><i></i></span><span><b>Select all that apply.</b> More than one answer is correct. Tap every correct option, then press Check.</span><span class="selcount" id="selCount" aria-live="polite">0 selected</span></div>`
-    :`<div class="instr"><span class="instr-ico one" aria-hidden="true"><i></i></span><span><b>Choose one answer.</b></span></div>`;
+    :'';
   pad.innerHTML=head+instr+`<div class="opts${multi?' multi':''}" role="${multi?'group':'radiogroup'}" aria-labelledby="qtitle">${q.options.map((o,i)=>`<button class="opt" type="button" role="${multi?'checkbox':'radio'}" aria-checked="false" data-i="${i}"><span class="key">${multi?`<span class="box">${ICON.check}</span>`:i+1}</span>${q.type==='predict'?outHTML(o):`<span class="o-text">${looksCode(o)?`<code class="ocode">${esc(o)}</code>`:esc(o)}</span>`}</button>`).join('')}</div>`;
   const btns=$$('.opt',pad);Q.multi=new Set();
   btns.forEach((b,i)=>b.onclick=()=>{if(Q.done||Q.busy)return;clearMarks();sfx.tap();
@@ -530,7 +614,7 @@ function choicePad(q,multi){
 }
 function padTF(q){
   const pad=$('#pad');
-  pad.innerHTML=`<div class="instr"><span class="instr-ico one" aria-hidden="true"><i></i></span><span><b>Is the statement true or false?</b></span></div><div class="yn" role="radiogroup" aria-labelledby="qtitle"><button class="opt" type="button" role="radio" aria-checked="false"><span class="key">1</span><span class="o-big">True</span></button><button class="opt" type="button" role="radio" aria-checked="false"><span class="key">2</span><span class="o-big">False</span></button></div>`;
+  pad.innerHTML=`<div class="yn" role="radiogroup" aria-labelledby="qtitle"><button class="opt" type="button" role="radio" aria-checked="false"><span class="key">1</span><span class="o-big">True</span></button><button class="opt" type="button" role="radio" aria-checked="false"><span class="key">2</span><span class="o-big">False</span></button></div>`;
   const btns=$$('.opt',pad);
   btns.forEach((b,i)=>b.onclick=()=>{if(Q.done||Q.busy)return;Q.reset();sfx.tap();Q.sel=i;btns.forEach((x,k)=>x.setAttribute('aria-checked',k===i));canCheck(true)});
   Q.keyPick=i=>btns[i]&&btns[i].click();
@@ -541,7 +625,7 @@ function padTF(q){
 }
 function padNumeric(q){
   const pad=$('#pad');
-  pad.innerHTML=`<label class="numwrap"><span>Your answer</span><input id="num" type="text" inputmode="decimal" autocomplete="off" placeholder="Type a number" aria-describedby="qtitle"></label><p class="qhelp">Trace the code first. Press Enter to check.</p>`;
+  pad.innerHTML=`<label class="numwrap"><span>Your answer</span><input id="num" type="text" inputmode="decimal" autocomplete="off" placeholder="Type a number" aria-describedby="qtitle"></label>`;
   const inp=$('#num');
   inp.oninput=()=>{inp.classList.remove('is-ok','is-bad');canCheck(/^-?\d+(\.\d+)?$/.test(inp.value.trim()))};
   inp.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();e.stopPropagation();check()}};
@@ -551,7 +635,7 @@ function padNumeric(q){
   Q.solve=s=>{inp.value=s.value;inp.classList.remove('is-bad');inp.classList.add('is-ok');inp.disabled=true};
 }
 function padFill(q){
-  $('#pad').innerHTML=`<p class="qhelp">Type into each highlighted gap in the code. Spelling counts, just like in Python.</p>`;
+  $('#pad').innerHTML=``;
   const ins=$$('input.blank',Q.panel);
   ins.forEach((inp,k)=>{inp.oninput=()=>{inp.classList.remove('is-ok','is-bad');inp.size=Math.max(4,inp.value.length+1);canCheck(ins.every(x=>x.value.trim()))};
     inp.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();e.stopPropagation();if(ins[k+1]&&!ins[k+1].value)ins[k+1].focus();else check()}}});
@@ -562,7 +646,7 @@ function padFill(q){
 }
 function padMatch(q){
   const pad=$('#pad');Q.pairs=q.left.map(()=>null);Q.lsel=0;
-  pad.innerHTML=`<p class="qhelp">Pick an item on the left, then its match on the right. Pick a matched item again to change it.</p><div class="mgrid2"><div class="mcol2" id="mL"></div><div class="mcol2" id="mR"></div></div>`;
+  pad.innerHTML=`<div class="mgrid2"><div class="mcol2" id="mL"></div><div class="mcol2" id="mR"></div></div>`;
   const draw=()=>{
     $('#mL').innerHTML=q.left.map((t,i)=>`<button type="button" class="mitem2${Q.lsel===i?' sel':''}${Q.pairs[i]!==null?' paired':''}" data-i="${i}" ${Q.pairs[i]!==null?`data-p="${i%5}"`:''} aria-pressed="${Q.lsel===i}"><code class="ocode">${esc(t)}</code>${Q.pairs[i]!==null?`<span class="pn">${i+1}</span>`:''}</button>`).join('');
     $('#mR').innerHTML=q.right.map((t,j)=>{const li=Q.pairs.indexOf(j);return `<button type="button" class="mitem2${li>=0?' paired':''}" data-j="${j}" ${li>=0?`data-p="${li%5}"`:''}>${li>=0?`<span class="pn">${li+1}</span>`:''}${esc(t)}</button>`}).join('');
@@ -579,7 +663,7 @@ function padMatch(q){
 }
 function padOrder(q){
   const pad=$('#pad');Q.order=q.items.map((_,i)=>i);let prevIndex={};
-  pad.innerHTML=`<p class="qhelp">Move the lines with the arrow buttons until the program is in the right order.</p><ol class="olist" id="olist"></ol>`;
+  pad.innerHTML=`<ol class="olist" id="olist"></ol>`;
   const draw=animate=>{
     const first=animate?$$('#olist li').map(li=>li.getBoundingClientRect().top):null;
     $('#olist').innerHTML=Q.order.map((id,k)=>`<li data-id="${id}"><span class="ono">${k+1}</span><code class="ocode">${hl(q.items[id])}</code><span class="omv"><button type="button" data-k="${k}" data-d="-1" aria-label="Move line up" ${k===0?'disabled':''}>${ICON.up}</button><button type="button" data-k="${k}" data-d="1" aria-label="Move line down" ${k===Q.order.length-1?'disabled':''}>${ICON.down}</button></span></li>`).join('');
@@ -596,7 +680,7 @@ function padOrder(q){
 }
 function padCategorize(q){
   const pad=$('#pad');Q.cat=q.items.map(()=>null);
-  pad.innerHTML=`<p class="qhelp">Choose a group for every item.</p><div class="cats">${q.items.map((it,i)=>`<div class="catrow" data-i="${i}"><code class="ocode">${hl(it)}</code><div class="seg2 catseg" role="radiogroup" aria-label="Group for ${esc(it)}">${q.categories.map((c,k)=>`<button type="button" role="radio" aria-checked="false" data-k="${k}">${esc(c)}</button>`).join('')}</div></div>`).join('')}</div>`;
+  pad.innerHTML=`<div class="cats">${q.items.map((it,i)=>`<div class="catrow" data-i="${i}"><code class="ocode">${hl(it)}</code><div class="seg2 catseg" role="radiogroup" aria-label="Group for ${esc(it)}">${q.categories.map((c,k)=>`<button type="button" role="radio" aria-checked="false" data-k="${k}">${esc(c)}</button>`).join('')}</div></div>`).join('')}</div>`;
   $$('.catrow',pad).forEach(row=>{const i=+row.dataset.i;$$('button',row).forEach(b=>b.onclick=()=>{if(Q.done)return;row.classList.remove('is-ok','is-bad');Q.cat[i]=+b.dataset.k;
     $$('button',row).forEach(x=>{x.setAttribute('aria-checked',x===b);x.setAttribute('aria-pressed',x===b)});sfx.tap();canCheck(Q.cat.every(c=>c!==null))})});
   Q.get=()=>Q.cat.every(c=>c!==null)?Q.cat:null;
@@ -606,7 +690,7 @@ function padCategorize(q){
 }
 function padDebug(q){
   const pad=$('#pad');Q.line=null;Q.err=null;
-  pad.innerHTML=`<p class="qhelp">Tap the line that must be fixed, then choose what goes wrong.</p>
+  pad.innerHTML=`
     <div class="target" id="lpick"><small>Faulty line</small>Tap a line in the code</div>
     <div><span class="multi-note muted">What happens?</span><div class="seg2 wide errseg" role="radiogroup" aria-label="Error type">${q.errors.map((e,k)=>`<button type="button" role="radio" aria-checked="false" aria-pressed="false" data-k="${k}">${esc(e)}</button>`).join('')}</div></div>`;
   const upd=()=>{$('#lpick').innerHTML=`<small>Faulty line</small>${Q.line?'Line '+Q.line:'Tap a line in the code'}`;canCheck(Q.line&&Q.err!==null)};
@@ -622,7 +706,7 @@ function padDebug(q){
 }
 function padBoard(q){
   const pad=$('#pad'),same=rows=>JSON.stringify(rows)===JSON.stringify(q.start);
-  pad.innerHTML=`<div class="goal">${q.goal}</div><p class="qhelp">Type a key and a value, then press a Python button on the board. Tap a name tag to load its row. When the board is right, press Check.</p><ul class="checks" id="pgChecks"></ul>`;
+  pad.innerHTML=`<div class="goal">${q.goal}</div><ul class="checks" id="pgChecks"></ul>`;
   const b=Board($('.board',view),{start:q.start,onChange:()=>{Q.reset();canCheck(!same(b.rows))}});
   Q.get=()=>same(b.rows)?null:{rows:b.rows.map(r=>r.slice())};
   Q.reset=()=>{$('#pgChecks').innerHTML=''};
@@ -702,7 +786,7 @@ function openFeedback(r){
     <div class="dr-head"><span class="dr-icon">${ok?ICON.check:ICON.x}</span><div><h3>${ok?esc(pick(PRAISE[q.type]||PRAISE._)):'Not quite. Here is the catch.'}</h3>${ok?`<div class="dr-xp">${xpLine}</div>`:''}</div></div>
     <div class="dr-body">${ok?`<p>${r.explain||''}</p>${r.trap?`<div class="trap"><b>The trap</b><p>${r.trap}</p></div>`:''}`
       :`<p class="miscon">${wrongMessage(r)}</p><p class="nextstep">${ICON.bulb}<span>${nextStep}</span></p>`}</div>
-    <div class="dr-act">${ok?`<button class="btn good" id="cont" type="button">Continue</button>${canRun?`<button class="btn ghost" id="runReal" type="button">${ICON.play}Run it in real Python</button>`:''}`
+    <div class="dr-act">${ok?`<button class="btn good" id="cont" type="button">${contLabel()}</button>${canRun?`<button class="btn ghost" id="runReal" type="button">${ICON.play}Run it in real Python</button>`:''}`
       :`${!hintUsed?`<button class="btn gold" id="dhint" type="button">${ICON.bulb}Show the hint</button>`:''}<button class="btn ${hintUsed?'badc':''}" id="retry" type="button">Try again</button>${r.can_reveal?'<button class="btn ghost" id="reveal" type="button">Show the solution</button>':''}`}</div></div>`;
   requestAnimationFrame(()=>drawer.classList.add('open'));
   const on=(id,fn)=>{const b=$('#'+id);if(b)b.onclick=fn};
@@ -728,7 +812,7 @@ function openTimeUp(r){
   drawer.className='drawer bad shown timeup';
   drawer.innerHTML=`<div class="dr-in"><div class="dr-head"><span class="dr-icon">${ICON.clock.replace('class="i"','')}</span><div><h3>Time's up for this question</h3><div class="dr-xp"><span class="muted">No XP this time, but here is how it works, so you are ready for the next one.</span></div></div></div>
     <div class="dr-body">${solutionHTML(r.solution||{})}<p>${r.explain||''}</p>${r.trap?`<div class="trap"><b>The trap</b><p>${r.trap}</p></div>`:''}</div>
-    <div class="dr-act"><button class="btn" id="cont" type="button">Continue</button>${Q.q.type==='coding'?'<button class="btn ghost" id="loadSol" type="button">Load the solution to try it</button>':''}</div></div>`;
+    <div class="dr-act"><button class="btn" id="cont" type="button">${contLabel()}</button>${Q.q.type==='coding'?'<button class="btn ghost" id="loadSol" type="button">Load the solution to try it</button>':''}</div></div>`;
   requestAnimationFrame(()=>drawer.classList.add('open'));
   $('#cont').onclick=advance;bindLoadSol(r.solution);
   setTimeout(()=>$('#cont').focus({preventScroll:true}),80);
@@ -751,7 +835,7 @@ async function revealSolution(){
   drawer.className='drawer bad shown';
   drawer.innerHTML=`<div class="dr-in"><div class="dr-head"><span class="dr-icon">${ICON.bulb.replace('class="i"','')}</span><div><h3>Here is how it works</h3><div class="dr-xp"><span class="muted">Solution shown · no XP for this one, but the stage still counts it as cleared</span></div></div></div>
     <div class="dr-body">${solutionHTML(r.solution||{})}<p>${r.explain}</p>${r.trap?`<div class="trap"><b>The trap</b><p>${r.trap}</p></div>`:''}</div>
-    <div class="dr-act"><button class="btn" id="cont" type="button">Continue</button>${Q.q.type==='coding'?'<button class="btn ghost" id="loadSol" type="button">Load into editor and try it</button>':''}</div></div>`;
+    <div class="dr-act"><button class="btn" id="cont" type="button">${contLabel()}</button>${Q.q.type==='coding'?'<button class="btn ghost" id="loadSol" type="button">Load into editor and try it</button>':''}</div></div>`;
   requestAnimationFrame(()=>drawer.classList.add('open'));
   $('#cont').onclick=advance;bindLoadSol(r.solution);
   setTimeout(()=>$('#cont').focus({preventScroll:true}),80);
@@ -770,6 +854,7 @@ function advance(){
   nextQ();
 }
 function closeDrawer(){drawer.classList.remove('open')}
+const contLabel=()=>R&&R.queue.length<=1?'Finish stage →':'Next question →';
 
 /* ---------- coding challenge ---------- */
 function renderCoding(q){
@@ -781,6 +866,7 @@ function renderCoding(q){
     <div class="cprob">
       <span class="qchip boss">${R.replay?'Replay · no XP · ':''}Coding milestone${R.replay?'':` · ${q.xp} XP`}</span>
       <h2 class="qtitle" id="qtitle">${esc(ch.title)}</h2>
+      ${howtoHTML('coding')}
       <p class="stmt">${ch.statement}</p>
       <dl class="io"><dt>Input</dt><dd>${ch.input_fmt}</dd><dt>Output</dt><dd>${ch.output_fmt}</dd></dl>
       <h4 class="sub">Sample tests</h4>
@@ -818,7 +904,7 @@ function renderCoding(q){
         $('#pyRetry').onclick=bootPy})};
   bootPy();
   window.scrollTo(0,0);
-  startQTimer(q);
+  coachThen(q,()=>startQTimer(q));
 }
 function showOut(r,label){const out=$('#cout');if(out)out.innerHTML=(label?`<span class="con-note">${esc(label)}</span>\n`:'')+consoleHTML(r)}
 function setRow(i,state,extra){const row=$(`#ctests .test[data-i="${i}"]`);if(!row)return;row.classList.remove('pass','fail','run');if(state)row.classList.add(state);
@@ -966,6 +1052,7 @@ function Board(root,opts){
   return self;
 }
 function renderLab(){
+  if(M.ui.lab!=='board'&&window.renderMissionLab)return window.renderMissionLab();
   R=null;Q=null;stopQTimer();closeDrawer();
   view.innerHTML=`<section class="lab enter">${backBar('Back to mission map','quit')}<h2 class="labtitle">Dict Lab <small>free play</small></h2>
     <div class="labgrid"><div>${boardHTML('lab')}</div>
@@ -990,7 +1077,7 @@ function renderLevelDone(){
   view.innerHTML=`<section class="done">
     ${backBar()}
     <div class="eyebrow">${boss?'Final Boss defeated':esc(l.name)+' cleared'}</div>
-    <h2>${boss?'Board fixed!':'Stage clear!'}</h2>
+    <h2>${boss?esc(M.ui.boss_win):'Stage clear!'}</h2>
     ${starsHTML(s.stars,'bigstars')}
     <div class="tally"><div><b>+${gained}</b><span>XP this run</span></div><div><b>${s.first_try}/${s.total}</b><span>First try</span></div><div><b>${s.timed_out}</b><span>Timed out</span></div></div>
     ${R.badges.length?`<div class="badges newb">${[...new Set(R.badges)].map(id=>badgeHTML(id,true)).join('')}</div>`:''}
@@ -1015,7 +1102,7 @@ async function renderSummary(){
   view.innerHTML=`<section class="report enter">
     ${backBar()}
     <div class="eyebrow">Mission report</div>
-    <h2>${reason==='complete'?'Python Dictionaries Champion':reason?'Mission over':'Mission in progress'}</h2>
+    <h2>${reason==='complete'?esc(M.ui.champion):reason?'Mission over':'Mission in progress'}</h2>
     ${banner}
     <div class="tally four"><div><b>${ST.xp}</b><span>Total XP</span></div><div><b>${attempted?Math.round(firstTry/attempted*100):0}%</b><span>First-try accuracy</span></div><div><b>${mins(ST.used_seconds)}</b><span>Time used / ${Math.round(ST.mission_seconds/60)}m</span></div><div><b>${p.done}/${p.total}</b><span>Challenges cleared</span></div></div>
     <div class="tally four small"><div><b>${ST.best_combo}</b><span>Best combo</span></div><div><b>${timedOut}</b><span>Timed out</span></div><div><b>${pr.tab_switches}</b><span>Tab switches</span></div><div><b>${pr.copy_paste}</b><span>Copy/paste tries</span></div></div>
@@ -1027,7 +1114,7 @@ async function renderSummary(){
       <div class="card"><h4>Concept mastery</h4>${conceptBars()}${weak.length?`<p class="small"><b>Study next:</b> ${weak.map(([k])=>esc(CONCEPTS[k]||k)).join(', ')}. The field guide covers each one.</p>`:''}</div>
     </div>
     <div class="card"><h4>Learn from your mistakes · ${rev.items.length}</h4>${rev.items.length?`<div class="review">${rev.items.map(it=>`<details><summary><span class="rlvl">${esc(LVM[it.level].name)}</span>${esc(it.title)}<small>${it.timed_out?'time ran out':it.revealed?'solution viewed':it.wrong+' wrong attempt'+(it.wrong>1?'s':'')+' then solved'}</small></summary><p>${it.explain}</p>${it.trap?`<div class="trap"><b>The trap</b><p>${it.trap}</p></div>`:''}</details>`).join('')}</div>`:'<p class="muted">No mistakes to review. Impressive.</p>'}</div>
-    <div class="hero-row" style="justify-content:center"><button class="btn primary" id="toMap" type="button">Mission map</button><button class="btn" id="lab" type="button">Open the Dict Lab</button><button class="btn ghost" id="guide2" type="button">Field guide</button></div>
+    <div class="hero-row" style="justify-content:center"><button class="btn primary" id="toMap" type="button">Mission map</button><button class="btn" id="lab" type="button">Open the ${esc(M.ui.lab_name)}</button><button class="btn ghost" id="guide2" type="button">Field guide</button></div>
   </section>`;
   $('#toMap').onclick=renderMap;$('#backBtn').onclick=renderMap;$('#lab').onclick=renderLab;$('#guide2').onclick=openGuide;window.scrollTo(0,0);
   mark('report');loadLeaderboard('#lbReport');
@@ -1038,38 +1125,8 @@ async function renderSummary(){
 /* ---------- field guide (cheatsheet + comparison table) ---------- */
 const guide=$('#guide');
 function openGuide(){
-  guide.innerHTML=`<div class="gin"><div class="ghead"><h2 id="guideTitle">Field guide: Python dictionaries</h2><button class="iconbtn" id="gclose" type="button" aria-label="Close the field guide">${ICON.x}</button></div>
-    <h3>Reading the board · menu = {"tea": 12, "coffee": 15, "samosa": 15}</h3>
-    <div class="tscroll"><table><thead><tr><th>Expression</th><th>Gives</th><th>If the key is missing</th></tr></thead><tbody>
-      <tr><td><code>menu["tea"]</code></td><td><code>12</code></td><td><b>KeyError</b>: the program stops</td></tr>
-      <tr><td><code>menu.get("tea")</code></td><td><code>12</code></td><td><code>None</code>: the program carries on</td></tr>
-      <tr><td><code>"tea" in menu</code></td><td><code>True</code></td><td><code>False</code> (checks keys only: <code>15 in menu</code> is False)</td></tr>
-      <tr><td><code>len(menu)</code></td><td><code>3</code></td><td>counts pairs</td></tr></tbody></table></div>
-    <h3>Changing the board</h3>
-    <div class="tscroll"><table><thead><tr><th>Line</th><th>Key is new</th><th>Key is already there</th></tr></thead><tbody>
-      <tr><td><code>menu[key] = value</code></td><td>adds the pair at the <b>end</b></td><td>changes the value <b>in place</b></td></tr>
-      <tr><td><code>del menu[key]</code></td><td><b>KeyError</b></td><td>removes the whole pair</td></tr></tbody></table></div>
-    <h3>Views and loops · in the order the pairs were added</h3>
-    <div class="tscroll"><table><thead><tr><th>Code</th><th>Gives</th></tr></thead><tbody>
-      <tr><td><code>menu.keys()</code></td><td><code>dict_keys(['tea', 'coffee', 'samosa'])</code></td></tr>
-      <tr><td><code>menu.values()</code></td><td><code>dict_values([12, 15, 15])</code>, repeats kept</td></tr>
-      <tr><td><code>menu.items()</code></td><td><code>dict_items([('tea', 12), ('coffee', 15), ('samosa', 15)])</code></td></tr>
-      <tr><td><code>for name in menu:</code></td><td>the keys</td></tr>
-      <tr><td><code>for name, price in menu.items():</code></td><td>each key with its value</td></tr></tbody></table></div>
-    <h3>Dictionary, list, tuple, set</h3>
-    <div class="tscroll"><table><thead><tr><th>Type</th><th>Looks like</th><th>Find an item by</th><th>Repeats</th><th>Order</th></tr></thead><tbody>
-      <tr><td>dict</td><td><code>{"tea": 12}</code></td><td>its key</td><td>keys no, values yes</td><td>insertion order</td></tr>
-      <tr><td>list</td><td><code>["tea", 12]</code></td><td>position <code>[0]</code></td><td>yes</td><td>kept</td></tr>
-      <tr><td>tuple</td><td><code>("tea", 12)</code></td><td>position <code>[0]</code>, cannot change</td><td>yes</td><td>kept</td></tr>
-      <tr><td>set</td><td><code>{"tea", "coffee"}</code></td><td><code>in</code> only</td><td>no</td><td>no fixed order</td></tr></tbody></table></div>
-    <h3>Remember</h3>
-    <ul><li><code>{}</code> is an empty <b>dictionary</b>, not a set. <code>dict()</code> makes one too.</li>
-      <li>A repeated key gives no error: the <b>last value wins</b> and the key keeps its <b>first position</b>.</li>
-      <li>Keys are case-sensitive: <code>"Tea"</code> and <code>"tea"</code> are two rows.</li>
-      <li>Brackets hold a key, never a position: <code>menu[2]</code> looks for a key named 2.</li>
-      <li><code>menu.keys()</code> is <b>live</b>; <code>list(menu.keys())</code> is a fixed <b>copy</b>.</li>
-      <li><code>dict(pairs)</code> needs two-item pairs: a flat list or a three-item element raises <b>ValueError</b>.</li>
-      <li>Keys must be immutable: a tuple works, a list raises <b>TypeError: unhashable type: 'list'</b>. Values can be anything.</li></ul>
+  guide.innerHTML=`<div class="gin"><div class="ghead"><h2 id="guideTitle">${esc(M.ui.guide_title)}</h2><button class="iconbtn" id="gclose" type="button" aria-label="Close the field guide">${ICON.x}</button></div>
+    ${M.ui.guide_html}
   </div>`;
   $('#gclose',guide).onclick=()=>guide.close();
   guide.showModal();
@@ -1144,8 +1201,10 @@ async function renderProfile(){
   try{const d=await api('GET','/leaderboard');const r=$('#pRank');if(r&&d.me)r.textContent=`${d.me.rank} / ${d.count}`}catch(e){}
 }
 $('#homeBtn').onclick=()=>{if(M&&ST)renderMap()};
+function paintBrand(short,title){const b=$('#homeBtn span');if(b&&short)b.textContent=short;if(title)document.title=title}
 async function loadMission(){
   const m=await api('GET','/mission');M=m;M.badges=m.badges;QM={};LVM={};
+  if(m.concepts)CONCEPTS=m.concepts;if(m.type_labels)TYPE_LABEL=m.type_labels;paintBrand(m.ui.short,m.ui.title);
   m.levels.forEach(l=>{LVM[l.id]=l;l.questions.forEach(q=>QM[q.id]=q)});
   ST=null;adopt(m.state);
   if(live())preloadPython();
@@ -1171,7 +1230,7 @@ setInterval(()=>{
 },30000);
 async function boot(){
   await new Promise(r=>setTimeout(r,350));          // give an already-open tab time to answer
-  const r=await API.boot();CLASS_CODE=!!r.classCode;
+  const r=await API.boot();CLASS_CODE=!!r.classCode;if(r.short)paintBrand(r.short,r.title);
   if(!r.online)return renderOffline();
   if(r.needsLogin&&!dupTab)return renderLogin();
   paintUser();

@@ -13,7 +13,7 @@ import re
 import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-from app import content as C  # noqa: E402
+from app import content as C  # noqa: E402  (the active mission, see MISSION)
 from app.engine import same_output, check_rules  # noqa: E402
 
 FAILS = []

@@ -79,11 +79,14 @@ def public_question(q):
 
 def mission_payload(rules):
     return {
-        "title": "Dictionaries: The Python Challenge",
+        "title": C.UI["title"],
         "levels": [{"id": l["id"], "name": l["name"], "difficulty": l["difficulty"], "intel": l["intel"], "demo": l["demo"],
+                    "learn": l.get("learn", []), "walk": l.get("walk", []),
                     "main": l["main"], "questions": [public_question(C.QUESTIONS[q]) for q in l["main"]]} for l in C.LEVELS],
         "badges": C.BADGES,
         "concepts": C.CONCEPTS,
+        "type_labels": C.TYPE_LABEL,
+        "ui": C.UI,
         "rules": rules.public(),
     }
 
@@ -401,9 +404,10 @@ def award_badges(state, now=None):
         give("clean-sweep")
     if state["best_combo"] >= 5:
         give("combo-5")
-    boards = [qid for qid, q in C.QUESTIONS.items() if q["type"] == "board"]
-    if all(state["q"].get(b, {}).get("solved") and not state["q"][b]["wrong"] for b in boards):
-        give("board-pro")
+    vtype, vbadge = C.VISUAL_PRO
+    visual = [qid for qid, q in C.QUESTIONS.items() if q["type"] == vtype]
+    if visual and all(state["q"].get(b, {}).get("solved") and not state["q"][b]["wrong"] for b in visual):
+        give(vbadge)
     if level_stats(state, C.LEVEL_BY_ID["BOSS"])["done"] and not state["ended_at"]:
         state["ended_at"] = now or time.time()
         state["ended_reason"] = "complete"

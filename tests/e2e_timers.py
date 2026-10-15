@@ -12,6 +12,9 @@ import time
 
 from playwright.sync_api import expect, sync_playwright
 
+sys.path.insert(0, os.path.dirname(__file__))
+from e2e_walkthrough import dismiss_tour, pass_coach  # noqa: E402
+
 BASE = sys.argv[1] if len(sys.argv) > 1 else "http://localhost:8011"
 SHOTS = sys.argv[2] if len(sys.argv) > 2 else "shots-timers"
 os.makedirs(SHOTS, exist_ok=True)
@@ -49,10 +52,12 @@ try:
       page.locator("#lgRoll").fill(ROLL)
       page.locator("#lgSec").select_option("S-001")
       page.locator("#loginForm button[type=submit]").click()
+      dismiss_tour(page)
       page.locator("#go").click()
       page.locator("#begin").click()
       page.locator("#agree").check()
       page.locator("#rulesGo").click()
+      pass_coach(page, set(), "mcq")
       expect(page.locator("#clockNum")).to_have_text("1:00", timeout=5000)
 
       # L0-1 has a 45-second countdown; the hint nudge appears at half time

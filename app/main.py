@@ -63,7 +63,7 @@ class NoCacheStatic(StaticFiles):
         return resp
 
 
-app = FastAPI(title="Dictionaries: The Python Challenge", version="1.0.0")
+app = FastAPI(title=C.UI["title"], version="1.1.0")
 DATABASE_URL = os.environ.get("DATABASE_URL") or os.environ.get("POSTGRES_URL") or ""
 if DATABASE_URL.startswith(("postgres://", "postgresql://")):
     STORAGE = "postgres"
@@ -152,7 +152,7 @@ def clean(text, n):
 @app.get("/api/health")
 def health():
     return {"ok": True, "app": "dictionaries", "sections": SECTIONS, "class_code_required": bool(CLASS_CODE), "build": BUILD,
-            "storage": STORAGE}
+            "storage": STORAGE, "mission": C.MISSION, "title": C.UI["title"], "short": C.UI["short"]}
 
 
 @app.post("/api/login")
@@ -386,7 +386,8 @@ def dashboard(section=None):
     acc = lambda t: sorted(({"key": k, "accuracy": c / n, "answers": n} for k, (c, n) in t.items()), key=lambda d: d["accuracy"])
     return {
         "section": section or "", "sections": SECTIONS, "total_questions": C.TOTAL, "max_tab_switches": RULES.max_tab_switches,
-        "mission_minutes": round(RULES.mission_seconds / 60), "idle_minutes": round(IDLE_SECONDS / 60, 1),
+        "mission_minutes": round(RULES.mission_seconds / 60), "mission": C.MISSION, "title": C.UI["title"], "short": C.UI["short"],
+        "concept_labels": C.CONCEPTS, "type_labels": C.TYPE_LABEL, "idle_minutes": round(IDLE_SECONDS / 60, 1),
         "overview": overview,
         "stages": [{"id": l["id"], "name": l["name"], "cleared": stage_cleared[l["id"]], "total": len(l["main"])} for l in C.LEVELS],
         "concepts": [{"concept": d["key"], "accuracy": d["accuracy"], "answers": d["answers"]} for d in acc(concept_tot)],
@@ -443,7 +444,7 @@ def teacher_export(section: str = "", _t=Depends(teacher)):
                     f"{C.CONCEPTS.get(weak[0], weak[0])} ({round(weak[1] * 100)}%)" if weak else "",
                     cur.get("stage", ""), f"{cur['n']}/{cur['of']} {cur['title']}" if cur else "",
                     r["activity"] or "", round(r["idle_seconds"] / 60, 1) if r["activity"] else "", r["resumes"], r["last_seen"] or ""])
-    name = f"dictionaries-{(section or 'all').lower().replace(' ', '-')}.csv"
+    name = f"{C.UI['short'].lower().replace(' ', '-')}-{(section or 'all').lower().replace(' ', '-')}.csv"
     return Response(buf.getvalue(), media_type="text/csv", headers={"Content-Disposition": f'attachment; filename="{name}"'})
 
 

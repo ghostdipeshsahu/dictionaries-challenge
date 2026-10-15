@@ -11,7 +11,7 @@ import time
 from playwright.sync_api import expect, sync_playwright
 
 sys.path.insert(0, os.path.dirname(__file__))
-from e2e_walkthrough import cleanup  # noqa: E402
+from e2e_walkthrough import cleanup, dismiss_tour, pass_coach  # noqa: E402
 
 BASE = sys.argv[1] if len(sys.argv) > 1 else "http://localhost:8012"
 SHOTS = sys.argv[2] if len(sys.argv) > 2 else "shots-resume"
@@ -48,10 +48,12 @@ try:
         page.locator("#lgRoll").fill(ROLL)
         page.locator("#lgSec").select_option("S-001")
         page.locator("#loginForm button[type=submit]").click()
+        dismiss_tour(page)
         page.locator("#go").click()
         page.locator("#begin").click()
         page.locator("#agree").check()
         page.locator("#rulesGo").click()
+        pass_coach(page, set(), "mcq")
         expect(page.locator("#pad .opt")).to_have_count(4, timeout=10000)
         expect(page.locator("#modal")).not_to_be_visible()
         page.keyboard.press("1")

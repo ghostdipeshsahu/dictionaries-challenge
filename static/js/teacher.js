@@ -4,11 +4,11 @@ const $=(s,r=document)=>r.querySelector(s),$$=(s,r=document)=>[...r.querySelecto
 const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const pct=v=>v==null?'–':Math.round(v*100)+'%';
 const view=$('#tview'),KEY='dicts-teacher-token';
-const CONCEPTS={pairs:'Key-value pairs',creation:'Creating a dictionary',empty:'Empty {} and dict()',unique_keys:'Unique keys',access:'menu[key] takes a key',
+let CONCEPTS={pairs:'Key-value pairs',creation:'Creating a dictionary',empty:'Empty {} and dict()',unique_keys:'Unique keys',access:'menu[key] takes a key',
   keyerror_get:'KeyError vs get()',membership:'in checks keys',add_change:'Add or change a key',case:'Keys are case-sensitive',delete_len:'del and len()',
   views_methods:'keys(), values(), items()',looping:'Looping over a dictionary',live_views:'Live views vs list() copies',dict_from_pairs:'dict() from pairs',
   hashable_keys:'Keys must be immutable',compare_types:'Dict vs list, tuple, set'};
-const TYPES={mcq:'Multiple choice',msq:'Multiple select',tf:'True or false',ar:'Assertion and reasoning',fill:'Fill in the blanks',match:'Match the columns',
+let TYPES={mcq:'Multiple choice',msq:'Multiple select',tf:'True or false',ar:'Assertion and reasoning',fill:'Fill in the blanks',match:'Match the columns',
   order:'Put in order',categorize:'Sort into groups',numeric:'Numeric answer',predict:'Predict the output',debug:'Debug mission',coding:'Coding challenge',board:'Board build'};
 const STATUS_CLS={complete:'hi',time:'mid',proctor:'lo','in progress':'','not started':''};
 let BUILD=null,token=null,section='',data=null,sortKey='rank',sortDir=1,filter='',es=null,poll=null,liveMode='',armed=null;
@@ -39,6 +39,7 @@ async function load(quiet){
   if(!quiet)view.innerHTML='<section class="dash"><p class="empty">Loading the class…</p></section>';
   try{data=await api('/teacher/dicts'+(section?'?section='+encodeURIComponent(section):'')).then(r=>r.json())}catch(e){return}
   if(checkBuild(data))return;
+  missionLabels(data);
   const sel=$('#secSel');sel.innerHTML='<option value="">All sections</option>'+data.sections.map(s=>`<option${s===section?' selected':''}>${esc(s)}</option>`).join('');
   if(quiet&&$('#rows')){tiles();panels();attention();rows();stamp();return}
   render();
@@ -52,10 +53,13 @@ function startLive(){
   if(!('EventSource' in window)||(data&&data.push===false))return startPoll();  // push is off on some hosts (Vercel)
   es=new EventSource('/api/teacher/dicts/stream?token='+encodeURIComponent(token)+(section?'&section='+encodeURIComponent(section):''));
   es.onopen=()=>{clearInterval(poll);poll=null;setLive('live')};
-  es.onmessage=e=>{let d;try{d=JSON.parse(e.data)}catch(err){return}if(checkBuild(d))return;clearInterval(poll);poll=null;data=d;setLive('live');if(!$('#rows'))render();else{tiles();panels();attention();rows();stamp()}};
+  es.onmessage=e=>{let d;try{d=JSON.parse(e.data)}catch(err){return}if(checkBuild(d))return;missionLabels(d);clearInterval(poll);poll=null;data=d;setLive('live');if(!$('#rows'))render();else{tiles();panels();attention();rows();stamp()}};
   es.onerror=()=>startPoll();
 }
 function setLive(m){liveMode=m;stamp()}
+/* Concept and question-type names, and the title, come from the mission this server runs. */
+function missionLabels(d){if(d.concept_labels)CONCEPTS=d.concept_labels;if(d.type_labels)TYPES=d.type_labels;
+  if(d.short){const b=$('.brand span');if(b)b.textContent=d.short+' · Teacher';document.title=d.short+' · Teacher'}}
 /* The server was updated while this page was open: reload so the page has the new buttons, not just new numbers. */
 function checkBuild(d){if(!d||!d.build)return false;if(BUILD===null){BUILD=d.build;return false}if(d.build===BUILD)return false;stopLive();location.reload();return true}
 function stamp(){const u=$('#updated');if(u)u.innerHTML=`<span class="livedot ${liveMode}"></span>${liveMode==='live'?'Live':liveMode==='poll'?'Live · refreshes every 5 s':'Connecting…'} · updated ${new Date().toLocaleTimeString()}`}
@@ -74,7 +78,7 @@ function panels(){
 function render(){
   const d=data;
   view.innerHTML=`<section class="dash">
-    <div class="dhead2"><div><h1>${d.section?esc(d.section):'All sections'}</h1><p class="sub">Dictionaries: The Python Challenge · ${d.mission_minutes}-minute timed, proctored mission. ${d.max_tab_switches?`A mission ends at ${d.max_tab_switches} tab switches.`:'Tab switches are recorded only.'} <span id="updated"></span></p></div></div>
+    <div class="dhead2"><div><h1>${d.section?esc(d.section):'All sections'}</h1><p class="sub">${esc(d.title||"")} · ${d.mission_minutes}-minute timed, proctored mission. ${d.max_tab_switches?`A mission ends at ${d.max_tab_switches} tab switches.`:'Tab switches are recorded only.'} <span id="updated"></span></p></div></div>
     ${d.storage==='temporary'?`<div class="endbanner proctor"><b>No database connected: student progress will be lost.</b><p>In Vercel, open this project → Storage → Create Database → Neon (Postgres), connect it to the project, then redeploy.</p></div>`:''}
     <div class="tiles" id="tiles"></div>
     <div class="panel attn" id="attnPanel"><h2>Needs attention <span class="acount" id="attnCount"></span></h2><div id="pAttn"></div></div>
@@ -146,7 +150,7 @@ $('#refresh').onclick=()=>load(true);
 $('#signout').onclick=signOut;
 $('#export').onclick=async()=>{
   const r=await api('/teacher/dicts/export.csv'+(section?'?section='+encodeURIComponent(section):''));const blob=await r.blob();
-  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`dictionaries-${(section||'all').toLowerCase().replace(/\s+/g,'-')}.csv`;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},500);
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`${(data.short||'mission').toLowerCase().replace(/\s+/g,'-')}-${(section||'all').toLowerCase().replace(/\s+/g,'-')}.csv`;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},500);
 };
 token?load():renderLogin();
 })();

@@ -21,6 +21,7 @@ BASE = sys.argv[1] if len(sys.argv) > 1 else "http://localhost:8010"
 SHOTS = sys.argv[2] if len(sys.argv) > 2 else "shots"
 os.makedirs(SHOTS, exist_ok=True)
 ROLL = f"E2E{int(time.time()) % 100000}"
+SEC1, SEC2 = "S-001", "S-002"
 errors = []
 step_no = [0]
 
@@ -37,6 +38,31 @@ def shot(page, name):
 def watch(page, label):
     page.on("pageerror", lambda e: errors.append(f"{label} pageerror: {e}"))
     page.on("console", lambda m: m.type == "error" and errors.append(f"{label} console: {m.text}"))
+
+
+def dismiss_tour(page, shoot=None):
+    """The How to play tour opens on the first map visit: four cards, then Let's go."""
+    expect(page.locator("#modal")).to_contain_text("How to play", timeout=10000)
+    if shoot:
+        shoot(page, "tour")
+    for _ in range(3):
+        page.locator("#tourNext").click()
+    expect(page.locator("#tourNext")).to_contain_text("Let's go")
+    page.locator("#tourNext").click()
+    expect(page.locator("#modal")).not_to_be_visible()
+
+
+def pass_coach(page, seen_types, qtype, shoot=None):
+    """The first question of each kind shows how it works; its timer waits for Got it."""
+    if qtype in seen_types:
+        return
+    seen_types.add(qtype)
+    expect(page.locator("#coachGo")).to_be_visible(timeout=10000)
+    assert page.locator("#qtimer b").inner_text() in ("", page.locator("#qtimer b").inner_text()), "timer element"
+    if shoot:
+        shoot(page, "coach-" + qtype)
+    page.locator("#coachGo").click()
+    expect(page.locator("#modal")).not_to_be_visible()
 
 
 def continue_drawer(page):
@@ -151,10 +177,12 @@ def main():
         shot(page, "login")
         page.locator("#lgName").fill("Walk Through")
         page.locator("#lgRoll").fill(ROLL)
-        page.locator("#lgSec").select_option("S-001")
+        page.locator("#lgSec").select_option(SEC1)
         page.locator("#loginForm button[type=submit]").click()
         expect(page.locator(".map .node")).to_have_count(7, timeout=15000)
+        dismiss_tour(page, shot)
         expect(page.locator(".node.next")).to_have_count(1)
+        expect(page.locator(".node.next .starthere")).to_have_text("Start here")
         shot(page, "map")
         log("signed in, map shows 7 stages")
 
@@ -209,6 +237,13 @@ def main():
         page.locator("#go").click()
         expect(page.locator(".brief h2")).to_have_text("Mission Briefing")
         expect(page.locator(".brief .story")).to_contain_text("32")
+        expect(page.locator(".learn li").first).to_be_visible()
+        # Watch it first: step through the worked example; the output must be what Python prints
+        walk = C.LEVELS[0]["walk"]
+        for _ in walk:
+            page.locator("#walkNext").click()
+        expect(page.locator("#walkStep")).to_have_text(f"Step {len(walk)} of {len(walk)}")
+        expect(page.locator("#walk .con-out")).to_have_text("\n".join(w["shows"] for w in walk if "shows" in w))
         shot(page, "briefing")
         page.locator("#begin").click()
         expect(page.locator("#rulesGo")).to_be_disabled()
@@ -220,6 +255,7 @@ def main():
         log("rules accepted, question timer and mission clock running")
 
         played = 0
+        seen_types = set()
         for lvl in C.LEVELS:
             if lvl["id"] != "L0":
                 expect(page.locator(".brief h2")).to_have_text(lvl["name"], timeout=15000)
@@ -229,6 +265,8 @@ def main():
                 title = q["challenge"]["title"] if q["type"] == "coding" else q["title"]
                 expect(page.locator("#qtitle")).to_have_text(re.compile(re.escape(title[:40])), timeout=20000)
                 expect(page.locator(".qchip")).to_contain_text(C.TYPE_LABEL[q["type"]] if q["type"] != "coding" else "Coding")
+                expect(page.locator(".howto").first).to_be_visible()
+                pass_coach(page, seen_types, q["type"], shot if q["type"] in ("match", "board", "coding") else None)
 
                 if qid == "L0-2":  # a wrong answer first: drawer shows the catch, retry works, XP stays
                     answer_ui(page, q, correct=False)
@@ -310,9 +348,10 @@ def main():
         mpage.goto(BASE + "/")
         mpage.locator("#lgName").fill("Mobile Dark")
         mpage.locator("#lgRoll").fill(ROLL + "M")
-        mpage.locator("#lgSec").select_option("S-002")
+        mpage.locator("#lgSec").select_option(SEC2)
         mpage.locator("#loginForm button[type=submit]").click()
         expect(mpage.locator(".map .node")).to_have_count(7, timeout=15000)
+        dismiss_tour(mpage)
         width = mpage.evaluate("document.documentElement.scrollWidth")
         assert width <= 390, f"horizontal scroll on mobile: {width}px"
         shot(mpage, "mobile-dark-map")
