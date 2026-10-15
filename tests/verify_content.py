@@ -215,8 +215,22 @@ for q in Q.values():
 ok(set(q["level"] for q in Q.values()) == LEVELS_OK, "every cognitive level used")
 ok(set(q["concept"] for q in Q.values()) == set(C.CONCEPTS), f"unused concepts {set(C.CONCEPTS) - set(q['concept'] for q in Q.values())}")
 ok(set(q["type"] for q in Q.values()) == set(C.TYPE_LABEL), "every question type used")
-ok(sum(q["time"] for q in Q.values()) <= (C.MISSION_MINUTES - 7) * 60,
-   f"worst case {sum(q['time'] for q in Q.values()) / 60:.1f} min must leave time for briefings")
+CORE = [q for l in C.LEVELS if not l.get("bonus") for q in l["main"]]
+BONUS = [q for l in C.LEVELS if l.get("bonus") for q in l["main"]]
+worst = sum(Q[q]["time"] for q in CORE)
+ok(worst <= (C.MISSION_MINUTES - 7) * 60, f"worst case {worst / 60:.1f} min must leave time for briefings")
+ok(180 <= sum(Q[q]["time"] for q in BONUS) <= 300, "the bonus round lasts 3 to 5 minutes")
+ok(len(CORE) == C.TOTAL, "the bonus round is not counted in the required total")
+
+# ---------- bonus round ----------
+ok(shown(Q["X-2"]["code"]) == str(Q["X-2"]["value"]), "X-2 numeric")
+_, et, _, _, env = run('menu = {"tea": 12}\nmenu[("tea", "samosa")] = 27')
+ok(et is None and len(env["menu"]) == 2 and Q["X-3"]["value"] is True, "X-3 a tuple can be a key")
+truth = []
+for o in Q["X-4"]["options"]:
+    _, _, _, _, env = run('menu = {"tea": 12, "coffee": 15}\nbefore = list(menu.items())\n' + o)
+    truth.append(list(env["menu"].items()) == env["before"])
+ok([i for i, t in enumerate(truth) if t] == Q["X-4"]["answers"], f"X-4 truth {truth}")
 
 # words the deck does not teach must not appear in content shown to students
 BANNED = [r"\.pop\(", r"\.update\(", r"setdefault", r"\.copy\(", r"\bunordered\b(?!.*not)"]

@@ -271,6 +271,11 @@ def answer(body: AnswerIn, s=Depends(student)):
     return mutate(s, E.answer, body.qid, body.answer, body.code)
 
 
+@app.post("/api/dicts/finish")
+def finish(s=Depends(student)):
+    return mutate(s, E.finish)
+
+
 @app.post("/api/dicts/proctor")
 def proctor(body: ProctorIn, s=Depends(student)):
     with db.tx():

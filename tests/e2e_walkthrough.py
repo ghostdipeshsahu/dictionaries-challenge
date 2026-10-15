@@ -169,7 +169,7 @@ def main():
         page.locator("#lgRoll").fill(ROLL)
         page.locator("#lgSec").select_option(SEC1)
         page.locator("#loginForm button[type=submit]").click()
-        expect(page.locator(".map .node")).to_have_count(7, timeout=15000)
+        expect(page.locator(".map .node")).to_have_count(len(C.LEVELS), timeout=15000)
         dismiss_tour(page, shot)
         expect(page.locator(".node.next")).to_have_count(1)
         shot(page, "map")
@@ -327,6 +327,15 @@ def main():
             # stage clear screen
             if lvl["id"] == "BOSS":
                 expect(page.locator("section.done h2")).to_have_text(C.UI["boss_win"], timeout=15000)
+                if any(x.get("bonus") for x in C.LEVELS):
+                    # finished early: the mission is complete and the optional bonus round is offered
+                    expect(page.locator(".bonusline")).to_contain_text("Mission complete")
+                    expect(page.locator("#finishBtn")).to_be_visible()
+                    expect(page.locator("#nextL")).to_contain_text("Play the bonus round")
+                    expect(tpage.locator("#rows tr", has_text="Walk Through")).to_contain_text("Completed", timeout=10000)
+                    shot(page, "bonus-offer")
+            elif lvl.get("bonus"):
+                expect(page.locator("section.done h2")).to_have_text("Bonus round cleared!", timeout=15000)
             else:
                 expect(page.locator("section.done h2")).to_have_text("Stage clear!", timeout=15000)
             if lvl["id"] in ("L0", "BOSS"):
@@ -369,7 +378,7 @@ def main():
         mpage.locator("#lgRoll").fill(ROLL + "M")
         mpage.locator("#lgSec").select_option(SEC2)
         mpage.locator("#loginForm button[type=submit]").click()
-        expect(mpage.locator(".map .node")).to_have_count(7, timeout=15000)
+        expect(mpage.locator(".map .node")).to_have_count(len(C.LEVELS), timeout=15000)
         dismiss_tour(mpage)
         width = mpage.evaluate("document.documentElement.scrollWidth")
         assert width <= 390, f"horizontal scroll on mobile: {width}px"

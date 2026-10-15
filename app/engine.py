@@ -82,7 +82,7 @@ def mission_payload(rules):
         "title": C.UI["title"],
         "levels": [{"id": l["id"], "name": l["name"], "difficulty": l["difficulty"], "intel": l["intel"], "demo": l["demo"],
                     "learn": l.get("learn", []), "walk": l.get("walk", []),
-                    **({"job": l["job"]} if l.get("job") else {}), **({"intel_title": l["intel_title"]} if l.get("intel_title") else {}),
+                    **({"job": l["job"]} if l.get("job") else {}), **({"bonus": True} if l.get("bonus") else {}), **({"intel_title": l["intel_title"]} if l.get("intel_title") else {}),
                     "main": l["main"], "questions": [public_question(C.QUESTIONS[q]) for q in l["main"]]} for l in C.LEVELS],
         "badges": C.BADGES,
         "concepts": C.CONCEPTS,
@@ -111,6 +111,15 @@ def normalize(state):
     return state
 
 
+def has_bonus():
+    return any(l.get("bonus") for l in C.LEVELS)
+
+
+def end_reason(state, reason):
+    """Once every required stage is cleared the mission counts as complete, however it ends (bonus, Finish, clock, tabs)."""
+    return "complete" if state.get("core_done_at") else reason
+
+
 def deadline(state, rules):
     return state["started_at"] + rules.mission_seconds + state["paused"] + state["grace"]
 
@@ -130,7 +139,7 @@ def tick(state, rules, now=None):
     normalize(state)
     if state["started_at"] and not state["ended_at"] and now >= deadline(state, rules):
         state["ended_at"] = deadline(state, rules)
-        state["ended_reason"] = "time"
+        state["ended_reason"] = end_reason(state, "time")
         return True
     return False
 
@@ -193,7 +202,7 @@ def public_state(state, rules, now=None):
         st = level_stats(state, lvl)
         st["unlocked"] = lvl["id"] in unl
         levels.append(st)
-    done = sum(l["cleared"] for l in levels)
+    done = sum(l["cleared"] for l, lv in zip(levels, C.LEVELS) if not lv.get("bonus"))
     return {
         "xp": state["xp"], "combo": state["combo"], "best_combo": state["best_combo"],
         "started_at": iso(state["started_at"]), "ended_at": iso(state["ended_at"]), "ended_reason": state["ended_reason"],
@@ -202,6 +211,7 @@ def public_state(state, rules, now=None):
         "remaining": (round(max(0.0, deadline(state, rules) - now), 3) if live(state) else 0) if state["started_at"] else None,
         "mission_seconds": rules.mission_seconds + int(state.get("grace", 0)), "used_seconds": used_seconds(state, now),
         "progress": {"done": done, "total": C.TOTAL},
+        "core_done": bool(state.get("core_done_at")),
         "levels": levels,
         "questions": {qid: {"solved": s["solved"], "wrong": s["wrong"], "revealed": s["revealed"],
                             "timed_out": s["timed_out"], "hint": s["hints"] > 0} for qid, s in state["q"].items() if qid in C.QUESTIONS},
@@ -420,8 +430,14 @@ def award_badges(state, now=None):
     if visual and all(state["q"].get(b, {}).get("solved") and not state["q"][b]["wrong"] for b in visual):
         give(vbadge)
     if level_stats(state, C.LEVEL_BY_ID["BOSS"])["done"] and not state["ended_at"]:
-        state["ended_at"] = now or time.time()
-        state["ended_reason"] = "complete"
+        if has_bonus() and not all(level_stats(state, l)["done"] for l in C.LEVELS if l.get("bonus")):
+            # Every required stage is cleared: the mission is complete, and the bonus round stays open until the
+            # student finishes it, presses Finish, or the clock runs out.
+            state.setdefault("core_done_at", now or time.time())
+        else:
+            state.setdefault("core_done_at", now or time.time())
+            state["ended_at"] = now or time.time()
+            state["ended_reason"] = "complete"
     return new
 
 
@@ -573,7 +589,7 @@ def proctor(state, rules, kind, duration_ms=0, now=None):
             counted = True
             if rules.max_tab_switches and p["tab_switches"] >= rules.max_tab_switches:
                 state["ended_at"] = now
-                state["ended_reason"] = "proctor"
+                state["ended_reason"] = end_reason(state, "proctor")
                 ended = True
         elif kind in ("copy", "cut", "paste", "contextmenu"):
             p["copy_paste"] += 1
@@ -603,9 +619,22 @@ STATUS_LABEL = {"complete": "Completed", "time": "Time ran out", "proctor": "End
                 "in progress": "In progress", "not started": "Not started"}
 
 
+def finish(state, rules, now=None):
+    """A student who cleared every required stage ends the mission now instead of playing the bonus round."""
+    now = now or time.time()
+    if not state.get("core_done_at"):
+        raise MissionError("Clear the Final Boss first.", 409)
+    if not state["ended_at"]:
+        state["ended_at"] = now
+        state["ended_reason"] = "complete"
+    return {"state": public_state(state, rules, now)}
+
+
 def status_of(state):
     if state["ended_reason"]:
         return state["ended_reason"]
+    if state.get("core_done_at"):
+        return "complete"
     return "in progress" if state["started_at"] else "not started"
 
 

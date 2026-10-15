@@ -182,7 +182,7 @@ SECRET_KEYS = {"answer", "answers", "value", "blanks", "mapping", "line", "error
 def test_mission_payload_has_no_answer_keys(client):
     h = login(client)
     m = client.get("/api/dicts/mission", headers=h).json()
-    assert len(m["levels"]) == 7 and sum(len(l["questions"]) for l in m["levels"]) == C.TOTAL
+    assert len(m["levels"]) == len(C.LEVELS) and sum(len(l["questions"]) for l in m["levels"] if not l.get("bonus")) == C.TOTAL
     for l in m["levels"]:
         for q in l["questions"]:
             assert not (SECRET_KEYS & set(q)), (q["id"], SECRET_KEYS & set(q))
@@ -682,6 +682,69 @@ def test_simultaneous_answers_are_counted_once(client):
     assert sum(1 for r in results if r["correct"] and not r.get("already_solved")) == 1
     st = client.get("/api/dicts/mission", headers=h).json()["state"]
     assert st["xp"] == 12 and st["combo"] == 1
+
+
+HAS_BONUS = any(l.get("bonus") for l in C.LEVELS)
+only_bonus = pytest.mark.skipif(not HAS_BONUS, reason="this mission has no bonus round")
+
+
+def clear_core(client, h):
+    for l in C.LEVELS:
+        if not l.get("bonus"):
+            clear_stage(client, h, l["id"])
+
+
+@only_bonus
+def test_bonus_round_opens_after_the_boss_and_mission_counts_as_complete(client):
+    t = teacher(client)
+    h = login(client)
+    start(client, h)
+    assert client.post("/api/dicts/finish", headers=h).status_code == 409   # not before the Final Boss
+    clear_core(client, h)
+    st = client.get("/api/dicts/mission", headers=h).json()["state"]
+    assert st["ended_at"] is None and st["core_done"] and st["progress"] == {"done": C.TOTAL, "total": C.TOTAL}
+    assert st["levels"][-1]["unlocked"] and not st["levels"][-1]["done"]
+    row = client.get("/api/teacher/dicts", headers=t).json()["students"][0]
+    assert row["status"] == "complete" and row["done"] == C.TOTAL and not row["can_resume"]
+    first_bonus = next(l for l in C.LEVELS if l.get("bonus"))["main"][0]
+    assert solve(client, h, first_bonus)["xp"] > 0   # bonus XP counts
+
+
+@only_bonus
+def test_finish_skips_the_bonus_round(client):
+    h = login(client)
+    start(client, h)
+    clear_core(client, h)
+    st = client.post("/api/dicts/finish", headers=h).json()["state"]
+    assert st["ended_reason"] == "complete"
+    assert client.post("/api/dicts/open", json={"qid": next(l for l in C.LEVELS if l.get("bonus"))["main"][0]}, headers=h).json()["detail"] == "mission-over"
+
+
+@only_bonus
+def test_clock_or_tab_switches_during_the_bonus_still_count_as_complete(client, clock):
+    h = login(client)
+    start(client, h)
+    clear_core(client, h)
+    for _ in range(3):
+        r = client.post("/api/dicts/proctor", json={"type": "tab_switch", "duration_ms": 2000}, headers=h).json()
+    assert r["state"]["ended_reason"] == "complete"
+    h2 = login(client, name="Second")
+    start(client, h2)
+    clear_core(client, h2)
+    clock.t += MISSION_S + 1
+    assert client.get("/api/dicts/mission", headers=h2).json()["state"]["ended_reason"] == "complete"
+
+
+@only_bonus
+def test_clearing_the_bonus_ends_the_mission_with_its_badge(client):
+    h = login(client)
+    start(client, h)
+    clear_core(client, h)
+    for l in C.LEVELS:
+        if l.get("bonus"):
+            clear_stage(client, h, l["id"])
+    st = client.get("/api/dicts/mission", headers=h).json()["state"]
+    assert st["ended_reason"] == "complete" and C.STAGE_BADGE["BONUS"] in st["badges"]
 
 
 def test_progress_on_a_removed_question_still_loads(client):

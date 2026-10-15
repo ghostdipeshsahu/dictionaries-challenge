@@ -67,9 +67,10 @@ BADGES = {
     "combo-5": {"name": "On Fire", "desc": "5 right answers in a row"},
     "clean-sweep": {"name": "Clean Sweep", "desc": "3 stars on any stage"},
     "board-pro": {"name": "Board Pro", "desc": "Both Board builds right on the first try"},
+    "bonus-star": {"name": "Bonus Star", "desc": "Clear the optional Bonus Round"},
 }
 STAGE_BADGE = {"L1": "board-explorer", "L2": "duplicate-detective", "L3": "key-keeper",
-               "L4": "logic-detective", "L5": "bug-hunter", "BOSS": "python-dicts-champion"}
+               "L4": "logic-detective", "L5": "bug-hunter", "BOSS": "python-dicts-champion", "BONUS": "bonus-star"}
 
 BOSS_SCENARIO = '''menu = {"tea": 12, "coffee": 15, "samosa": 15}
 updates = [("chai", 10), ("coffee", 18), ("samosa", 15), ("dosa", 20), ("chai", 12)]
@@ -150,6 +151,16 @@ LEVELS = [
         ],
         "demo": BOSS_SCENARIO,
         "main": ["B-1", "B-4", "B-5", "B-6"],
+    },
+    {
+        "id": "BONUS", "name": "Bonus Round", "difficulty": "Optional", "bonus": True,
+        "intel": [
+            "Your mission is already <b>complete</b>. This round is extra: five quick questions for more XP and the <b>Bonus Star</b> badge.",
+            "Each one mixes two ideas from today. Read the code slowly.",
+            "You can stop any time: press <b>Finish</b> on the map to see your report.",
+        ],
+        "demo": 'menu = {"tea": 12}\nmenu["chai"] = menu["tea"]\nprint(menu)',
+        "main": ["X-1", "X-2", "X-3", "X-4", "X-5"],
     },
 ]
 
@@ -581,16 +592,59 @@ LEARN = {
                       {"line": 5, "say": "The final board.", "shows": "{'tea': 12, 'coffee': 18, 'samosa': 15, 'chai': 12, 'dosa': 20}"}]},
 }
 for _lvl in LEVELS:
-    _lvl.update(LEARN[_lvl["id"]])
+    _lvl.update(LEARN.get(_lvl["id"], {}))
 
+
+# ---------- Bonus Round (optional, for students who finish early) ----------
+add(id="X-1", stage="BONUS", type="predict", level="Read", concept="case",
+    title="What does this print?",
+    code='menu = {"tea": 12, "coffee": 15}\nfor name in list(menu.keys()):\n    menu[name.upper()] = menu[name]\nprint(len(menu))',
+    options=["4", "2", "!RuntimeError: dictionary changed size during iteration", "!KeyError: 'TEA'"],
+    answer=0,
+    why={1: "<code>\"TEA\"</code> and <code>\"tea\"</code> are different keys, so each upper-case name is a new row.",
+         2: "The loop walks a <code>list()</code> copy of the keys, so adding rows is safe.",
+         3: "Assigning to a missing key adds it; it never raises KeyError."},
+    hints=["Is TEA the same key as tea?", "The loop walks a list copy, not the live view."],
+    explain="The loop walks a fixed list copy of the keys and adds <code>TEA</code> and <code>COFFEE</code> as new keys (keys are case-sensitive): 4 pairs.")
+
+add(id="X-2", stage="BONUS", type="numeric", level="Read", concept="membership",
+    title="What number does this print?",
+    code='prices = {"tea": 12, "samosa": 15, "puff": 20}\norder = ["tea", "puff", "tea", "dosa"]\nbill = 0\nfor item in order:\n    if item in prices:\n        bill = bill + prices[item]\nprint(bill)',
+    value=44,
+    hints=["dosa is skipped. tea is ordered twice."],
+    explain="tea 12 + puff 20 + tea 12 = 44. dosa is not on the board, so the <code>if</code> skips it.")
+
+add(id="X-3", stage="BONUS", type="tf", level="Recall", concept="hashable_keys",
+    title='True or false: menu[("tea", "samosa")] = 27 adds a combo row to the board.',
+    value=True,
+    hints=["Can a tuple change after it is made?"],
+    explain="A tuple cannot change, so it can be a key: the combo row <code>('tea', 'samosa'): 27</code> is added. A list there would raise TypeError.")
+
+add(id="X-4", stage="BONUS", type="msq", level="Read", concept="add_change",
+    title="menu = {\"tea\": 12, \"coffee\": 15}. Which lines leave the board exactly as it is?",
+    options=['menu.get("dosa")', '"dosa" in menu', 'menu["coffee"] = 15', 'menu["Tea"] = 12', 'del menu["tea"]'],
+    answers=[0, 1, 2],
+    hints=["Looking something up never changes the board. Which lines write to it?"],
+    explain='<code>get</code> and <code>in</code> only look. Setting coffee to the 15 it already has changes nothing. <code>"Tea"</code> is a new key, and <code>del</code> removes a row.')
+
+add(id="X-5", stage="BONUS", type="predict", level="Read", concept="add_change",
+    title="What does this print?",
+    code='menu = {"b": 2, "a": 1}\nmenu["c"] = 3\ndel menu["b"]\nmenu["b"] = 4\nprint(list(menu.keys()))',
+    options=["['a', 'c', 'b']", "['a', 'b', 'c']", "['b', 'a', 'c']", "['c', 'a', 'b']"],
+    answer=0,
+    why={1: "Dictionaries keep the order keys were added, not alphabetical order.",
+         2: "b was deleted, so when it comes back it is a new key at the end.",
+         3: "c was added after a, so a comes first."},
+    hints=["A deleted key that comes back goes to the end."],
+    explain="Order is the order keys were added: a, then c; b was deleted and added again, so it goes last.")
 
 QUESTIONS = {q["id"]: q for q in Q}
 LEVEL_IDS = [lvl["id"] for lvl in LEVELS]
 LEVEL_BY_ID = {lvl["id"]: lvl for lvl in LEVELS}
-TOTAL = sum(len(lvl["main"]) for lvl in LEVELS)
+TOTAL = sum(len(lvl["main"]) for lvl in LEVELS if not lvl.get("bonus"))  # the bonus round is optional
 
 assert len(QUESTIONS) == len(Q), "duplicate question id"
-assert TOTAL == len(Q) == 30, TOTAL
+assert TOTAL == 30 and len(Q) == 35, (TOTAL, len(Q))
 for lvl in LEVELS:
     for qid in lvl["main"]:
         assert QUESTIONS[qid]["stage"] == lvl["id"], qid

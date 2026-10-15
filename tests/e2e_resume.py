@@ -12,6 +12,8 @@ from playwright.sync_api import expect, sync_playwright
 
 sys.path.insert(0, os.path.dirname(__file__))
 from e2e_walkthrough import cleanup, dismiss_tour, pass_coach  # noqa: E402
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+from app import content as C  # noqa: E402
 
 BASE = sys.argv[1] if len(sys.argv) > 1 else "http://localhost:8012"
 SHOTS = sys.argv[2] if len(sys.argv) > 2 else "shots-resume"
@@ -87,7 +89,7 @@ try:
         print("teacher pressed Resume")
 
         # 3) the student page continues on its own (no reload, no click)
-        expect(page.locator(".map .node")).to_have_count(7, timeout=12000)
+        expect(page.locator(".map .node")).to_have_count(len(C.LEVELS), timeout=12000)
         expect(page.locator(".toast")).to_contain_text("resumed", timeout=5000)
         shot(page, "04-student-resumed")
         page.locator("#go").click()

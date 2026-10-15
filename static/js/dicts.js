@@ -352,23 +352,24 @@ function renderMap(){
   view.innerHTML=`<section class="home dicts-home">
     <div>
       <div class="hero enter">
-        <div class="eyebrow">Mission · ${M.levels.length} stages · ${p.total} challenges</div>
+        <div class="eyebrow">Mission · ${M.levels.filter(l=>!l.bonus).length} stages · ${p.total} challenges${M.levels.some(l=>l.bonus)?' + bonus':''}</div>
         <h1>${M.ui.hero_h1}</h1>
         <p>${M.ui.hero_p}</p>
         <div class="hero-row">
           ${ended?`<button class="btn gold" id="go" type="button">${ICON.trophy.replace('width="26" height="26"','width="20" height="20"')}See your mission report</button>`
+            :ST.core_done?`<button class="btn gold" id="go" type="button">${ICON.play}Play the bonus round</button><button class="btn primary" id="finishBtn" type="button">Finish: see my report</button>`
             :`<button class="btn primary" id="go" type="button">${ICON.play}${ST.started_at?'Continue':'Start mission'}: ${esc(nx?nx.name:'')}</button>`}
           <button class="btn" id="labBtn" type="button">${ICON.board}${esc(M.ui.lab_name)}</button>
         </div>
-        <div class="mbar-big" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}" aria-label="Mission progress"><i style="width:${pct}%"></i><span>${p.done} / ${p.total} challenges · ${done} / ${M.levels.length} stages</span></div>
+        <div class="mbar-big" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}" aria-label="Mission progress"><i style="width:${pct}%"></i><span>${p.done} / ${p.total} challenges · ${ST.levels.filter((x,k)=>x.done&&!M.levels[k].bonus).length} / ${M.levels.filter(l=>!l.bonus).length} stages</span></div>
       </div>
       <div class="map" id="map">
         <svg class="trail" aria-hidden="true"><path class="base"/><path class="done"/></svg>
         ${M.levels.map((l,i)=>{const s=lvState(l.id),open=s.unlocked&&!ended;
-          return `<button class="node${s.done?' cleared':''}${!open?' locked':''}${nx&&nx.id===l.id&&!ended?' next':''}${l.id==='BOSS'?' boss':''}" type="button" data-l="${l.id}" ${open?'':'aria-disabled="true"'} aria-label="${esc(l.name)}${open?'':' (locked)'}">
-            <span class="orb">${!open&&!s.done?ICON.lock:l.id==='BOSS'?ICON.trophy:i===0?ICON.play.replace('class="i"','width="26" height="26"'):i}</span>
+          return `<button class="node${s.done?' cleared':''}${!open?' locked':''}${nx&&nx.id===l.id&&!ended?' next':''}${l.id==='BOSS'?' boss':''}${l.bonus?' bonus':''}" type="button" data-l="${l.id}" ${open?'':'aria-disabled="true"'} aria-label="${esc(l.name)}${open?'':' (locked)'}">
+            <span class="orb">${!open&&!s.done?ICON.lock:l.bonus?'<svg viewBox="0 0 24 24" width="26" height="26" fill="currentColor" aria-hidden="true"><path d="m12 2.5 2.9 6 6.6.8-4.9 4.6 1.3 6.6L12 17.3l-5.9 3.2 1.3-6.6L2.5 9.3l6.6-.8z"/></svg>':l.id==='BOSS'?ICON.trophy:i===0?ICON.play.replace('class="i"','width="26" height="26"'):i}</span>
             <span><h3>${esc(l.name)}</h3><p>${esc(l.difficulty)} · ${s.total} challenge${s.total>1?'s':''}</p>
-              <span class="nmm${s.done?' done':''}"><i style="width:${s.total?Math.round(s.cleared/s.total*100):0}%"></i></span><small class="nmt">${s.done?'Cleared':ended?'Mission over':open?`${s.cleared} / ${s.total} cleared`:'Clear the stage before to unlock'}</small></span>
+              <span class="nmm${s.done?' done':''}"><i style="width:${s.total?Math.round(s.cleared/s.total*100):0}%"></i></span><small class="nmt">${s.done?'Cleared':ended?'Mission over':open?`${s.cleared} / ${s.total} cleared`:l.bonus?'Optional: clear the Final Boss to unlock':'Clear the stage before to unlock'}</small></span>
             ${starsHTML(s.stars)}</button>`}).join('')}
       </div>
     </div>
@@ -384,6 +385,7 @@ function renderMap(){
     </aside></section>`;
   $('#go').onclick=()=>{ac();ended?renderSummary():nx&&renderBriefing(nx.id)};
   $('#labBtn').onclick=()=>{ac();renderLab()};
+  const fb=$('#finishBtn');if(fb)fb.onclick=finishMission;
   $$('.node[data-l]').forEach(n=>n.onclick=()=>{
     if(ended)return renderSummary();
     const s=lvState(n.dataset.l);if(!s.unlocked){n.classList.remove('shake');void n.offsetWidth;n.classList.add('shake');sfx.bad();toast('Clear the stage before this one first','rank');return}
@@ -413,7 +415,7 @@ function renderBriefing(id){
   const mains=l.main.map(q=>QM[q]),types=[...new Set(mains.map(q=>TYPE_LABEL[q.type]))],secs=mains.reduce((a,q)=>a+q.time,0);
   view.innerHTML=`<section class="power enter brief">
     ${backBar()}
-    <div class="eyebrow">${id==='BOSS'?'Final Boss':id==='L0'?'Mission briefing':'Stage '+i} · ${esc(l.difficulty)}</div>
+    <div class="eyebrow">${l.bonus?'Bonus round':id==='BOSS'?'Final Boss':id==='L0'?'Mission briefing':'Stage '+i} · ${esc(l.difficulty)}</div>
     <h2>${esc(l.name)}</h2>
     ${id==='L0'?`<div class="story">${M.ui.story}</div>`:''}
     ${l.job?`<div class="jobbox"><h3>Your job</h3><p>${l.job}</p></div>`:''}
@@ -1143,21 +1145,29 @@ function renderLab(){
 /* ---------- stage complete + mission report ---------- */
 function renderLevelDone(){
   const l=LVM[R.level],s=lvState(R.level),i=lvIndex(R.level),next=M.levels[i+1],gained=ST.xp-R.xp0;
-  const boss=R.level==='BOSS';
+  const boss=R.level==='BOSS',bonusLv=l.bonus,offerBonus=boss&&next&&next.bonus&&live();
   view.innerHTML=`<section class="done">
     ${backBar()}
     <div class="eyebrow">${boss?'Final Boss defeated':esc(l.name)+' cleared'}</div>
-    <h2>${boss?esc(M.ui.boss_win):'Stage clear!'}</h2>
+    <h2>${boss?esc(M.ui.boss_win):bonusLv?'Bonus round cleared!':'Stage clear!'}</h2>
+    ${offerBonus?`<p class="bonusline">${ICON.trophy.replace('width="26" height="26"','width="20" height="20"')}<span><b>Mission complete.</b> You finished early, so a <b>bonus round</b> is open: ${next.main.length} quick questions, about ${Math.round(next.main.reduce((a,q)=>a+QM[q].time,0)/60)} minutes, for extra XP and a badge.</span></p>`:''}
     ${starsHTML(s.stars,'bigstars')}
     <div class="tally"><div><b>+${gained}</b><span>XP this run</span></div><div><b>${s.first_try}/${s.total}</b><span>First try</span></div><div><b>${s.timed_out}</b><span>Timed out</span></div></div>
     ${R.badges.length?`<div class="badges newb">${[...new Set(R.badges)].map(id=>badgeHTML(id,true)).join('')}</div>`:''}
     <p class="muted">${s.stars<3?'Answer every challenge right on the first try for 3 stars.':'Flawless stage. Every challenge right on the first try.'}</p>
     <div class="hero-row" style="justify-content:center">
-      ${boss?`<button class="btn gold" id="nextL" type="button">See your mission report</button>`:next?`<button class="btn primary" id="nextL" type="button">${ICON.play}Next: ${esc(next.name)}</button>`:''}
+      ${offerBonus?`<button class="btn gold" id="nextL" type="button">${ICON.play}Play the bonus round</button><button class="btn primary" id="finishBtn" type="button">Finish: see my report</button>`
+        :boss||bonusLv?`<button class="btn gold" id="nextL" type="button">See your mission report</button>`:next?`<button class="btn primary" id="nextL" type="button">${ICON.play}Next: ${esc(next.name)}</button>`:''}
       <button class="btn ghost" id="toMap" type="button">Mission map</button></div></section>`;
   sfx.win();rain(boss?220:s.stars*50);setTimeout(()=>burst(innerWidth/2,innerHeight*.35,boss?140:90,1.3),400);
-  const nb=$('#nextL');if(nb)nb.onclick=()=>boss?renderSummary():renderBriefing(next.id);
+  const nb=$('#nextL');if(nb)nb.onclick=()=>offerBonus?renderBriefing(next.id):(boss||bonusLv)?renderSummary():renderBriefing(next.id);
+  const fb=$('#finishBtn');if(fb)fb.onclick=finishMission;
   $('#toMap').onclick=renderMap;$('#backBtn').onclick=renderMap;window.scrollTo(0,0);mark('done',R.level);
+}
+/* Every required stage is cleared: end the mission now instead of playing the bonus round. */
+async function finishMission(){
+  const b=$('#finishBtn');if(b)b.disabled=true;
+  try{const r=await api('POST','/finish');adopt(r.state);overHandled=true;renderSummary()}catch(e){if(b)b.disabled=false;netError(e)}
 }
 async function renderSummary(){
   R=null;Q=null;stopQTimer();closeDrawer();
