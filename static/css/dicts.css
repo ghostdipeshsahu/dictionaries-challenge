@@ -354,33 +354,16 @@ body.dicts-app input,body.dicts-app textarea{-webkit-user-select:text;user-selec
 @media (max-width:560px){.resumewait{grid-template-columns:auto minmax(0,1fr)}.resumewait .btn{grid-column:1/-1}}
 
 
-/* ---------- instructional guidance: what to do, step by step ---------- */
-.howto{padding:10px 14px 10px 12px;border-radius:14px;background:color-mix(in srgb,var(--blue) 6%,var(--surface));border:1px solid color-mix(in srgb,var(--blue) 25%,var(--line))}
-.howto .hthead{display:block;font:700 11px/1 var(--f-mono);letter-spacing:.14em;text-transform:uppercase;color:var(--blue);margin-bottom:6px}
-.howto ol{margin:0;padding-left:22px;display:grid;gap:3px;font-size:14.5px;line-height:1.4}
-.howto li::marker{font:700 13px var(--f-mono);color:var(--blue)}
-.howto.big{padding:16px 18px;margin:6px 0 14px}.howto.big ol{font-size:16px;gap:8px}
-.nextline{display:flex;align-items:center;gap:6px;margin:-2px 0 0;min-height:1.3em;font-size:13.5px;color:var(--muted)}
-.nextline svg{width:16px;height:16px;color:var(--good);flex:0 0 auto}
-.learn{padding:16px 20px;border-radius:22px;background:color-mix(in srgb,var(--good) 7%,var(--surface));border:1px solid color-mix(in srgb,var(--good) 30%,var(--line))}
-.learn h3{margin:0 0 8px;font:700 12px/1 var(--f-mono);letter-spacing:.16em;text-transform:uppercase;color:var(--good)}
-.learn ul{margin:0;padding-left:20px;display:grid;gap:4px;font-size:clamp(15.5px,1.3vw,17px)}
-.walk{display:grid;gap:10px;padding:16px;border-radius:22px;background:var(--surface);border:2px solid color-mix(in srgb,var(--blue) 35%,var(--line));box-shadow:var(--shadow)}
-.walkhead{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
-.walkhead h3{margin:0;font:700 12px/1 var(--f-mono);letter-spacing:.16em;text-transform:uppercase;color:var(--blue)}
-.walkhead span{font:700 12.5px var(--f-mono);color:var(--muted)}
-.walksay{margin:0;min-height:2.6em;font-size:16px;line-height:1.45}
-.walkbtns{display:flex;gap:8px;flex-wrap:wrap}
-.code .ln.now{background:linear-gradient(90deg,rgba(245,181,35,.22),transparent 75%);box-shadow:inset 3px 0 0 var(--gold)}
-.btn.pulse{animation:btnpulse 1.6s ease-in-out 3}
-@keyframes btnpulse{50%{box-shadow:0 4px 0 color-mix(in srgb,var(--blue) 60%,#000),0 0 0 8px color-mix(in srgb,var(--cyan) 25%,transparent)}}
-.node{position:relative}
-.starthere{position:absolute;top:-11px;left:20px;z-index:2;padding:3px 10px;border-radius:999px;background:var(--gold);color:#1A1200;font:800 11px/1.5 var(--f-mono);letter-spacing:.08em;text-transform:uppercase;box-shadow:0 2px 0 color-mix(in srgb,var(--gold) 55%,#000)}
-.tour h3{margin:4px 0 8px;font:800 22px/1.15 var(--f-display);letter-spacing:-.02em}
-.tour p{margin:0 0 6px;font-size:16.5px;line-height:1.5}
-.tourdots{display:flex;gap:6px;margin:10px 0 14px}.tourdots i{width:8px;height:8px;border-radius:50%;background:var(--line)}.tourdots i.on{background:var(--blue);width:22px;border-radius:8px}
-@media (prefers-reduced-motion:reduce){.btn.pulse{animation:none}}
-
+/* ---------- "Your task": closed by default; a student opens it only if they want the steps ---------- */
+.howto{align-self:flex-start;width:fit-content;max-width:100%}
+.howto summary{display:inline-flex;align-items:center;gap:6px;padding:5px 12px 5px 9px;border-radius:999px;border:1px solid var(--line);background:var(--surface);font:700 12.5px var(--f-display);color:var(--muted);cursor:pointer;list-style:none;user-select:none}
+.howto summary::-webkit-details-marker{display:none}
+.howto summary::after{content:"▾";font-size:11px;margin-left:2px;transition:transform .2s}
+.howto[open] summary::after{transform:rotate(180deg)}
+.howto summary svg{width:15px;height:15px;color:var(--gold)}
+.howto summary:hover{color:var(--ink);border-color:color-mix(in srgb,var(--blue) 45%,var(--line))}
+.howto ol{margin:8px 0 0;padding:10px 14px 10px 32px;border-radius:12px;background:var(--surface-2);border:1px solid var(--line);display:grid;gap:3px;font-size:14px;line-height:1.4}
+.howto li::marker{font:700 12.5px var(--f-mono);color:var(--blue)}
 
 /* ---------- Where does it land? ---------- */
 .land{display:grid;gap:10px}

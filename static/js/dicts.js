@@ -68,7 +68,7 @@ const HOWTO={
   land:{steps:['Tap an argument from the call.','Tap the box it lands in, or <b>No box</b> if Python stops.','Place every argument, then press <b>Check</b>.'],wait:'Place every argument to turn on Check.'},
   coding:{steps:['Read the task and the sample tests.','Write your code in the editor.','Press <b>Run samples</b> to test it, then <b>Submit all tests</b>.'],wait:''},
 };
-const howtoHTML=(t,cls)=>`<div class="howto ${cls||''}"><b class="hthead">Your task</b><ol>${(HOWTO[t]||HOWTO.mcq).steps.map(x=>`<li>${x}</li>`).join('')}</ol></div>`;
+const howtoHTML=t=>`<details class="howto"><summary>${ICON.bulb}Your task</summary><ol>${(HOWTO[t]||HOWTO.mcq).steps.map(x=>`<li>${x}</li>`).join('')}</ol></details>`;
 /* What a learner has already been shown, per mission and roll number (stored in this browser only). */
 const seenKey=k=>`dicts-${(M&&M.ui&&M.ui.id)||'x'}-${(API.user&&API.user.roll_no)||'anon'}-${k}`;
 function seen(k){try{return JSON.parse(localStorage.getItem(seenKey(k))||'false')}catch(e){return false}}
@@ -239,26 +239,6 @@ async function onMissionOver(){
   renderSummary();
 }
 
-/* ---------- How to play: a short tour on the first visit (reopen from the map) ---------- */
-const TOUR=[
-  ['Your mission',`The map has <b>stages</b>. They unlock one at a time. Each stage starts with a short <b>briefing</b>: what you will learn and an example you can watch line by line.`],
-  ['Answering a question',`Every question has a <b>Your task</b> box with the steps. Answer, then press <b>Check</b>. The first time you meet a new kind of question, we show you how it works and its timer waits for you.`],
-  ['When you are stuck',`Press <b>Hint</b>: it points to the idea you need (it costs a little XP). A wrong answer never takes XP away. After ${'${'}M.rules.reveal_after} wrong tries you can <b>show the solution</b>.`],
-  ['The rules',`One <b>${'${'}M.rules.mission_minutes}-minute clock</b> for the whole mission, and a countdown on each question. <b>Stay on this tab</b>: ${'${'}M.rules.max_tab_switches} switches end the mission (your teacher can resume it). Copy and paste are off.`]];
-function showTour(){
-  let k=0;modal.dataset.locked='';
-  const draw=()=>{const [h,body]=TOUR[k],last=k===TOUR.length-1;
-    openModal(`<div class="ghead"><h2 id="modalTitle">${ICON.bulb} How to play · ${k+1} of ${TOUR.length}</h2></div>
-      <div class="tour"><h3>${h}</h3><p>${new Function('M','return `'+body+'`')(M)}</p></div>
-      <div class="tourdots" aria-hidden="true">${TOUR.map((_,i)=>`<i class="${i===k?'on':''}"></i>`).join('')}</div>
-      <div class="power-row">${k?'<button class="btn ghost" id="tourBack" type="button">Back</button>':''}<button class="btn primary" id="tourNext" type="button">${last?ICON.play+'Let\'s go':'Next'}</button>${last?'':'<button class="btn ghost" id="tourSkip" type="button">Skip</button>'}</div>`);
-    const nb=$('#tourNext',modal);nb.onclick=()=>{sfx.tap();if(last){markSeen('tour');modal.close()}else{k++;draw()}};
-    const bb=$('#tourBack',modal);if(bb)bb.onclick=()=>{k--;draw()};
-    const sk=$('#tourSkip',modal);if(sk)sk.onclick=()=>{markSeen('tour');modal.close()};
-    setTimeout(()=>nb.focus(),50)};
-  draw();
-}
-
 /* ---------- modal (rules, proctoring warnings) ---------- */
 function openModal(html,onClose){
   modal.innerHTML=`<div class="gin">${html}</div>`;modal.onclose=()=>{onClose&&onClose()};
@@ -378,7 +358,7 @@ function renderMap(){
         <div class="hero-row">
           ${ended?`<button class="btn gold" id="go" type="button">${ICON.trophy.replace('width="26" height="26"','width="20" height="20"')}See your mission report</button>`
             :`<button class="btn primary" id="go" type="button">${ICON.play}${ST.started_at?'Continue':'Start mission'}: ${esc(nx?nx.name:'')}</button>`}
-          <button class="btn" id="labBtn" type="button">${ICON.board}${esc(M.ui.lab_name)}</button><button class="btn ghost" id="tourBtn" type="button">${ICON.bulb}How to play</button>
+          <button class="btn" id="labBtn" type="button">${ICON.board}${esc(M.ui.lab_name)}</button>
         </div>
         <div class="mbar-big" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}" aria-label="Mission progress"><i style="width:${pct}%"></i><span>${p.done} / ${p.total} challenges · ${done} / ${M.levels.length} stages</span></div>
       </div>
@@ -386,7 +366,7 @@ function renderMap(){
         <svg class="trail" aria-hidden="true"><path class="base"/><path class="done"/></svg>
         ${M.levels.map((l,i)=>{const s=lvState(l.id),open=s.unlocked&&!ended;
           return `<button class="node${s.done?' cleared':''}${!open?' locked':''}${nx&&nx.id===l.id&&!ended?' next':''}${l.id==='BOSS'?' boss':''}" type="button" data-l="${l.id}" ${open?'':'aria-disabled="true"'} aria-label="${esc(l.name)}${open?'':' (locked)'}">
-            ${nx&&nx.id===l.id&&!ended?'<span class="starthere">Start here</span>':''}<span class="orb">${!open&&!s.done?ICON.lock:l.id==='BOSS'?ICON.trophy:i===0?ICON.play.replace('class="i"','width="26" height="26"'):i}</span>
+            <span class="orb">${!open&&!s.done?ICON.lock:l.id==='BOSS'?ICON.trophy:i===0?ICON.play.replace('class="i"','width="26" height="26"'):i}</span>
             <span><h3>${esc(l.name)}</h3><p>${esc(l.difficulty)} · ${s.total} challenge${s.total>1?'s':''}</p>
               <span class="nmm${s.done?' done':''}"><i style="width:${s.total?Math.round(s.cleared/s.total*100):0}%"></i></span><small class="nmt">${s.done?'Cleared':ended?'Mission over':open?`${s.cleared} / ${s.total} cleared`:'Clear the stage before to unlock'}</small></span>
             ${starsHTML(s.stars)}</button>`}).join('')}
@@ -404,13 +384,11 @@ function renderMap(){
     </aside></section>`;
   $('#go').onclick=()=>{ac();ended?renderSummary():nx&&renderBriefing(nx.id)};
   $('#labBtn').onclick=()=>{ac();renderLab()};
-  $('#tourBtn').onclick=()=>showTour();
   $$('.node[data-l]').forEach(n=>n.onclick=()=>{
     if(ended)return renderSummary();
     const s=lvState(n.dataset.l);if(!s.unlocked){n.classList.remove('shake');void n.offsetWidth;n.classList.add('shake');sfx.bad();toast('Clear the stage before this one first','rank');return}
     ac();renderBriefing(n.dataset.l)});
   drawTrail();hud();window.scrollTo(0,0);mark('map');loadLeaderboard('#lbCard');
-  if(!seen('tour')&&!ST.started_at)setTimeout(showTour,350);
 }
 function conceptBars(){
   const ent=Object.entries(ST.concepts);
@@ -438,38 +416,16 @@ function renderBriefing(id){
     <div class="eyebrow">${id==='BOSS'?'Final Boss':id==='L0'?'Mission briefing':'Stage '+i} · ${esc(l.difficulty)}</div>
     <h2>${esc(l.name)}</h2>
     ${id==='L0'?`<p class="story">${M.ui.story}</p>`:''}
-    ${l.learn&&l.learn.length?`<div class="learn"><h3>You will learn to</h3><ul>${l.learn.map(t=>`<li>${esc(t)}</li>`).join('')}</ul></div>`:''}
     <div class="intel"><h3>Field intel</h3><ul>${l.intel.map(t=>`<li>${t}</li>`).join('')}</ul></div>
-    ${l.walk&&l.walk.length?`<div class="walk" id="walk"><div class="walkhead"><h3>Watch it first</h3><span id="walkStep"></span></div>${codePanel(l.demo,{run:true,file:id==='BOSS'?'scenario.py':'example.py'})}
-      <p class="walksay" id="walkSay" aria-live="polite"></p><div class="walkbtns"><button class="btn ghost" id="walkBack" type="button">${ICON.back}Back</button><button class="btn primary" id="walkNext" type="button">Next step</button></div></div>`
-      :codePanel(l.demo,{run:true,file:id==='BOSS'?'scenario.py':'intel.py'})}
+    ${codePanel(l.demo,{run:true,file:id==='BOSS'?'scenario.py':'intel.py'})}
     <p class="tipline">${ICON.bulb}<span>Stuck on a question? Open its <b>hint</b>. It names the concept and nudges you towards it. The <b>field guide</b> (book icon, top right) has every rule in one place.</span></p>
     <div class="stages"><div><b>${mains.length} challenge${mains.length>1?'s':''}</b><span>${s.cleared} cleared so far</span><small>${types.join(' · ')}</small></div><div><b>Up to ${mins(secs)}</b><span>question countdowns in total</span><small>Each question shows its own timer</small></div></div>
     <div class="power-row"><button class="btn primary" id="begin" type="button">${ICON.play}${s.done?'Replay stage (no new XP)':s.cleared?'Continue stage':'Start stage'}</button><button class="btn ghost" id="toMap" type="button">Mission map</button><span>Keys: 1–9 pick · Enter checks</span></div>
   </section>`;
-  bindRun($('.code',view),l.demo);if(l.walk&&l.walk.length)walkThrough(l);
+  bindRun($('.code',view),l.demo);
   $('#toMap').onclick=renderMap;$('#backBtn').onclick=renderMap;
   $('#begin').onclick=()=>{sfx.tap();if(!ST.started_at)return showRules(()=>startLevel(id));startLevel(id)};
   window.scrollTo(0,0);$('#view').focus({preventScroll:true});mark('brief',id);
-}
-/* Worked example: one line at a time, what it does, and what it prints. Learners watch before they practise. */
-function walkThrough(l){
-  const panel=$('#walk .code'),steps=l.walk;let k=-1;
-  const outBox=()=>{let c=$('.console',panel);if(!c){panel.insertAdjacentHTML('beforeend','<div class="console"><div class="con-head"><span>Output</span><span class="con-state">so far</span></div><pre class="con-out"></pre></div>');c=$('.console',panel)}c.hidden=false;return $('.con-out',panel)};
-  const draw=()=>{
-    $$('.ln',panel).forEach(x=>{x.classList.remove('ran','now');$$('.tag',x).forEach(t=>t.remove())});
-    steps.slice(0,k+1).forEach((st,i)=>{const ln=panel.querySelector(`.ln[data-n="${st.line}"]`);if(ln){ln.classList.add('ran');if(i===k)ln.classList.add('now')}});
-    const shown=steps.slice(0,k+1).filter(st=>st.shows!=null).map(st=>st.shows);
-    if(k>=0&&shown.length)outBox().textContent=shown.join('\n');else{const c=$('.console',panel);if(c&&!c.dataset.ran)c.hidden=true}
-    $('#walkSay').innerHTML=k<0?'Press <b>Next step</b> to run this example one line at a time.':`<b>Line ${steps[k].line}.</b> ${steps[k].say}`;
-    $('#walkStep').textContent=k<0?`${steps.length} steps`:`Step ${k+1} of ${steps.length}`;
-    $('#walkBack').disabled=k<0;
-    const last=k>=steps.length-1;$('#walkNext').textContent=last?'Watched: start again':'Next step';
-    if(last){markSeen('walk-'+l.id);$('#begin').classList.add('pulse')}
-  };
-  $('#walkNext').onclick=()=>{sfx.tap();k=k>=steps.length-1?-1:k+1;draw()};
-  $('#walkBack').onclick=()=>{if(k>=0){k--;draw()}};
-  draw();
 }
 function startLevel(id){
   const l=LVM[id],s=lvState(id);mark('q',id);
@@ -535,7 +491,7 @@ function segsHTML(cur){return R.mains.map(id=>{const s=qs(id);return `<i class="
 function qtopHTML(q){
   const l=LVM[R.level];
   return `<div class="qtop"><button class="backbtn sm" id="quit" type="button" aria-label="Back to the mission map (the question timer keeps running)" title="The question timer keeps running">${ICON.back}<span>Map</span></button><span class="where">${esc(l.name)}</span><div class="segs" aria-hidden="true">${segsHTML(q.id)}</div>
-    <span class="qcount">Question ${R.mains.indexOf(q.id)+1} of ${R.mains.length}</span>${timerHTML(q,R.replay)}</div>`;
+    <span class="qcount">${R.mains.indexOf(q.id)+1} / ${R.mains.length}</span>${timerHTML(q,R.replay)}</div>`;
 }
 function actionsHTML(){
   const st=qs(Q.q.id),can=(st.wrong||0)>=M.rules.reveal_after&&!cleared(Q.q.id);
@@ -562,29 +518,14 @@ function renderQuestion(id){
         <div id="pad"></div>
         <div id="hintSlot" aria-live="polite"></div>
         <div class="actions" id="actions">${actionsHTML()}<button class="btn primary" id="check" type="button" disabled>Check</button></div>
-        <p class="nextline" id="nextLine" aria-live="polite"></p>
       </div></section>`;
   $('#quit').onclick=renderMap;bindActions();$('#check').onclick=check;
   Q.panel=$('.code',view);
-  PADS[q.type](q);if(!$('#check').disabled)canCheck(true);else canCheck(false);
+  PADS[q.type](q);
   if(Q.hint)showHint(true);
   window.scrollTo(0,0);
   const first=$('#pad button, #pad input, #pad .ln.tappable, .code .ln.tappable, .board input, .land button');if(first&&!matchMedia('(pointer: coarse)').matches)first.focus({preventScroll:true});
-  coachThen(q,()=>startQTimer(q));
-}
-/* First time a kind of question appears: show how it works. Its countdown starts only after "Got it". */
-function coachThen(q,go){
-  const k='type-'+q.type;
-  if(seen(k)||R&&R.replay)return go();
-  modal.dataset.locked='1';
-  openModal(`<div class="ghead"><h2 id="modalTitle">${ICON.bulb} New kind of question: ${esc(TYPE_LABEL[q.type]||q.type)}</h2></div>
-    <p class="muted">Here is how to answer it. Its timer starts when you press the button.</p>
-    ${howtoHTML(q.type,'big')}
-    <div class="power-row"><button class="btn primary" id="coachGo" type="button">${ICON.play}Got it, start the timer</button></div>`,()=>{modal.dataset.locked=''});
-  // Start the timer however this dialog ends: "Got it", or another notice (a tab-switch warning) replacing it.
-  let started=false;const start=()=>{if(started)return;started=true;markSeen(k);go()};
-  modal.addEventListener('close',start,{once:true});
-  $('#coachGo',modal).onclick=()=>{modal.dataset.locked='';modal.close();sfx.tap()};
+  startQTimer(q);
 }
 function bindActions(){const hb=$('#hint');if(hb)hb.onclick=()=>showHint();const rb=$('#revealBtn');if(rb)rb.onclick=revealSolution}
 function refreshActions(){
@@ -592,8 +533,7 @@ function refreshActions(){
   const a=$('#actions');if(!a||$('#revealBtn'))return;
   if((qs(Q.q.id).wrong||0)>=M.rules.reveal_after&&!Q.done){$('#hint').insertAdjacentHTML('afterend','<button class="btn ghost" id="revealBtn" type="button">Show the solution</button>');bindActions()}
 }
-const canCheck=v=>{const b=$('#check');if(b)b.disabled=!v||Q.done;
-  const n=$('#nextLine');if(n&&Q&&!Q.done)n.innerHTML=v?`${ICON.check}<span>Ready. Press <b>Check</b> (or Enter).</span>`:`<span>${(HOWTO[Q.q.type]||HOWTO.mcq).wait}</span>`};
+const canCheck=v=>{const b=$('#check');if(b)b.disabled=!v||Q.done};
 function outHTML(o){
   const lines=o.split('\n'),err=lines[lines.length-1].startsWith('!')?lines.pop().slice(1):null;
   return `<span class="o-wrap">${lines.length?`<pre class="o-out">${esc(lines.join('\n'))}</pre>`:''}${err?`<span class="o-err">${esc(err)}<small>Python stops with an error</small></span>`:''}</span>`;
@@ -605,7 +545,7 @@ function choicePad(q,multi){
   const pad=$('#pad');
   const head=q.type==='ar'?`<div class="arbox"><div><b>Assertion (A)</b><p>${esc(q.assertion)}</p></div><div><b>Reason (R)</b><p>${esc(q.reason)}</p></div></div>`:'';
   const instr=multi?`<div class="instr multi" id="instr"><span class="instr-ico" aria-hidden="true"><i></i><i></i></span><span><b>Select all that apply.</b> More than one answer is correct. Tap every correct option, then press Check.</span><span class="selcount" id="selCount" aria-live="polite">0 selected</span></div>`
-    :'';
+    :`<div class="instr"><span class="instr-ico one" aria-hidden="true"><i></i></span><span><b>Choose one answer.</b></span></div>`;
   pad.innerHTML=head+instr+`<div class="opts${multi?' multi':''}" role="${multi?'group':'radiogroup'}" aria-labelledby="qtitle">${q.options.map((o,i)=>`<button class="opt" type="button" role="${multi?'checkbox':'radio'}" aria-checked="false" data-i="${i}"><span class="key">${multi?`<span class="box">${ICON.check}</span>`:i+1}</span>${q.type==='predict'?outHTML(o):`<span class="o-text">${looksCode(o)?`<code class="ocode">${esc(o)}</code>`:esc(o)}</span>`}</button>`).join('')}</div>`;
   const btns=$$('.opt',pad);Q.multi=new Set();
   btns.forEach((b,i)=>b.onclick=()=>{if(Q.done||Q.busy)return;clearMarks();sfx.tap();
@@ -620,7 +560,7 @@ function choicePad(q,multi){
 }
 function padTF(q){
   const pad=$('#pad');
-  pad.innerHTML=`<div class="yn" role="radiogroup" aria-labelledby="qtitle"><button class="opt" type="button" role="radio" aria-checked="false"><span class="key">1</span><span class="o-big">True</span></button><button class="opt" type="button" role="radio" aria-checked="false"><span class="key">2</span><span class="o-big">False</span></button></div>`;
+  pad.innerHTML=`<div class="instr"><span class="instr-ico one" aria-hidden="true"><i></i></span><span><b>Is the statement true or false?</b></span></div><div class="yn" role="radiogroup" aria-labelledby="qtitle"><button class="opt" type="button" role="radio" aria-checked="false"><span class="key">1</span><span class="o-big">True</span></button><button class="opt" type="button" role="radio" aria-checked="false"><span class="key">2</span><span class="o-big">False</span></button></div>`;
   const btns=$$('.opt',pad);
   btns.forEach((b,i)=>b.onclick=()=>{if(Q.done||Q.busy)return;Q.reset();sfx.tap();Q.sel=i;btns.forEach((x,k)=>x.setAttribute('aria-checked',k===i));canCheck(true)});
   Q.keyPick=i=>btns[i]&&btns[i].click();
@@ -631,7 +571,7 @@ function padTF(q){
 }
 function padNumeric(q){
   const pad=$('#pad');
-  pad.innerHTML=`<label class="numwrap"><span>Your answer</span><input id="num" type="text" inputmode="decimal" autocomplete="off" placeholder="Type a number" aria-describedby="qtitle"></label>`;
+  pad.innerHTML=`<label class="numwrap"><span>Your answer</span><input id="num" type="text" inputmode="decimal" autocomplete="off" placeholder="Type a number" aria-describedby="qtitle"></label><p class="qhelp">Trace the code first. Press Enter to check.</p>`;
   const inp=$('#num');
   inp.oninput=()=>{inp.classList.remove('is-ok','is-bad');canCheck(/^-?\d+(\.\d+)?$/.test(inp.value.trim()))};
   inp.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();e.stopPropagation();check()}};
@@ -641,7 +581,7 @@ function padNumeric(q){
   Q.solve=s=>{inp.value=s.value;inp.classList.remove('is-bad');inp.classList.add('is-ok');inp.disabled=true};
 }
 function padFill(q){
-  $('#pad').innerHTML=``;
+  $('#pad').innerHTML=`<p class="qhelp">Type into each highlighted gap in the code. Spelling counts, just like in Python.</p>`;
   const ins=$$('input.blank',Q.panel);
   ins.forEach((inp,k)=>{inp.oninput=()=>{inp.classList.remove('is-ok','is-bad');inp.size=Math.max(4,inp.value.length+1);canCheck(ins.every(x=>x.value.trim()))};
     inp.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();e.stopPropagation();if(ins[k+1]&&!ins[k+1].value)ins[k+1].focus();else check()}}});
@@ -652,7 +592,7 @@ function padFill(q){
 }
 function padMatch(q){
   const pad=$('#pad');Q.pairs=q.left.map(()=>null);Q.lsel=0;
-  pad.innerHTML=`<div class="mgrid2"><div class="mcol2" id="mL"></div><div class="mcol2" id="mR"></div></div>`;
+  pad.innerHTML=`<p class="qhelp">Pick an item on the left, then its match on the right. Pick a matched item again to change it.</p><div class="mgrid2"><div class="mcol2" id="mL"></div><div class="mcol2" id="mR"></div></div>`;
   const draw=()=>{
     $('#mL').innerHTML=q.left.map((t,i)=>`<button type="button" class="mitem2${Q.lsel===i?' sel':''}${Q.pairs[i]!==null?' paired':''}" data-i="${i}" ${Q.pairs[i]!==null?`data-p="${i%5}"`:''} aria-pressed="${Q.lsel===i}"><code class="ocode">${esc(t)}</code>${Q.pairs[i]!==null?`<span class="pn">${i+1}</span>`:''}</button>`).join('');
     $('#mR').innerHTML=q.right.map((t,j)=>{const li=Q.pairs.indexOf(j);return `<button type="button" class="mitem2${li>=0?' paired':''}" data-j="${j}" ${li>=0?`data-p="${li%5}"`:''}>${li>=0?`<span class="pn">${li+1}</span>`:''}${esc(t)}</button>`}).join('');
@@ -669,7 +609,7 @@ function padMatch(q){
 }
 function padOrder(q){
   const pad=$('#pad');Q.order=q.items.map((_,i)=>i);let prevIndex={};
-  pad.innerHTML=`<ol class="olist" id="olist"></ol>`;
+  pad.innerHTML=`<p class="qhelp">Move the lines with the arrow buttons until the program is in the right order.</p><ol class="olist" id="olist"></ol>`;
   const draw=animate=>{
     const first=animate?$$('#olist li').map(li=>li.getBoundingClientRect().top):null;
     $('#olist').innerHTML=Q.order.map((id,k)=>`<li data-id="${id}"><span class="ono">${k+1}</span><code class="ocode">${hl(q.items[id])}</code><span class="omv"><button type="button" data-k="${k}" data-d="-1" aria-label="Move line up" ${k===0?'disabled':''}>${ICON.up}</button><button type="button" data-k="${k}" data-d="1" aria-label="Move line down" ${k===Q.order.length-1?'disabled':''}>${ICON.down}</button></span></li>`).join('');
@@ -686,7 +626,7 @@ function padOrder(q){
 }
 function padCategorize(q){
   const pad=$('#pad');Q.cat=q.items.map(()=>null);
-  pad.innerHTML=`<div class="cats">${q.items.map((it,i)=>`<div class="catrow" data-i="${i}"><code class="ocode">${hl(it)}</code><div class="seg2 catseg" role="radiogroup" aria-label="Group for ${esc(it)}">${q.categories.map((c,k)=>`<button type="button" role="radio" aria-checked="false" data-k="${k}">${esc(c)}</button>`).join('')}</div></div>`).join('')}</div>`;
+  pad.innerHTML=`<p class="qhelp">Choose a group for every item.</p><div class="cats">${q.items.map((it,i)=>`<div class="catrow" data-i="${i}"><code class="ocode">${hl(it)}</code><div class="seg2 catseg" role="radiogroup" aria-label="Group for ${esc(it)}">${q.categories.map((c,k)=>`<button type="button" role="radio" aria-checked="false" data-k="${k}">${esc(c)}</button>`).join('')}</div></div>`).join('')}</div>`;
   $$('.catrow',pad).forEach(row=>{const i=+row.dataset.i;$$('button',row).forEach(b=>b.onclick=()=>{if(Q.done)return;row.classList.remove('is-ok','is-bad');Q.cat[i]=+b.dataset.k;
     $$('button',row).forEach(x=>{x.setAttribute('aria-checked',x===b);x.setAttribute('aria-pressed',x===b)});sfx.tap();canCheck(Q.cat.every(c=>c!==null))})});
   Q.get=()=>Q.cat.every(c=>c!==null)?Q.cat:null;
@@ -696,7 +636,7 @@ function padCategorize(q){
 }
 function padDebug(q){
   const pad=$('#pad');Q.line=null;Q.err=null;
-  pad.innerHTML=`
+  pad.innerHTML=`<p class="qhelp">Tap the line that must be fixed, then choose what goes wrong.</p>
     <div class="target" id="lpick"><small>Faulty line</small>Tap a line in the code</div>
     <div><span class="multi-note muted">What happens?</span><div class="seg2 wide errseg" role="radiogroup" aria-label="Error type">${q.errors.map((e,k)=>`<button type="button" role="radio" aria-checked="false" aria-pressed="false" data-k="${k}">${esc(e)}</button>`).join('')}</div></div>`;
   const upd=()=>{$('#lpick').innerHTML=`<small>Faulty line</small>${Q.line?'Line '+Q.line:'Tap a line in the code'}`;canCheck(Q.line&&Q.err!==null)};
@@ -712,7 +652,7 @@ function padDebug(q){
 }
 function padBoard(q){
   const pad=$('#pad'),same=rows=>JSON.stringify(rows)===JSON.stringify(q.start);
-  pad.innerHTML=`<div class="goal">${q.goal}</div><ul class="checks" id="pgChecks"></ul>`;
+  pad.innerHTML=`<div class="goal">${q.goal}</div><p class="qhelp">Type a key and a value, then press a Python button on the board. Tap a name tag to load its row. When the board is right, press Check.</p><ul class="checks" id="pgChecks"></ul>`;
   const b=Board($('.board',view),{start:q.start,onChange:()=>{Q.reset();canCheck(!same(b.rows))}});
   Q.get=()=>same(b.rows)?null:{rows:b.rows.map(r=>r.slice())};
   Q.reset=()=>{$('#pgChecks').innerHTML=''};
@@ -723,7 +663,7 @@ function padBoard(q){
 function boxKind(label){return label.startsWith('**')?['dict','dict { }']:label.startsWith('*')?['tuple','tuple ( )']:['named','one value']}
 function padLand(q){
   const pad=$('#pad'),n=q.boxes.length;Q.land=q.args.map(()=>null);Q.lsel=0;
-  pad.innerHTML=`<div class="land"><div class="lsub">The call's arguments</div><div class="largs" id="largs"></div>
+  pad.innerHTML=`<p class="qhelp">Tap an argument, then the box it lands in. Use <b>No box</b> if Python stops.</p><div class="land"><div class="lsub">The call's arguments</div><div class="largs" id="largs"></div>
     <div class="lsub">The boxes in the def</div><div class="lboxes" id="lboxes"></div></div>`;
   const draw=()=>{
     $('#largs').innerHTML=q.args.map((a,i)=>`<button type="button" class="lchip${Q.lsel===i?' sel':''}${Q.land[i]!==null?' placed':''}" data-a="${i}" aria-pressed="${Q.lsel===i}"><code>${esc(a)}</code>${Q.land[i]!==null?`<small>→ ${Q.land[i]===n?'no box':esc(q.boxes[Q.land[i]])}</small>`:''}</button>`).join('');
@@ -983,7 +923,7 @@ function advance(){
   nextQ();
 }
 function closeDrawer(){drawer.classList.remove('open')}
-const contLabel=()=>R&&R.queue.length<=1?'Finish stage →':'Next question →';
+const contLabel=()=>'Continue';
 
 /* ---------- coding challenge ---------- */
 function renderCoding(q){
@@ -1033,7 +973,7 @@ function renderCoding(q){
         $('#pyRetry').onclick=bootPy})};
   bootPy();
   window.scrollTo(0,0);
-  coachThen(q,()=>startQTimer(q));
+  startQTimer(q);
 }
 function showOut(r,label){const out=$('#cout');if(out)out.innerHTML=(label?`<span class="con-note">${esc(label)}</span>\n`:'')+consoleHTML(r)}
 function setRow(i,state,extra){const row=$(`#ctests .test[data-i="${i}"]`);if(!row)return;row.classList.remove('pass','fail','run');if(state)row.classList.add(state);
