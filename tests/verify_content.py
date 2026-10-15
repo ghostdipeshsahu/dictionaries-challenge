@@ -95,27 +95,17 @@ for q in Q.values():
             ok(0 <= k < len(q["options"]) and k != q.get("answer"), f"{q['id']} why key {k} invalid")
 
 # ---------- numeric ----------
-ok(shown(Q["L1-5"]["code"]) == str(Q["L1-5"]["value"]), "L1-5 numeric")
 ok(shown(Q["L4-5"]["code"]) == str(Q["L4-5"]["value"]), "L4-5 numeric")
 _, _, _, _, env = run(Q["L4-5"]["code"])
 ok(env["menu"] == {"tea": 14, "samosa": 15, "Tea": 16}, "L4-5 explain board")
-# B-2: count updates that hit an existing key
-menu = {"tea": 12, "coffee": 15, "samosa": 15}
-changes = 0
-for name, price in [("chai", 10), ("coffee", 18), ("samosa", 15), ("dosa", 20), ("chai", 12)]:
-    changes += name in menu
-    menu[name] = price
-ok(changes == Q["B-2"]["value"], f"B-2 numeric {changes}")
 ok("{'tea': 12, 'coffee': 18, 'samosa': 15, 'chai': 12, 'dosa': 20}" == shown(C.BOSS_SCENARIO), "BOSS scenario print")
 
 # ---------- true / false ----------
 ok(shown('print(type({"tea": 12}))') == "<class 'dict'>", "L0-2 tf")
 ok(Q["L0-2"]["value"] is True, "L0-2 key")
 _, _, _, _, env = run('menu = {"coffee": 15, "tea": 12}\nmenu["coffee"] = 18')
-ok(list(env["menu"]) == ["coffee", "tea"] and env["menu"]["coffee"] == 18 and Q["L2-4"]["value"] is False, "L2-4 tf")
+ok(list(env["menu"]) == ["coffee", "tea"] and env["menu"]["coffee"] == 18, "changing an existing key keeps its place")
 
-# ---------- mcq without code ----------
-ok(Q["L0-3"]["options"][Q["L0-3"]["answer"]] == str(len({"tea": 12, "coffee": 15, "samosa": 15})), "L0-3")
 
 # ---------- assertion & reason ----------
 ok(shown('menu = {"tea": 12, "coffee": 15, "samosa": 15}\nprint(menu[2])') == "!KeyError: 2" and Q["L3-4"]["answer"] == 0, "L3-4 ar")
@@ -140,7 +130,7 @@ for qid, setup in (("L1-4", 'menu = {"tea": 12, "coffee": 15}'), ("L3-6", 'menu 
     ok(sorted(q["mapping"]) == list(range(len(q["right"]))), f"{qid} mapping is not one-to-one")
 
 # ---------- fill: every accepted answer gives the target output ----------
-FILL_EXPECT = {"L1-6": "12", "L3-8": "tea\ncoffee\nsamosa"}
+FILL_EXPECT = {"L3-8": "tea\ncoffee\nsamosa"}
 for qid, want in FILL_EXPECT.items():
     q = Q[qid]
     parts = q["code"].split("___")
@@ -210,10 +200,6 @@ for q in Q.values():
     # the starter in the Python spec must run (or fail) without a syntax error
     ok("SyntaxError" != (run(ch["starter"], ch["tests"][0]["stdin"])[1]), f"{q['id']} starter has a syntax error")
 
-# Fix the Bill and Fix the Board Builder really crash the way the statement says
-ok(run(Q["L5-5"]["challenge"]["starter"], "2\ntea 1\ndosa 3")[1] == "KeyError", "L5-5 starter KeyError")
-r = run(Q["B-3"]["challenge"]["starter"], "2\ntea 12\ncoffee 15")
-ok(r[1] == "ValueError" and "element #0 has length 3" in r[2], f"B-3 starter {r[1]}: {r[2]}")
 ok(run(Q["L5-1"]["challenge"]["starter"].replace("# add up", "for item in order:\n    total = total + menu[item]\n# add up"), "tea dosa")[1] == "KeyError", "Task 1 crash with dosa")
 # deck numbers
 ok(shown(f'menu = {C.MENU}\nprint(menu["tea"] + menu["maggi"])') == "42", "deck bill 42")
@@ -229,6 +215,8 @@ for q in Q.values():
 ok(set(q["level"] for q in Q.values()) == LEVELS_OK, "every cognitive level used")
 ok(set(q["concept"] for q in Q.values()) == set(C.CONCEPTS), f"unused concepts {set(C.CONCEPTS) - set(q['concept'] for q in Q.values())}")
 ok(set(q["type"] for q in Q.values()) == set(C.TYPE_LABEL), "every question type used")
+ok(sum(q["time"] for q in Q.values()) <= (C.MISSION_MINUTES - 7) * 60,
+   f"worst case {sum(q['time'] for q in Q.values()) / 60:.1f} min must leave time for briefings")
 
 # words the deck does not teach must not appear in content shown to students
 BANNED = [r"\.pop\(", r"\.update\(", r"setdefault", r"\.copy\(", r"\bunordered\b(?!.*not)"]

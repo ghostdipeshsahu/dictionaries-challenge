@@ -30,7 +30,7 @@ SECTIONS = [s.strip() for s in os.environ.get("SECTIONS", "S-001,S-002,S-003,S-0
 CLASS_CODE = os.environ.get("CLASS_CODE", "").strip()
 # Set TEACHER_PASSWORD in the environment. The fallback is for a laptop demo only.
 TEACHER_PASSWORD = os.environ.get("TEACHER_PASSWORD") or "change-me"
-RULES = E.Rules(mission_minutes=float(os.environ.get("MISSION_MINUTES", "45")),
+RULES = E.Rules(mission_minutes=float(os.environ.get("MISSION_MINUTES") or getattr(C, "MISSION_MINUTES", 45)),
                 max_tab_switches=int(os.environ.get("MAX_TAB_SWITCHES", "3")),
                 reveal_after=int(os.environ.get("REVEAL_AFTER", "2")))
 ONLINE_WINDOW = 75        # seconds since the last heartbeat that still counts as "signed in right now"

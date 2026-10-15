@@ -58,6 +58,8 @@ S29, S30 = C.MISSION == "s29", C.MISSION == "s30"
 only_s29 = pytest.mark.skipif(not S29, reason="Session 29 question")
 only_s30 = pytest.mark.skipif(not S30, reason="Session 30 question")
 
+MISSION_S = main.RULES.mission_seconds  # the mission's own clock (40 min for Session 29, 45 for Session 30)
+
 _roll = [0]
 
 
@@ -209,7 +211,7 @@ def test_must_accept_rules_and_start_first(client):
     assert client.post("/api/dicts/open", json={"qid": "L0-1"}, headers=h).status_code == 409
     assert client.post("/api/dicts/start", json={"accept_rules": False}, headers=h).status_code == 422
     st = start(client, h)
-    assert st["remaining"] == 45 * 60 and st["levels"][0]["unlocked"] and not st["levels"][1]["unlocked"]
+    assert st["remaining"] == MISSION_S and st["levels"][0]["unlocked"] and not st["levels"][1]["unlocked"]
 
 
 def test_locked_stage_is_refused(client):
@@ -273,9 +275,10 @@ def test_fixing_a_mistake_earns_60_percent_and_miss_keeps_xp(client):
 def test_hint_costs_a_little_xp_and_unlocks_progressively(client):
     h = login(client)
     start(client, h)
-    hq = next(q for q in C.LEVEL_BY_ID["L1"]["main"] if len(C.QUESTIONS[q]["hints"]) >= 2)
-    assert client.post("/api/dicts/open", json={"qid": hq}, headers=h).status_code == 403  # L1 still locked
-    clear_stage(client, h, "L0")
+    hq = next(q for l in C.LEVELS[1:] for q in l["main"] if len(C.QUESTIONS[q]["hints"]) >= 2)
+    assert client.post("/api/dicts/open", json={"qid": hq}, headers=h).status_code == 403  # its stage is still locked
+    for l in C.LEVELS[:C.LEVEL_IDS.index(C.QUESTIONS[hq]["stage"])]:
+        clear_stage(client, h, l["id"])
     r = client.post("/api/dicts/hint", json={"qid": hq}, headers=h).json()
     assert r["concept"] == C.QUESTIONS[hq]["concept"] and len(r["hints"]) == 1 and r["more"] is True
     r = client.post("/api/dicts/hint", json={"qid": hq}, headers=h).json()
@@ -359,9 +362,10 @@ def test_board_build_checks_order(client):
 def test_coding_hidden_test_note_and_exact_order(client):
     h = login(client)
     start(client, h)
-    for lid in ("L0", "L1", "L2", "L3", "L4"):
-        clear_stage(client, h, lid)
-    qid = C.LEVEL_BY_ID["L5"]["main"][2]
+    qid = next(q["id"] for l in C.LEVELS for q in (C.QUESTIONS[x] for x in l["main"])
+               if q["type"] == "coding" and any(t.get("hidden") and t.get("note") for t in q["challenge"]["tests"]))
+    for l in C.LEVELS[:C.LEVEL_IDS.index(C.QUESTIONS[qid]["stage"])]:
+        clear_stage(client, h, l["id"])
     q = C.QUESTIONS[qid]
     i = next(k for k, t in enumerate(q["challenge"]["tests"]) if t.get("hidden") and t.get("note"))
     outs = right(q)["outputs"]
@@ -381,7 +385,7 @@ def test_optimize_challenge_rejects_two_lists(client):
     start(client, h)
     for lid in ("L0", "L1", "L2", "L3", "L4", "L5"):
         clear_stage(client, h, lid)
-    for qid in ("B-1", "B-2", "B-3"):
+    for qid in ("B-1",):
         solve(client, h, qid)
     q = C.QUESTIONS["B-4"]
     r = ans(client, h, "B-4", right(q), code=q["challenge"]["starter"]).json()
@@ -449,7 +453,7 @@ def test_malformed_answer_is_422(client):
 def test_mission_clock_ends_the_mission(client, clock):
     h = login(client)
     start(client, h)
-    clock.t += 45 * 60 + 1
+    clock.t += MISSION_S + 1
     st = client.get("/api/dicts/mission", headers=h).json()["state"]
     assert st["ended_reason"] == "time" and st["remaining"] == 0
     r = client.post("/api/dicts/open", json={"qid": "L0-1"}, headers=h)
@@ -463,7 +467,7 @@ def test_remaining_time_is_not_rounded_down(client, clock):
     start(client, h)
     clock.t += 0.4
     st = client.get("/api/dicts/mission", headers=h).json()["state"]
-    assert st["remaining"] == pytest.approx(45 * 60 - 0.4)
+    assert st["remaining"] == pytest.approx(MISSION_S - 0.4)
 
 
 def test_tab_switch_limit_ends_mission(client):
@@ -581,7 +585,7 @@ def test_resume_after_tab_switches_keeps_progress_and_time(client, clock):
     assert r.status_code == 200
     st = client.get("/api/dicts/mission", headers=h).json()["state"]
     assert st["ended_at"] is None and st["xp"] == xp and st["questions"]["L0-1"]["solved"]
-    assert st["remaining"] == pytest.approx(45 * 60 - 610)           # exactly the time that was left
+    assert st["remaining"] == pytest.approx(MISSION_S - 610)           # exactly the time that was left
     assert st["proctor"]["tab_switches"] == 0                         # a fresh allowance of 3
     o = client.post("/api/dicts/open", json={"qid": "L0-2"}, headers=h).json()
     assert o["remaining"] == pytest.approx(C.QUESTIONS["L0-2"]["time"] - 10)  # the open question keeps its seconds
@@ -594,7 +598,7 @@ def test_resume_after_time_gives_at_least_five_minutes(client, clock):
     t = teacher(client)
     h = login(client)
     start(client, h)
-    clock.t += 45 * 60 + 5
+    clock.t += MISSION_S + 5
     assert client.get("/api/dicts/mission", headers=h).json()["state"]["ended_reason"] == "time"
     client.post(f"/api/teacher/dicts/{sid_of(client, h)}/resume", headers=t)
     st = client.get("/api/dicts/mission", headers=h).json()["state"]

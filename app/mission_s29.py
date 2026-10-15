@@ -46,8 +46,9 @@ TYPE_LABEL = {
 # XP and countdown (seconds) by type. A question may override either.
 XP = {"mcq": 10, "tf": 10, "predict": 15, "msq": 15, "ar": 15, "fill": 15, "numeric": 15,
       "match": 20, "order": 20, "categorize": 20, "debug": 20, "board": 25, "coding": 40}
-TIME = {"mcq": 45, "tf": 30, "predict": 60, "msq": 75, "ar": 60, "fill": 75, "numeric": 75,
-        "match": 90, "order": 90, "categorize": 90, "debug": 90, "board": 120, "coding": 300}
+TIME = {"mcq": 30, "tf": 25, "predict": 45, "msq": 50, "ar": 45, "fill": 50, "numeric": 45,
+        "match": 60, "order": 60, "categorize": 60, "debug": 60, "board": 75, "coding": 180}
+MISSION_MINUTES = 40  # this mission's clock (MISSION_MINUTES in the environment still overrides it)
 
 AR_OPTIONS = [
     "Both A and R are true, and R explains A",
@@ -85,7 +86,7 @@ LEVELS = [
             "You find a price by its <b>name</b>, never by counting rows.",
         ],
         "demo": 'menu = {"tea": 12, "coffee": 15, "samosa": 15, "puff": 20, "maggi": 30}\nprint(menu["maggi"])\nprint(type(menu))\nprint(len(menu))',
-        "main": ["L0-1", "L0-2", "L0-3"],
+        "main": ["L0-1", "L0-2"],
     },
     {
         "id": "L1", "name": "Board Starter", "difficulty": "Easy",
@@ -95,7 +96,7 @@ LEVELS = [
             "<code>len(menu)</code> counts <b>pairs</b>, not keys plus values.",
         ],
         "demo": 'menu = {}\nprint(type(menu))\nmenu = {"tea": 12, "samosa": 15}\nprint(menu["samosa"])\nprint(len(menu))',
-        "main": ["L1-1", "L1-2", "L1-3", "L1-4", "L1-5", "L1-6"],
+        "main": ["L1-1", "L1-2", "L1-3", "L1-4"],
     },
     {
         "id": "L2", "name": "Board Builder", "difficulty": "Easy+",
@@ -106,7 +107,7 @@ LEVELS = [
             "<code>del menu[key]</code> removes the whole pair. A missing key raises <code>KeyError</code>.",
         ],
         "demo": 'menu = {"tea": 12, "coffee": 15, "tea": 14}\nprint(menu)\nmenu["bun"] = 10\nmenu["coffee"] = 18\nmenu["Tea"] = 16\ndel menu["bun"]\nprint(menu)\nprint(len(menu))',
-        "main": ["L2-1", "L2-2", "L2-3", "L2-4", "L2-5", "L2-6", "L2-7"],
+        "main": ["L2-1", "L2-2", "L2-3", "L2-5", "L2-6", "L2-7"],
     },
     {
         "id": "L3", "name": "Lookup Arena", "difficulty": "Medium",
@@ -117,7 +118,7 @@ LEVELS = [
             "<code>for name in menu:</code> gives the keys. <code>for name, price in menu.items():</code> gives both.",
         ],
         "demo": 'menu = {"tea": 12, "coffee": 15, "samosa": 15}\nprint(menu.get("dosa"))\nprint("dosa" in menu, 15 in menu)\nprint(list(menu.values()))\nfor name, price in menu.items():\n    print(name, price)',
-        "main": ["L3-1", "L3-2", "L3-3", "L3-4", "L3-5", "L3-6", "L3-7", "L3-8"],
+        "main": ["L3-1", "L3-3", "L3-4", "L3-6", "L3-7", "L3-8"],
     },
     {
         "id": "L4", "name": "Logic Lab", "difficulty": "Hard",
@@ -128,7 +129,7 @@ LEVELS = [
             "Dictionaries keep <b>insertion order</b>. Deleting a key and adding it again puts it at the end.",
         ],
         "demo": 'menu = {"tea": 12, "coffee": 15}\nview = menu.keys()\nphoto = list(menu.keys())\nmenu["samosa"] = 15\nprint(view)\nprint(photo)\nprint(dict([("tea", 12), ("bun", 10)]))',
-        "main": ["L4-1", "L4-2", "L4-3", "L4-4", "L4-5", "L4-6", "L4-7"],
+        "main": ["L4-1", "L4-3", "L4-4", "L4-5", "L4-6", "L4-7"],
     },
     {
         "id": "L5", "name": "Code Breaker", "difficulty": "Hard",
@@ -138,7 +139,7 @@ LEVELS = [
             "Output is checked <b>exactly</b>. Dictionaries keep insertion order, so the order you print in matters.",
         ],
         "demo": f'menu = {MENU}\norder = "tea dosa samosa".split()\ntotal = 0\nfor item in order:\n    if item in menu:\n        total = total + menu[item]\nprint(total)',
-        "main": ["L5-1", "L5-2", "L5-3", "L5-4", "L5-5"],
+        "main": ["L5-1", "L5-2"],
     },
     {
         "id": "BOSS", "name": "Final Boss", "difficulty": "Boss",
@@ -148,7 +149,7 @@ LEVELS = [
             "An AI writes what you ask for. A vague spec gets plausible code that may break the board.",
         ],
         "demo": BOSS_SCENARIO,
-        "main": ["B-1", "B-2", "B-3", "B-4", "B-5", "B-6"],
+        "main": ["B-1", "B-4", "B-5", "B-6"],
     },
 ]
 
@@ -180,17 +181,6 @@ add(id="L0-2", stage="L0", type="tf", level="Recall", concept="creation",
     hints=["Curly brackets with colons inside build one kind of collection. Which one?"],
     explain='Curly brackets with <code>key: value</code> pairs build a dictionary, so <code>type()</code> reports <code>&lt;class \'dict\'&gt;</code>.',
     trap="Curly brackets alone do not mean set. The colons make it a dictionary.")
-
-add(id="L0-3", stage="L0", type="mcq", level="Recall", concept="pairs",
-    title='How many items are on this board? menu = {"tea": 12, "coffee": 15, "samosa": 15}',
-    options=["3", "6", "2", "15"],
-    answer=0,
-    why={1: "A key and its value together make <b>one</b> item. Do not count them separately.",
-         2: "Repeated <b>values</b> are allowed. Coffee and samosa are still two different items.",
-         3: "15 is a price, not a count."},
-    hints=["One name tag plus its price card is one item."],
-    explain="Three pairs, so three items: tea, coffee and samosa. Coffee and samosa share the price 15; values may repeat.",
-    trap="Counting keys and values separately gives 6.")
 
 # ---------- L1 · Board Starter ----------
 add(id="L1-1", stage="L1", type="predict", level="Read", concept="empty",
@@ -233,22 +223,6 @@ add(id="L1-4", stage="L1", type="match", level="Read", concept="access",
     hints=["len counts pairs. in asks a yes/no question about the keys."],
     explain='<code>menu["tea"]</code> gives 12, <code>len(menu)</code> counts 2 pairs, <code>"tea" in menu</code> is True and <code>type(menu)</code> is <code>&lt;class \'dict\'&gt;</code>.')
 
-add(id="L1-5", stage="L1", type="numeric", level="Read", concept="pairs",
-    title="What number does this print?",
-    code='menu = {"tea": 12, "coffee": 15, "samosa": 15}\nprint(len(menu))',
-    value=3,
-    hints=["len() counts pairs. One name tag with its price is one pair."],
-    explain="Three pairs, so <code>len(menu)</code> is 3. Repeated values do not change the count.",
-    trap="Counting every key and value gives 6.")
-
-add(id="L1-6", stage="L1", type="fill", level="Implement", concept="pairs",
-    title="Fill the gaps so the program prints 12.",
-    code='menu = {"tea"___ 12, "coffee": 15}\nprint(menu[___])',
-    blanks=[[":"], ['"tea"', "'tea'"]],
-    hints=["A pair is written key, colon, value.", "The brackets hold the key whose price you want."],
-    explain='A pair is written <code>"tea": 12</code>. Then <code>menu["tea"]</code> reads its value, 12.',
-    trap="<code>menu[0]</code> would look for a key called 0, not the first row.")
-
 # ---------- L2 · Board Builder ----------
 add(id="L2-1", stage="L2", type="predict", level="Read", concept="unique_keys",
     title="What does this print?",
@@ -283,12 +257,6 @@ add(id="L2-3", stage="L2", type="predict", level="Read", concept="case",
     hints=["Is a capital T the same letter as a small t to Python?"],
     explain='Keys are case-sensitive. <code>"Tea"</code> is a new key, so the board has 3 rows.',
     trap='Thinking <code>menu["Tea"] = 16</code> updates tea.')
-
-add(id="L2-4", stage="L2", type="tf", level="Read", concept="add_change",
-    title='True or false: on a board that already has coffee, menu["coffee"] = 18 adds a second coffee row at the bottom.',
-    value=False,
-    hints=["Can a dictionary have two rows with the same key?"],
-    explain='Keys are unique. When the key exists, <code>menu["coffee"] = 18</code> changes its value <b>in place</b>. Only a new key adds a row at the end.')
 
 add(id="L2-5", stage="L2", type="msq", level="Read", concept="delete_len",
     title='menu = {"tea": 12, "puff": 20, "maggi": 30}, then del menu["puff"]. Which are now true?',
@@ -328,18 +296,6 @@ add(id="L3-1", stage="L3", type="predict", level="Read", concept="keyerror_get",
     explain="<code>[ ]</code> with a missing key raises <code>KeyError: 'dosa'</code> and the program stops.",
     trap="Mixing up <code>[ ]</code> (error) with <code>get()</code> (None).")
 
-add(id="L3-2", stage="L3", type="predict", level="Read", concept="keyerror_get",
-    title="What does this print?",
-    code='menu = {"tea": 12}\nprint(menu.get("dosa"))\nprint(menu["dosa"])\nprint("done")',
-    options=["None\nNone\ndone", "None\n!KeyError: 'dosa'", "!KeyError: 'dosa'", "None\n0\ndone"],
-    answer=1,
-    why={0: "Only <code>get()</code> gives None. <code>menu[\"dosa\"]</code> raises KeyError.",
-         2: "Line 2 runs first, and <code>get()</code> never stops the program.",
-         3: "A missing key never reads as 0."},
-    hints=["Run it one line at a time. After an error, does any later line run?"],
-    explain="<code>get</code> prints None and continues. <code>menu[\"dosa\"]</code> raises <code>KeyError</code> and Python stops, so <code>done</code> never prints.",
-    trap="Expecting <code>done</code> to print after the error.")
-
 add(id="L3-3", stage="L3", type="predict", level="Read", concept="membership",
     title="What does this print?",
     code='menu = {"tea": 12, "samosa": 15}\nprint(15 in menu)',
@@ -363,17 +319,6 @@ add(id="L3-4", stage="L3", type="ar", level="Read", concept="access",
     hints=["Would menu[2] give the third row, like a list?"],
     explain="Both are true and R explains A. There is no row number in a dictionary, so <code>menu[2]</code> looks for a key named 2 and raises <code>KeyError: 2</code>.",
     trap="Treating a dictionary like a list and expecting the third price.")
-
-add(id="L3-5", stage="L3", type="predict", level="Read", concept="looping",
-    title="What does this print?",
-    code='menu = {"tea": 12, "coffee": 15}\nfor x in menu:\n    print(x)',
-    options=["tea\ncoffee", "12\n15", "('tea', 12)\n('coffee', 15)", "tea 12\ncoffee 15"],
-    answer=0,
-    why={1: "Looping over a dictionary gives the keys. Use <code>values()</code> for the prices.",
-         2: "Pairs come from <code>items()</code>.",
-         3: "Only the keys come out. You would need <code>items()</code> to get both."},
-    hints=["A plain for loop over a dictionary walks one column of the board. Which one?"],
-    explain="<code>for x in menu</code> walks the keys, in the order they were added: tea, then coffee.")
 
 add(id="L3-6", stage="L3", type="match", level="Read", concept="views_methods",
     title='menu = {"coffee": 15, "samosa": 15}. Match each expression to its result.',
@@ -413,18 +358,6 @@ add(id="L4-1", stage="L4", type="predict", level="Read", concept="live_views",
     hints=["One of them is a window onto the board, the other is a photograph of it."],
     explain="<code>menu.keys()</code> is a live view, so it shows 3 keys. <code>list(...)</code> took a fixed copy with 2 keys.",
     trap="Thinking the view is frozen at the moment it was made.")
-
-add(id="L4-2", stage="L4", type="predict", level="Read", concept="dict_from_pairs",
-    title="What does this print?",
-    code='pairs = [("tea", 12), ("coffee", 15), ("tea", 14)]\nmenu = dict(pairs)\nprint(menu)',
-    options=["{'tea': 14, 'coffee': 15}", "{'tea': 12, 'coffee': 15}", "{'coffee': 15, 'tea': 14}",
-             "{'tea': 12, 'coffee': 15, 'tea': 14}"],
-    answer=0,
-    why={1: "<code>dict()</code> reads the pairs in order, so the last tea value wins.",
-         2: "A repeated key keeps its first position.",
-         3: "Keys are unique, so a board can never show two <code>'tea'</code> rows."},
-    hints=["dict() adds the pairs one by one, as if you wrote menu[key] = value for each."],
-    explain="<code>dict()</code> adds each pair in turn. The second tea changes the value in place: <code>{'tea': 14, 'coffee': 15}</code>.")
 
 add(id="L4-3", stage="L4", type="categorize", level="Read", concept="dict_from_pairs",
     title="What happens when each line runs?",
@@ -517,65 +450,6 @@ add(id="L5-2", stage="L5", type="coding", level="Extend", concept="looping",
     explain="Switch the loop to <code>for name, price in menu.items():</code> and print the name inside the <code>if</code>. The count prints once, after the loop.",
     trap="<code>&lt; budget</code> misses an item whose price equals the budget.")
 
-add(id="L5-3", stage="L5", type="coding", level="Implement", concept="unique_keys",
-    challenge={
-        "title": "Build the Board",
-        "statement": "The manager reads out the board one row at a time. Build the dictionary and print it. If a name is read out again, the <b>new price replaces</b> the old one.",
-        "input_fmt": "First line: N, the number of rows. Then N lines, each a name and a whole-number price separated by a space.",
-        "output_fmt": "The dictionary, printed with print(menu).",
-        "starter": 'n = int(input())\nmenu = {}\nfor i in range(n):\n    name, price = input().split()\n    # put this row on the board\n\nprint(menu)\n',
-        "tests": [
-            {"stdin": "3\ntea 12\ncoffee 15\nsamosa 15", "expected": "{'tea': 12, 'coffee': 15, 'samosa': 15}"},
-            {"stdin": "2\nmaggi 30\npuff 20", "expected": "{'maggi': 30, 'puff': 20}"},
-            {"stdin": "3\ntea 12\ncoffee 15\ntea 14", "expected": "{'tea': 14, 'coffee': 15}", "hidden": True, "note": "a name read out twice"},
-            {"stdin": "2\nTea 12\ntea 14", "expected": "{'Tea': 12, 'tea': 14}", "hidden": True, "note": "Tea and tea"},
-            {"stdin": "0", "expected": "{}", "hidden": True, "note": "no rows"},
-        ],
-    },
-    solution='n = int(input())\nmenu = {}\nfor i in range(n):\n    name, price = input().split()\n    menu[name] = int(price)\nprint(menu)\n',
-    hints=["menu[name] = ... adds a new row or changes an existing one.", "The price arrives as text. Turn it into a number with int()."],
-    explain="<code>menu[name] = int(price)</code> adds new names at the end and changes a repeated name in place, keeping its first position.",
-    trap="Forgetting <code>int()</code> prints <code>'12'</code> with quotes.")
-
-add(id="L5-4", stage="L5", type="coding", level="Implement", concept="keyerror_get",
-    challenge={
-        "title": "Price Check",
-        "statement": "A student asks for an item at the counter. Print its price. If it is not on the board, print <code>Not on the board</code>. The program must never crash.",
-        "input_fmt": "One item name.",
-        "output_fmt": "The price, or the words Not on the board.",
-        "starter": f'menu = {MENU}\nitem = input()\n# print the price, or Not on the board\n',
-        "tests": [
-            {"stdin": "maggi", "expected": "30"},
-            {"stdin": "dosa", "expected": "Not on the board"},
-            {"stdin": "Tea", "expected": "Not on the board", "hidden": True, "note": "capital T"},
-            {"stdin": "puff", "expected": "20", "hidden": True, "note": "another item on the board"},
-        ],
-    },
-    solution=f'menu = {MENU}\nitem = input()\nif item in menu:\n    print(menu[item])\nelse:\n    print("Not on the board")\n',
-    hints=["Check first with in, or use get() and test for None."],
-    explain="<code>if item in menu:</code> guards the lookup. <code>menu.get(item)</code> with an <code>is None</code> check works too.",
-    trap="<code>print(menu[item])</code> alone crashes with <code>KeyError</code> on dosa.")
-
-add(id="L5-5", stage="L5", type="coding", level="Debug", concept="keyerror_get",
-    challenge={
-        "title": "Fix the Bill",
-        "statement": "This bill reads each item with how many were ordered. It works until someone orders an item that is not on the board: then it crashes with <code>KeyError</code>. Fix it so those items are <b>skipped</b>.",
-        "input_fmt": "First line: N. Then N lines, each an item name and a quantity.",
-        "output_fmt": "One number: the total.",
-        "starter": f'menu = {MENU}\nn = int(input())\ntotal = 0\nfor i in range(n):\n    name, qty = input().split()\n    total = total + menu[name] * int(qty)\nprint(total)\n',
-        "tests": [
-            {"stdin": "2\ntea 2\nsamosa 1", "expected": "39"},
-            {"stdin": "2\ntea 1\ndosa 3", "expected": "12"},
-            {"stdin": "1\ndosa 2", "expected": "0", "hidden": True, "note": "only a missing item"},
-            {"stdin": "3\nmaggi 1\nTea 2\npuff 2", "expected": "70", "hidden": True, "note": "Tea with a capital T"},
-            {"stdin": "0", "expected": "0", "hidden": True, "note": "empty order"},
-        ],
-    },
-    solution=f'menu = {MENU}\nn = int(input())\ntotal = 0\nfor i in range(n):\n    name, qty = input().split()\n    if name in menu:\n        total = total + menu[name] * int(qty)\nprint(total)\n',
-    hints=["Run the second sample. Which line raises the KeyError?", "Guard that line with if name in menu:"],
-    explain="Line 6 looks up <code>menu[name]</code> without checking. Add <code>if name in menu:</code> above it and indent the line.",
-    trap="Wrapping it in <code>menu.get(name)</code> alone gives <code>None * 3</code>: a TypeError.")
-
 # ---------- Final Boss ----------
 add(id="B-1", stage="BOSS", type="predict", level="Read", concept="unique_keys", scenario=True,
     title="Run the scenario on the left. What does print(menu) show?",
@@ -590,32 +464,6 @@ add(id="B-1", stage="BOSS", type="predict", level="Read", concept="unique_keys",
     hints=["Trace the five updates one at a time. Which keys are new, which already exist?"],
     explain="coffee and samosa change in place, chai and dosa are added at the end, and the second chai changes chai to 12 without moving it.",
     trap="Moving chai to the end on its second update.")
-
-add(id="B-2", stage="BOSS", type="numeric", level="Read", concept="add_change", scenario=True,
-    title="In the scenario, how many of the 5 updates change a row that is already on the board (instead of adding a new row)?",
-    value=3,
-    hints=["Before each update, ask: is this key already on the board?"],
-    explain="coffee and samosa exist from the start, and the second chai finds chai already added. That is 3 changes; the first chai and dosa are 2 new rows.",
-    trap="Counting only the starting rows gives 2. The second chai is a change too.")
-
-add(id="B-3", stage="BOSS", type="coding", level="Debug", concept="dict_from_pairs",
-    challenge={
-        "title": "Fix the Board Builder",
-        "statement": "This program collects the rows into a list and then calls <code>dict()</code>. It crashes with <code>ValueError</code>. Fix it so it prints the board.",
-        "input_fmt": "First line: N. Then N lines, each a name and a whole-number price.",
-        "output_fmt": "The dictionary, printed with print(menu).",
-        "starter": 'n = int(input())\nitems = []\nfor i in range(n):\n    name, price = input().split()\n    items.append(name)\n    items.append(int(price))\nmenu = dict(items)\nprint(menu)\n',
-        "tests": [
-            {"stdin": "2\ntea 12\ncoffee 15", "expected": "{'tea': 12, 'coffee': 15}"},
-            {"stdin": "1\nmaggi 30", "expected": "{'maggi': 30}"},
-            {"stdin": "3\ntea 12\ncoffee 15\ntea 14", "expected": "{'tea': 14, 'coffee': 15}", "hidden": True, "note": "a name read out twice"},
-            {"stdin": "3\nsamosa 15\nSamosa 16\npuff 20", "expected": "{'samosa': 15, 'Samosa': 16, 'puff': 20}", "hidden": True, "note": "case-sensitive names"},
-        ],
-    },
-    solution='n = int(input())\nitems = []\nfor i in range(n):\n    name, price = input().split()\n    items.append((name, int(price)))\nmenu = dict(items)\nprint(menu)\n',
-    hints=["What does dict() need each element of the list to be?", "Append one pair, (name, int(price)), instead of two separate items."],
-    explain="<code>dict()</code> needs a list of two-item pairs. The starter builds a flat list, so it sees <code>\"tea\"</code> (three letters) as one element. Append <code>(name, int(price))</code> instead.",
-    trap="The error names element #0 because <code>\"tea\"</code> has length 3, not 2.")
 
 add(id="B-4", stage="BOSS", type="coding", level="Optimize", concept="compare_types",
     challenge={
@@ -742,7 +590,7 @@ LEVEL_BY_ID = {lvl["id"]: lvl for lvl in LEVELS}
 TOTAL = sum(len(lvl["main"]) for lvl in LEVELS)
 
 assert len(QUESTIONS) == len(Q), "duplicate question id"
-assert TOTAL == len(Q) == 42, TOTAL
+assert TOTAL == len(Q) == 30, TOTAL
 for lvl in LEVELS:
     for qid in lvl["main"]:
         assert QUESTIONS[qid]["stage"] == lvl["id"], qid
