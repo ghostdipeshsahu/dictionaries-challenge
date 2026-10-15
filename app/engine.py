@@ -169,7 +169,7 @@ def unlocked_ids(state):
 def concepts(state):
     agg = {}
     for qid, s in state["q"].items():
-        if s["first"] is None:
+        if s["first"] is None or qid not in C.QUESTIONS:  # a question removed after this student answered it
             continue
         k = C.QUESTIONS[qid]["concept"]
         a = agg.setdefault(k, {"c": 0, "a": 0})
@@ -204,7 +204,7 @@ def public_state(state, rules, now=None):
         "progress": {"done": done, "total": C.TOTAL},
         "levels": levels,
         "questions": {qid: {"solved": s["solved"], "wrong": s["wrong"], "revealed": s["revealed"],
-                            "timed_out": s["timed_out"], "hint": s["hints"] > 0} for qid, s in state["q"].items()},
+                            "timed_out": s["timed_out"], "hint": s["hints"] > 0} for qid, s in state["q"].items() if qid in C.QUESTIONS},
         "concepts": concepts(state),
         "badges": list(state["badges"]),
         "proctor": {"tab_switches": state["proctor"]["tab_switches"], "max_tab_switches": rules.max_tab_switches,
@@ -640,7 +640,7 @@ def resume(state, rules, now=None):
 def current_of(state):
     """Where the learner is (or stopped): the last question they opened. None before the start and after completion."""
     qid = state.get("current")
-    if not qid or not state["started_at"] or state["ended_reason"] == "complete":
+    if not qid or qid not in C.QUESTIONS or not state["started_at"] or state["ended_reason"] == "complete":
         return None
     q = C.QUESTIONS[qid]
     lvl = C.LEVEL_BY_ID[q["stage"]]

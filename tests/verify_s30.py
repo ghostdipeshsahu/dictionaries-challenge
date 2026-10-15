@@ -81,14 +81,14 @@ for q in Q.values():
             ok(0 <= k < len(q["options"]) and k != q.get("answer"), f"{q['id']} why key {k}")
 
 # ---------- numeric ----------
-for qid in ("L1-3", "L3-6"):
+for qid in ("L1-3",):
     ok(shown(Q[qid]["code"]) == str(Q[qid]["value"]), f"{qid} numeric {shown(Q[qid]['code'])!r}")
 _, _, _, _, env = run(C.BOSS_SCENARIO)
-ok(len({id(env["trip"]), id(env["backup"]), id(env["alias"])}) == Q["B-2"]["value"], "B-2 dictionaries count")
+ok(len({id(env["trip"]), id(env["backup"]), id(env["alias"])}) == 2, "scenario: three names, two dictionaries")
 
 # ---------- true / false ----------
 _, _, _, _, env = run(f'trip = {C.TRIP}\nravi = trip')
-ok((env["trip"] is not env["ravi"]) == Q["L1-4"]["value"], "L1-4 tf")
+ok(env["trip"] is env["ravi"], "= gives a second name, not a copy")
 _, _, _, _, env = run(f'trip = {C.TRIP}\nkiran = trip.copy()\nkiran["Kiran"] = 2000')
 ok((env["trip"]["Kiran"] == 0) == Q["L0-2"]["value"], "L0-2 tf (a copy keeps the original)")
 
@@ -103,7 +103,6 @@ for q in Q.values():
         for combo in itertools.product(*q["blanks"]):
             code = parts[0] + "".join(b + p for b, p in zip(combo, parts[1:]))
             ok(shown(code) == q["expect"], f"{q['id']} with {combo} prints {shown(code)!r}")
-ok(shown(Q["L2-5"]["code"].replace("trip.___()", "trip", 1).replace("___", "len")) == "500\n3", "L2-5 trap (= instead of copy) really prints 500")
 
 # ---------- order: the keyed order is the only one that prints the target ----------
 q = Q["L1-5"]
@@ -130,7 +129,7 @@ truth = [shown(f"trip = {C.TRIP}\n" + o) == "True" for o in q["options"]]
 ok([i for i, t in enumerate(truth) if t] == q["answers"], f"L2-4 truth {truth}")
 
 # ---------- debug missions ----------
-for qid in ("L2-7", "L3-5", "L4-5"):
+for qid in ("L2-7",):
     q = Q[qid]
     _, et, em, line, _ = run(q["code"])
     ok(line == q["line"], f"{qid} stops on line {line}, keyed {q['line']}")
@@ -235,7 +234,8 @@ for q in Q.values():
 ok({q["level"] for q in Q.values()} == LEVELS_OK, "every cognitive level used")
 ok({q["concept"] for q in Q.values()} == set(C.CONCEPTS), f"unused concepts {set(C.CONCEPTS) - {q['concept'] for q in Q.values()}}")
 ok({q["type"] for q in Q.values()} == set(C.TYPE_LABEL), f"unused types {set(C.TYPE_LABEL) - {q['type'] for q in Q.values()}}")
-ok(sum(q["type"] == "coding" for q in Q.values()) == 7, "seven coding challenges")
+ok(sum(q["type"] == "coding" for q in Q.values()) == 5, "five coding challenges")
+ok(sum(q["time"] for q in Q.values()) <= 40 * 60, f"worst case {sum(q['time'] for q in Q.values())/60:.1f} min must leave room inside 45")
 
 print(f"\n{N[0]} checks, {len(FAILS)} failed")
 sys.exit(1 if FAILS else 0)

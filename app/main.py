@@ -339,7 +339,7 @@ def dashboard(section=None):
             if l["done"]:
                 stage_cleared[l["id"]] += 1
         for qid, q in st["q"].items():
-            if q["first"] is None:
+            if q["first"] is None or qid not in C.QUESTIONS:  # removed after it was answered
                 continue
             qq = C.QUESTIONS[qid]
             for bucket, k in ((concept_tot, qq["concept"]), (type_tot, qq["type"])):

@@ -180,7 +180,7 @@ SECRET_KEYS = {"answer", "answers", "value", "blanks", "mapping", "line", "error
 def test_mission_payload_has_no_answer_keys(client):
     h = login(client)
     m = client.get("/api/dicts/mission", headers=h).json()
-    assert len(m["levels"]) == 7 and sum(len(l["questions"]) for l in m["levels"]) == 42
+    assert len(m["levels"]) == 7 and sum(len(l["questions"]) for l in m["levels"]) == C.TOTAL
     for l in m["levels"]:
         for q in l["questions"]:
             assert not (SECRET_KEYS & set(q)), (q["id"], SECRET_KEYS & set(q))
@@ -288,7 +288,7 @@ def test_hint_costs_a_little_xp_and_unlocks_progressively(client):
 def test_combo_bonus_from_three_in_a_row(client):
     h = login(client)
     start(client, h)
-    xs = [solve(client, h, q) for q in ("L0-1", "L0-2", "L0-3")]
+    xs = [solve(client, h, q) for q in [q for l in C.LEVELS for q in l["main"]][:3]]
     assert [x["combo"] for x in xs] == [1, 2, 3]
     assert xs[2]["xp_parts"]["combo"] > 0 and xs[1]["xp_parts"]["combo"] == 0
 
@@ -334,9 +334,10 @@ def test_stars_drop_with_mistakes(client):
     solve(client, h, "L0-1")
     ans(client, h, "L0-2", False)
     solve(client, h, "L0-2")
-    solve(client, h, "L0-3")
+    for q in C.LEVEL_BY_ID["L0"]["main"][2:]:
+        solve(client, h, q)
     lv = client.get("/api/dicts/mission", headers=h).json()["state"]["levels"][0]
-    assert lv["done"] and lv["first_try"] == 1 and lv["stars"] == 1
+    assert lv["done"] and lv["first_try"] == len(C.LEVEL_BY_ID["L0"]["main"]) - 2 and lv["stars"] == 1
 
 
 # ---------------------------------------------------------------- grading details
@@ -396,12 +397,11 @@ def test_split_the_bill_must_use_star_friends(client):
     start(client, h)
     for lid in ("L0", "L1", "L2", "L3", "L4"):
         clear_stage(client, h, lid)
-    for qid in ("L5-1", "L5-2"):
-        solve(client, h, qid)
-    q = C.QUESTIONS["L5-3"]
-    r = ans(client, h, "L5-3", right(q), code=q["challenge"]["starter"]).json()
-    assert not r["correct"] and "split(bill, *friends)" in r["detail"]["why_wrong"]
-    assert ans(client, h, "L5-3", right(q), code=q["solution"]).json()["correct"]
+    clear_stage(client, h, "L5")
+    q = C.QUESTIONS["B-5"]  # One Split for All: split3/split4 give the right output for 3 and 4 friends
+    r = ans(client, h, "B-5", right(q), code=q["challenge"]["starter"]).json()
+    assert not r["correct"] and "Every test passes" in r["detail"]["why_wrong"] and "split(bill, *friends)" in r["detail"]["why_wrong"]
+    assert ans(client, h, "B-5", right(q), code=q["solution"]).json()["correct"]
 
 
 @only_s30
@@ -429,7 +429,7 @@ def test_landing_no_box_and_reveal_gives_the_printed_line(client):
     start(client, h)
     for lid in ("L0", "L1", "L2", "L3"):
         clear_stage(client, h, lid)
-    for qid in ("L4-1", "L4-2", "L4-3", "L4-4", "L4-5"):
+    for qid in ("L4-1", "L4-2", "L4-3", "L4-4"):
         solve(client, h, qid)
     nobox = len(C.QUESTIONS["L4-6"]["boxes"])
     ans(client, h, "L4-6", [0, 0])
@@ -506,7 +506,7 @@ def test_teacher_dashboard_columns_and_current_question(client):
               "revealed", "used_minutes", "tab_switches", "copy_paste", "concepts", "last_seen", "online", "current"):
         assert k in s, k
     assert s["current"]["qid"] == "L0-2" and s["current"]["stage"] == C.LEVELS[0]["name"] and s["current"]["n"] == 2
-    assert [x["name"] for x in d["stages"]][0] == C.LEVELS[0]["name"] and d["total_questions"] == 42
+    assert [x["name"] for x in d["stages"]][0] == C.LEVELS[0]["name"] and d["total_questions"] == C.TOTAL
 
 
 def test_section_filter(client):
@@ -680,6 +680,24 @@ def test_simultaneous_answers_are_counted_once(client):
     assert st["xp"] == 12 and st["combo"] == 1
 
 
+def test_progress_on_a_removed_question_still_loads(client):
+    # A question removed from the mission after students answered it must not break their page or the dashboard.
+    t = teacher(client)
+    h = login(client)
+    start(client, h)
+    solve(client, h, "L0-1")
+    sid = sid_of(client, h)
+    st = db.by_id(sid)["state"]
+    st["q"]["ZZ-9"] = dict(st["q"]["L0-1"])
+    st["current"] = "ZZ-9"
+    db.save_state(sid, st)
+    m = client.get("/api/dicts/mission", headers=h)
+    assert m.status_code == 200 and "ZZ-9" not in m.json()["state"]["questions"]
+    d = client.get("/api/teacher/dicts", headers=t)
+    assert d.status_code == 200 and d.json()["students"][0]["current"] is None
+    assert client.get("/api/dicts/review", headers=h).status_code == 200
+
+
 def test_scripts_are_never_stale_and_dashboard_knows_the_build(client):
     # an open dashboard compares `build` and reloads itself after a server update
     t = teacher(client)
@@ -695,7 +713,7 @@ def test_full_mission_complete(client):
     for l in C.LEVELS:
         clear_stage(client, h, l["id"])
     st = client.get("/api/dicts/mission", headers=h).json()["state"]
-    assert st["ended_reason"] == "complete" and st["progress"] == {"done": 42, "total": 42}
+    assert st["ended_reason"] == "complete" and st["progress"] == {"done": C.TOTAL, "total": C.TOTAL}
     assert set(st["badges"]) == set(C.BADGES), set(C.BADGES) - set(st["badges"])
     assert all(l["stars"] == 3 for l in st["levels"])
     rev = client.get("/api/dicts/review", headers=h).json()

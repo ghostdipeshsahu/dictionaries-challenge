@@ -2,7 +2,7 @@
 
     python tests/e2e_walkthrough.py http://localhost:8010 <screenshot-dir>
 
-Signs in, accepts the rules, answers all 42 questions with the page's own controls (every question type,
+Signs in, accepts the rules, answers every question with the page's own controls (every question type,
 including Board builds and the 7 coding challenges run in real Python via Pyodide), tries a wrong answer, a hint,
 the reveal rule, a tab switch and a second tab, and checks the teacher dashboard updates live.
 Fails on any browser console error.
@@ -347,7 +347,7 @@ def main():
         # ---- teacher: completed status, row data, CSV export
         expect(tpage.locator("#rows")).to_contain_text("Completed", timeout=10000)
         row = tpage.locator("#rows tr", has_text="Walk Through")
-        expect(row).to_contain_text("42/42")
+        expect(row).to_contain_text(f"{C.TOTAL}/{C.TOTAL}")
         expect(row.locator("td").nth(11)).to_have_text("1")  # one tab switch recorded ("Now on" is column 5)
         shot(tpage, "teacher-final")
         with tpage.expect_download() as dl:

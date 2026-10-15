@@ -43,8 +43,8 @@ TYPE_LABEL = {
 
 XP = {"mcq": 10, "tf": 10, "predict": 15, "msq": 15, "ar": 15, "fill": 15, "numeric": 15,
       "match": 20, "order": 20, "categorize": 20, "debug": 20, "land": 25, "coding": 40}
-TIME = {"mcq": 45, "tf": 30, "predict": 60, "msq": 75, "ar": 60, "fill": 75, "numeric": 75,
-        "match": 90, "order": 90, "categorize": 90, "debug": 90, "land": 120, "coding": 240}
+TIME = {"mcq": 30, "tf": 25, "predict": 45, "msq": 50, "ar": 45, "fill": 50, "numeric": 45,
+        "match": 60, "order": 60, "categorize": 60, "debug": 60, "land": 75, "coding": 180}
 
 AR_OPTIONS = [
     "Both A and R are true, and R explains A",
@@ -96,7 +96,7 @@ LEVELS = [
                  {"line": 2, "say": "b is a second name for the same sheet. No new sheet is made."},
                  {"line": 3, "say": "Kiran pays 500, typed through the name b."},
                  {"line": 4, "say": "trip shows it too: there is only one sheet.", "shows": "500"}],
-        "main": ["L0-1", "L0-2", "L0-3"],
+        "main": ["L0-1", "L0-2"],
     },
     {
         "id": "L1", "name": "Find the Copy-Cat", "difficulty": "Easy",
@@ -114,7 +114,7 @@ LEVELS = [
                  {"line": 3, "say": "Ravi changes his row through ravi."},
                  {"line": 4, "say": "trip sees the change: it is the same sheet.", "shows": "{'Teja': 1500, 'Ravi': 1000, 'Kiran': 0}"},
                  {"line": 5, "say": "Same id: one dictionary, two names.", "shows": "True"}],
-        "main": ["L1-1", "L1-2", "L1-3", "L1-4", "L1-5", "L1-6"],
+        "main": ["L1-1", "L1-3", "L1-5", "L1-6"],
     },
     {
         "id": "L2", "name": "Make a Real Backup", "difficulty": "Easy+",
@@ -133,7 +133,7 @@ LEVELS = [
                  {"line": 4, "say": "trip still has Kiran's 0.", "shows": "{'Teja': 1500, 'Ravi': 800, 'Kiran': 0}"},
                  {"line": 5, "say": "clear() empties trip. The dictionary is still there."},
                  {"line": 6, "say": "trip is empty; the copy still has 3 rows.", "shows": "{} 3"}],
-        "main": ["L2-1", "L2-2", "L2-3", "L2-4", "L2-5", "L2-6", "L2-7"],
+        "main": ["L2-2", "L2-3", "L2-4", "L2-6", "L2-7"],
     },
     {
         "id": "L3", "name": "Split the Dinner Bill", "difficulty": "Medium",
@@ -150,7 +150,7 @@ LEVELS = [
                  {"line": 4, "say": "Three values: one tuple of three.", "shows": "('Teja', 'Ravi', 'Kiran')"},
                  {"line": 5, "say": "One value: still a tuple, with a comma.", "shows": "('Sai',)"},
                  {"line": 6, "say": "No values: an empty tuple.", "shows": "()"}],
-        "main": ["L3-1", "L3-2", "L3-3", "L3-4", "L3-5", "L3-6", "L3-7"],
+        "main": ["L3-1", "L3-2", "L3-3", "L3-4", "L3-7"],
     },
     {
         "id": "L4", "name": "Who Paid What?", "difficulty": "Hard",
@@ -167,11 +167,11 @@ LEVELS = [
         "walk": [{"line": 1, "say": "**paid will collect every name=value argument into a dictionary."},
                  {"line": 4, "say": "Each name becomes a key, each value its value.", "shows": "{'Teja': 1500, 'Ravi': 800}"},
                  {"line": 9, "say": "** opens the dictionary: each key goes to the parameter with its name, whatever the order.", "shows": "Teja C"}],
-        "main": ["L4-1", "L4-2", "L4-3", "L4-4", "L4-5", "L4-6", "L4-7"],
+        "main": ["L4-1", "L4-2", "L4-3", "L4-4", "L4-6", "L4-7"],
     },
     {
         "id": "L5", "name": "Fix Divya's App", "difficulty": "Hard",
-        "job": "Divya's trip app has five bugs. Fix each one so the app works for every friend, not just the examples.",
+        "job": "Divya's trip app has three bugs. Fix each one so the app works for every friend, not just the examples.",
         "intel_title": "Before you start",
         "intel": [
             "Each fix reads input and prints. The sample tests show what it should print.",
@@ -184,7 +184,7 @@ LEVELS = [
                  {"line": 3, "say": "Walk the copy: it never changes."},
                  {"line": 5, "say": "Delete from the real sheet. Kiran and Sai go."},
                  {"line": 6, "say": "Only the payers are left.", "shows": "{'Teja': 1500, 'Ravi': 800}"}],
-        "main": ["L5-1", "L5-2", "L5-3", "L5-4", "L5-5"],
+        "main": ["L5-1", "L5-2", "L5-4"],
     },
     {
         "id": "BOSS", "name": "Settle the Trip", "difficulty": "Boss",
@@ -203,7 +203,7 @@ LEVELS = [
                  {"line": 10, "say": "\"Kiran\" and \"Sai\" go into names; **trip opens trip into name=value arguments for paid."},
                  {"line": 8, "say": "Kiran is a key in paid: 500. Sai is not: get() gives None.", "shows": "Kiran 500\nSai None"},
                  {"line": 11, "say": "The backup still has 3 rows and Kiran's 0.", "shows": "3 0"}],
-        "main": ["B-1", "B-2", "B-3", "B-4", "B-5", "B-6", "B-7"],
+        "main": ["B-1", "B-3", "B-4", "B-5", "B-6", "B-7"],
     },
 ]
 
@@ -235,17 +235,6 @@ add(id="L0-2", stage="L0", type="tf", level="Recall", concept="copy",
     hints=["Make a copy creates a second sheet. Is Kiran typing in Divya's sheet?"],
     explain="Make a copy gives a <b>second</b> sheet, so Divya's sheet keeps its numbers. In Python that is <code>trip.copy()</code>.")
 
-add(id="L0-3", stage="L0", type="mcq", level="Recall", concept="args_tuple",
-    title="split(bill, a, b, c) splits a bill between three friends. Sai sits down too. What kind of parameter lets one split() work for any number of friends?",
-    options=["*friends: it takes any number of values", "a fourth parameter d", "a new function split4", "None: a function always takes a fixed number of values"],
-    answer=0,
-    why={1: "Then it breaks again when a fifth friend comes.",
-         2: "split4, split5, split10... one function for every count is not a plan.",
-         3: "Python can take any number of values with <code>*</code>. That is today's second half."},
-    hints=["You cannot know how many friends will sit down. What can take any number of values?"],
-    explain="<code>def split(bill, *friends):</code> collects every friend into one tuple, however many there are.",
-    trap="Adding one more parameter only moves the problem.")
-
 # ---------- L1 · One Sheet, Two Names ----------
 add(id="L1-1", stage="L1", type="predict", level="Read", concept="same_object",
     title="What does this print?",
@@ -260,17 +249,6 @@ add(id="L1-1", stage="L1", type="predict", level="Read", concept="same_object",
     explain="Line 2 gives the same dictionary a second name. Changing Ravi's value through <code>ravi</code> changes the one dictionary, so <code>trip</code> shows 1000.",
     trap="Thinking <code>ravi = trip</code> makes a copy, so trip is unchanged.")
 
-add(id="L1-2", stage="L1", type="predict", level="Read", concept="same_object",
-    title="What does this print?",
-    code=f'trip = {TRIP}\nravi = trip\nprint(id(trip) == id(ravi))',
-    options=["True", "False", "!TypeError: id() takes a dictionary", "1500"],
-    answer=0,
-    why={1: "Two names, one object: they have the same id.",
-         2: "<code>id()</code> works on any object.",
-         3: "<code>id()</code> gives an object's identity number, not a value from it."},
-    hints=["id() tells which object a name points at. Do trip and ravi point at different objects?"],
-    explain="<code>ravi = trip</code> points both names at the same dictionary, so the ids are equal: True.")
-
 add(id="L1-3", stage="L1", type="numeric", level="Read", concept="same_object",
     title="What number does this print?",
     code=f'trip = {TRIP}\nb = trip\nb["Kiran"] = 500\nprint(trip["Kiran"])',
@@ -278,12 +256,6 @@ add(id="L1-3", stage="L1", type="numeric", level="Read", concept="same_object",
     hints=["b is another name for trip's dictionary."],
     explain="<code>b</code> and <code>trip</code> are one dictionary. Setting Kiran to 500 through <code>b</code> is seen through <code>trip</code>: 500.",
     trap="Answering 0, as if <code>b = trip</code> had made a copy.")
-
-add(id="L1-4", stage="L1", type="tf", level="Read", concept="same_object",
-    title="True or false: after ravi = trip, Python has two dictionaries with the same pairs.",
-    value=False,
-    hints=["Does = make anything new, or only give a name?"],
-    explain="There is <b>one</b> dictionary with two names. Only <code>copy()</code> makes a second dictionary.")
 
 add(id="L1-5", stage="L1", type="order", level="Implement", concept="same_object",
     title="Put the lines in order so the program prints {'Teja': 1500, 'Ravi': 1000}, then 2.",
@@ -306,21 +278,6 @@ add(id="L1-6", stage="L1", type="predict", level="Read", concept="same_object",
     trap="Thinking <code>backup = trip</code> keeps the old values.")
 
 # ---------- L2 · Copy, Clear, Count ----------
-add(id="L2-1", stage="L2", type="predict", level="Read", concept="copy",
-    title="What does this print?",
-    code=f'trip = {TRIP}\nkiran = trip.copy()\nkiran["Kiran"] = 2000\nprint(trip)\nprint(kiran)',
-    options=["{'Teja': 1500, 'Ravi': 800, 'Kiran': 0}\n{'Teja': 1500, 'Ravi': 800, 'Kiran': 2000}",
-             "{'Teja': 1500, 'Ravi': 800, 'Kiran': 2000}\n{'Teja': 1500, 'Ravi': 800, 'Kiran': 2000}",
-             "{'Teja': 1500, 'Ravi': 800, 'Kiran': 0}\n{'Kiran': 2000}",
-             "{'Teja': 1500, 'Ravi': 800, 'Kiran': 2000}\n{'Teja': 1500, 'Ravi': 800, 'Kiran': 0}"],
-    answer=0,
-    why={1: "<code>copy()</code> made a second dictionary. A change to the copy stays on the copy.",
-         2: "The copy starts with <b>all</b> the pairs, not only the changed one.",
-         3: "The change was made through <code>kiran</code>, so it is the copy that shows 2000."},
-    hints=["copy() makes a second sheet. Which sheet did line 3 change?"],
-    explain="<code>trip.copy()</code> is a second dictionary with the same pairs. Changing Kiran in the copy leaves <code>trip</code> with 0.",
-    trap="Treating <code>copy()</code> like <code>=</code>.")
-
 add(id="L2-2", stage="L2", type="predict", level="Read", concept="clear",
     title="What does this print?",
     code=f'trip = {TRIP}\nprint(len(trip))\nprint(800 in trip)\nprint("Ravi" in trip)\ntrip.clear()\nprint(trip)\nprint(len(trip))',
@@ -352,15 +309,6 @@ add(id="L2-4", stage="L2", type="msq", level="Read", concept="len_in",
     hints=["in checks keys. values() gives the amounts."],
     explain='"Ravi" is a key, <code>len(trip)</code> is 3, and 0 is one of the values. 800 is a value, not a key, and Sai is not on the sheet.',
     trap="Expecting <code>800 in trip</code> to be True.")
-
-add(id="L2-5", stage="L2", type="fill", level="Implement", concept="copy",
-    title="Divya's backup must keep Kiran's 0. Fill the gaps so the program prints 0, then 3.",
-    code=f'trip = {TRIP}\nbackup = trip.___()\ntrip["Kiran"] = 500\nprint(backup["Kiran"])\nprint(___(backup))',
-    blanks=[["copy"], ["len"]],
-    expect="0\n3",
-    hints=["Which method makes a second sheet?", "Which function counts the pairs?"],
-    explain="<code>trip.copy()</code> makes a real backup, so changing trip leaves Kiran's 0 in it. <code>len(backup)</code> counts its 3 pairs.",
-    trap="<code>backup = trip</code> would print 500.")
 
 add(id="L2-6", stage="L2", type="match", level="Read", concept="copy",
     title="Match each expression to its value.",
@@ -425,22 +373,6 @@ add(id="L3-4", stage="L3", type="fill", level="Implement", concept="star_call",
     hints=["One star in the def collects the values.", "One star at the call opens the list."],
     explain="<code>*friends</code> in the def collects the values into a tuple; <code>*table</code> at the call opens the list into three separate values.")
 
-add(id="L3-5", stage="L3", type="debug", level="Debug", concept="args_tuple",
-    title="Sai sits down at the dhaba too. Tap the line where Python stops, then choose what goes wrong.",
-    code='def split(bill, a, b, c):\n    share = bill // 3\n    print(a, share)\n    print(b, share)\n    print(c, share)\n\nsplit(1200, "Teja", "Ravi", "Kiran", "Sai")',
-    errors=["TypeError: split() takes 4 positional arguments but 5 were given", "Sai gets 0", "It prints four lines, Sai 300", "IndexError"],
-    line=7, error=0, focus=7,
-    hints=["Count the parameters, then count the values in the call."],
-    explain="split() has four parameters but the call gives five values. Python stops at the call on line 7 with <code>TypeError</code>. <code>def split(bill, *friends):</code> fixes it for any number of friends.",
-    trap="Expecting Sai to get a share anyway.")
-
-add(id="L3-6", stage="L3", type="numeric", level="Read", concept="args_tuple",
-    title="Add up today's trip expenses. What number does this print?",
-    code='def total(*amounts):\n    s = 0\n    for a in amounts:\n        s = s + a\n    print(s)\n\ntotal(1500, 800, 0)',
-    value=2300,
-    hints=["amounts is the tuple (1500, 800, 0)."],
-    explain="<code>*amounts</code> packs (1500, 800, 0); the loop adds them: 2300.")
-
 add(id="L3-7", stage="L3", type="ar", level="Read", concept="args_tuple",
     title="Read the assertion and the reason.",
     assertion='def show(*friends): print(friends). Then show("Sai") prints (\'Sai\',).',
@@ -499,15 +431,6 @@ add(id="L4-4", stage="L4", type="predict", level="Read", concept="dstar_call",
     hints=["** turns each key into a name=value argument. Which parameter does block=\"C\" go to?"],
     explain="<code>room(**data)</code> is <code>room(block=\"C\", name=\"Teja\")</code>. Each value goes to the parameter with its name, so it prints <code>Teja C</code>.",
     trap="Thinking ** fills the parameters by place.")
-
-add(id="L4-5", stage="L4", type="debug", level="Debug", concept="dstar_call",
-    title="This room card was typed with the wrong key. Tap the line where Python stops, then choose what goes wrong.",
-    code='def room(name, block):\n    print(name, block)\n\ndata = {"student": "Teja", "block": "C"}\nroom(**data)',
-    errors=["TypeError: room() got an unexpected keyword argument 'student'", "It prints Teja C", "KeyError: 'name'", "It prints student C"],
-    line=5, error=0, focus=5,
-    hints=["** turns each key into name=value. Is there a parameter called student?"],
-    explain="<code>**data</code> becomes <code>room(student=\"Teja\", block=\"C\")</code>. room() has no parameter named student, so Python stops at line 5 with <code>TypeError</code>. The key must be <code>\"name\"</code>.",
-    trap="Thinking ** fills by place, so the key names do not matter.")
 
 add(id="L4-6", stage="L4", type="land", level="Read", concept="landing",
     title="Where does each argument of this call land?",
@@ -571,31 +494,7 @@ add(id="L5-2", stage="L5", type="coding", level="Debug", concept="loop_delete",
     explain="Make <code>backup = trip.copy()</code> and loop over <code>backup.keys()</code>. The copy never changes while you delete from <code>trip</code>.",
     trap="Deleting inside a loop over the same dictionary.")
 
-add(id="L5-3", stage="L5", type="coding", level="Implement", concept="args_tuple",
-    challenge={
-        "title": "Split the Bill",
-        "statement": "The dhaba bill is shared equally (whole rupees, rounded down). The starter's split() only works for exactly three friends. Rewrite it as <b>one</b> split(bill, *friends) and call it with the list opened by <code>*</code>, so it works for any number of friends.",
-        "input_fmt": "First line: the bill. Second line: the friends' names, separated by spaces (at least one).",
-        "output_fmt": "One line per friend, in order: the name and the share.",
-        "starter": 'def split(bill, a, b, c):\n    share = bill // 3\n    print(a, share)\n    print(b, share)\n    print(c, share)\n\nbill = int(input())\nnames = input().split()\nsplit(bill, names[0], names[1], names[2])\n',
-        "tests": [
-            {"stdin": "1200\nTeja Ravi Kiran", "expected": "Teja 400\nRavi 400\nKiran 400"},
-            {"stdin": "1200\nTeja Ravi Kiran Sai", "expected": "Teja 300\nRavi 300\nKiran 300\nSai 300"},
-            {"stdin": "500\nTeja", "expected": "Teja 500", "hidden": True, "note": "one friend"},
-            {"stdin": "1000\nTeja Ravi Kiran", "expected": "Teja 333\nRavi 333\nKiran 333", "hidden": True, "note": "a bill that does not divide evenly"},
-            {"stdin": "700\nTeja Ravi Kiran Sai Divya Anu Ravi", "expected": "Teja 100\nRavi 100\nKiran 100\nSai 100\nDivya 100\nAnu 100\nRavi 100", "hidden": True, "note": "seven friends"},
-        ],
-    },
-    rules=[
-        {"require": r"def\s+split\s*\(\s*\w+\s*,\s*\*\w+\s*\)", "msg": "Define one split(bill, *friends)."},
-        {"require": r"split\s*\(\s*\w+\s*,\s*\*\w+\s*\)", "msg": "Call it with the list opened: split(bill, *names)."},
-    ],
-    solution='def split(bill, *friends):\n    share = bill // len(friends)\n    for name in friends:\n        print(name, share)\n\nbill = int(input())\nnames = input().split()\nsplit(bill, *names)\n',
-    hints=["*friends collects any number of names into a tuple; len(friends) counts them.", "At the call, *names opens the list."],
-    explain="<code>def split(bill, *friends):</code> takes any number of friends, <code>bill // len(friends)</code> shares the bill, and <code>split(bill, *names)</code> opens the list into separate values.",
-    trap="<code>split(bill, names)</code> passes the whole list as one friend.")
-
-add(id="L5-4", stage="L5", type="coding", level="Debug", concept="dstar_call",
+add(id="L5-4", stage="L5", type="coding", level="Extend", concept="dstar_call",
     challenge={
         "title": "The Trip Total",
         "statement": "trip_total(**paid) prints the total and how many paid 0. The starter reads Divya's whole sheet into a dictionary, but the call stops with <code>TypeError</code>. Fix the call so the sheet's names and amounts go in as name=value arguments.",
@@ -616,25 +515,6 @@ add(id="L5-4", stage="L5", type="coding", level="Debug", concept="dstar_call",
     explain="<code>trip_total(sheet)</code> passes one plain value, and **paid cannot take plain values. <code>trip_total(**sheet)</code> opens the sheet so each name and amount goes in as name=value.",
     trap="Thinking the unpaid count stays 1, as in the first sample.")
 
-add(id="L5-5", stage="L5", type="coding", level="Extend", concept="kwargs_use",
-    challenge={
-        "title": "Who Has Paid?",
-        "statement": "Write the body of show_paid(*names, **paid): for each name in names, in order, if that name is a key in paid, print the name and the amount. Names that are not on the sheet are skipped.",
-        "input_fmt": "First line: the names to check, separated by spaces (it may be empty). Second line: N. Then N lines of the sheet: a name and an amount.",
-        "output_fmt": "One line per name found on the sheet: the name and its amount. Nothing for names not on it.",
-        "starter": 'def show_paid(*names, **paid):\n    # print each name that is on the sheet, with its amount\n    pass\n\nnames = input().split()\nn = int(input())\nsheet = {}\nfor i in range(n):\n    name, amount = input().split()\n    sheet[name] = int(amount)\nshow_paid(*names, **sheet)\n',
-        "tests": [
-            {"stdin": "Kiran\n1\nKiran 0", "expected": "Kiran 0"},
-            {"stdin": "Ravi Teja\n1\nTeja 1500", "expected": "Teja 1500"},
-            {"stdin": "\n2\nTeja 1500\nRavi 800", "expected": "", "hidden": True, "note": "no names to check"},
-            {"stdin": "Ravi Teja Sai\n3\nTeja 1500\nRavi 800\nKiran 0", "expected": "Ravi 800\nTeja 1500", "hidden": True, "note": "in the order the names are given"},
-        ],
-    },
-    solution='def show_paid(*names, **paid):\n    for name in names:\n        if name in paid:\n            print(name, paid[name])\n\nnames = input().split()\nn = int(input())\nsheet = {}\nfor i in range(n):\n    name, amount = input().split()\n    sheet[name] = int(amount)\nshow_paid(*names, **sheet)\n',
-    hints=["names is a tuple; paid is a dictionary.", "Loop over names and check each one with in paid."],
-    explain="Loop over the tuple <code>names</code>; <code>if name in paid:</code> checks the dictionary's keys; print the name and <code>paid[name]</code>. A 0 is still a value, so Kiran 0 prints.",
-    trap="Skipping Kiran because his amount is 0.")
-
 # ---------- Final Boss ----------
 add(id="B-1", stage="BOSS", type="predict", level="Read", concept="kwargs_use", scenario=True,
     title="Run the scenario on the left. What does it print?",
@@ -646,13 +526,6 @@ add(id="B-1", stage="BOSS", type="predict", level="Read", concept="kwargs_use", 
     hints=["Which dictionaries does the change through alias reach?", "get() on a missing key gives None."],
     explain="<code>alias</code> shares trip's dictionary, so Kiran is 500 in it; <code>**trip</code> passes that into paid. Sai is not a key, so <code>get</code> gives None. backup is a copy taken earlier: 3 rows, Kiran 0.",
     trap="Thinking the change through alias reaches the backup.")
-
-add(id="B-2", stage="BOSS", type="numeric", level="Read", concept="same_object", scenario=True,
-    title="In the scenario, trip, backup and alias are three names. How many different dictionaries do they point at?",
-    value=2,
-    hints=["= gives a name; copy() makes a dictionary."],
-    explain="<code>trip</code> and <code>alias</code> share one dictionary; <code>backup</code> is a second one made by <code>copy()</code>: 2 dictionaries.",
-    trap="Counting the names instead of the dictionaries gives 3.")
 
 add(id="B-3", stage="BOSS", type="land", level="Read", concept="landing",
     title="Divya checks who has paid. Where does each argument land?",
@@ -778,7 +651,7 @@ UI = {
 }
 
 assert len(QUESTIONS) == len(Q), "duplicate question id"
-assert TOTAL == len(Q) == 42, TOTAL
+assert TOTAL == len(Q) == 31, TOTAL
 for lvl in LEVELS:
     for qid in lvl["main"]:
         assert QUESTIONS[qid]["stage"] == lvl["id"], qid
