@@ -54,12 +54,12 @@ AR_OPTIONS = [
 ]
 
 BADGES = {
-    "sheet-explorer": {"name": "Sheet Explorer", "desc": "Clear One Sheet, Two Names"},
-    "copy-maker": {"name": "Copy Maker", "desc": "Clear Copy, Clear, Count"},
-    "star-packer": {"name": "Star Packer", "desc": "Clear Any Number of Friends"},
-    "key-matcher": {"name": "Key Matcher", "desc": "Clear Name = Value"},
-    "bug-hunter": {"name": "Bug Hunter", "desc": "Clear Code Breaker"},
-    "trip-champion": {"name": "Working with Dictionaries Champion", "desc": "Defeat the Final Boss"},
+    "sheet-explorer": {"name": "Sheet Explorer", "desc": "Clear Find the Copy-Cat"},
+    "copy-maker": {"name": "Copy Maker", "desc": "Clear Make a Real Backup"},
+    "star-packer": {"name": "Star Packer", "desc": "Clear Split the Dinner Bill"},
+    "key-matcher": {"name": "Key Matcher", "desc": "Clear Who Paid What?"},
+    "bug-hunter": {"name": "Bug Hunter", "desc": "Clear Fix Divya's App"},
+    "trip-champion": {"name": "Working with Dictionaries Champion", "desc": "Settle the trip"},
     "combo-5": {"name": "On Fire", "desc": "5 right answers in a row"},
     "clean-sweep": {"name": "Clean Sweep", "desc": "3 stars on any stage"},
     "landing-pro": {"name": "Landing Pro", "desc": "Every \"Where does it land?\" right on the first try"},
@@ -82,11 +82,13 @@ print(len(backup), backup["Kiran"])'''
 
 LEVELS = [
     {
-        "id": "L0", "name": "Mission Briefing", "difficulty": "Warm-up",
+        "id": "L0", "name": "The Trip Sheet", "difficulty": "Warm-up",
+        "job": "Meet Divya's sheet. When one friend changes it, who else sees the change?",
+        "intel_title": "What you need to know",
         "intel": [
-            "Divya keeps the trip money in one sheet. Sharing the <b>link</b> gives everyone the <b>same</b> sheet; <b>Make a copy</b> gives a second sheet.",
-            "In Python, <code>b = trip</code> is the link: one dictionary, two names. <code>trip.copy()</code> is Make a copy.",
-            "Later today: functions that take <b>any number</b> of values, like splitting a bill between however many friends sit down.",
+            "Sharing a sheet's <b>link</b> means everyone opens the <b>same</b> sheet. One change, everyone sees it.",
+            "<b>Make a copy</b> gives you a <b>second</b> sheet. Your changes stay on your copy.",
+            "Python works the same way. <code>b = trip</code> is the link. <code>trip.copy()</code> is Make a copy.",
         ],
         "demo": f'trip = {TRIP}\nb = trip\nb["Kiran"] = 500\nprint(trip["Kiran"])',
         "learn": ["Tell a shared link from a copy", "Say what changes when a dictionary has two names"],
@@ -97,11 +99,13 @@ LEVELS = [
         "main": ["L0-1", "L0-2", "L0-3"],
     },
     {
-        "id": "L1", "name": "One Sheet, Two Names", "difficulty": "Easy",
+        "id": "L1", "name": "Find the Copy-Cat", "difficulty": "Easy",
+        "job": "Divya saved a \"backup\" of the sheet, but it keeps changing whenever the sheet changes. Find out why.",
+        "intel_title": "What you need to know",
         "intel": [
-            "<code>ravi = trip</code> does <b>not</b> make a new dictionary. It gives the same dictionary a second name.",
-            "A change through <code>ravi</code> is seen through <code>trip</code>, and the other way round.",
-            "<code>id()</code> tells you which object a name points at. Same id: same dictionary.",
+            "<code>backup = trip</code> does not make a new sheet. It gives the <b>same</b> sheet a second name.",
+            "So <code>trip[\"Kiran\"] = 500</code> also shows up in <code>backup</code>. It is one sheet with two names.",
+            "Want proof? <code>id(trip) == id(backup)</code> is <code>True</code> when both names point at one sheet.",
         ],
         "demo": f'trip = {TRIP}\nravi = trip\nravi["Ravi"] = 1000\nprint(trip)\nprint(id(trip) == id(ravi))',
         "learn": ["Predict what a second name sees", "Check with id() whether two names share one dictionary"],
@@ -113,12 +117,14 @@ LEVELS = [
         "main": ["L1-1", "L1-2", "L1-3", "L1-4", "L1-5", "L1-6"],
     },
     {
-        "id": "L2", "name": "Copy, Clear, Count", "difficulty": "Easy+",
+        "id": "L2", "name": "Make a Real Backup", "difficulty": "Easy+",
+        "job": "Make a backup that stays the same when the sheet changes. Then count the sheet, empty it, and remove the friends who paid nothing, without crashing the app.",
+        "intel_title": "What you need to know",
         "intel": [
-            "<code>trip.copy()</code> makes a <b>second</b> dictionary with the same pairs. Changing the copy leaves <code>trip</code> as it was. A list has <code>copy()</code> too.",
-            "<code>len(trip)</code> counts pairs. <code>key in trip</code> checks the <b>keys</b> only.",
-            "<code>trip.clear()</code> removes every pair; the dictionary stays, empty. <code>trip = {}</code> instead points <code>trip</code> at a new empty dictionary.",
-            "Deleting keys while looping over the same dictionary stops with <code>RuntimeError</code>. Loop over a copy.",
+            "<code>backup = trip.copy()</code> makes a <b>real</b> backup: a second sheet that does not change when trip does.",
+            "<code>len(trip)</code> counts the friends. <code>\"Ravi\" in trip</code> checks the <b>names</b> only, never the amounts.",
+            "<code>trip.clear()</code> empties the sheet but keeps it. <code>trip = {}</code> starts a brand-new sheet instead.",
+            "Deleting names while you loop over the same sheet crashes. Loop over <code>trip.copy()</code> and delete from <code>trip</code>.",
         ],
         "demo": f'trip = {TRIP}\nkiran = trip.copy()\nkiran["Kiran"] = 2000\nprint(trip)\ntrip.clear()\nprint(trip, len(kiran))',
         "learn": ["Make a real backup with copy()", "Use len(), in and clear()", "Delete while looping without a crash"],
@@ -130,11 +136,13 @@ LEVELS = [
         "main": ["L2-1", "L2-2", "L2-3", "L2-4", "L2-5", "L2-6", "L2-7"],
     },
     {
-        "id": "L3", "name": "Any Number of Friends", "difficulty": "Medium",
+        "id": "L3", "name": "Split the Dinner Bill", "difficulty": "Medium",
+        "job": "The dinner bill is 1200 rupees. Write one split() that works for 3 friends, 4 friends, or 10.",
+        "intel_title": "What you need to know",
         "intel": [
-            "A parameter with <code>*</code>, like <code>*friends</code>, collects every extra value into one <b>tuple</b>: <code>('Sai',)</code> for one, <code>()</code> for none.",
-            "Plain values fill the named parameters first, left to right. Only what is left over joins the tuple.",
-            "If the values are already in a list, <code>*</code> at the call opens it: <code>split(1200, *table)</code>. Without the <code>*</code>, the whole list is one value.",
+            "Put a <code>*</code> before a parameter: <code>def split(bill, *friends):</code>. Now it takes <b>any number</b> of friends.",
+            "Python packs those friends into a tuple: <code>split(1200, \"Teja\", \"Ravi\")</code> gives <code>friends = ('Teja', 'Ravi')</code>.",
+            "Names already in a list? Open it with a <code>*</code> in the call: <code>split(1200, *table)</code>.",
         ],
         "demo": 'def show(*friends):\n    print(friends)\n\nshow("Teja", "Ravi", "Kiran")\nshow("Sai")\nshow()',
         "learn": ["Write a function that takes any number of values", "Predict the tuple *args makes", "Open a list into separate values with *"],
@@ -145,12 +153,14 @@ LEVELS = [
         "main": ["L3-1", "L3-2", "L3-3", "L3-4", "L3-5", "L3-6", "L3-7"],
     },
     {
-        "id": "L4", "name": "Name = Value", "difficulty": "Hard",
+        "id": "L4", "name": "Who Paid What?", "difficulty": "Hard",
+        "job": "Send everyone's name and amount into one function, like Teja=1500, Ravi=800, however many friends there are.",
+        "intel_title": "What you need to know",
         "intel": [
-            "A parameter with <code>**</code>, like <code>**paid</code>, collects every <code>name=value</code> argument into one <b>dictionary</b>. None gives <code>{}</code>.",
-            "<code>paid</code> is a real dictionary: <code>items()</code>, <code>in</code> and the rest all work.",
-            "<code>**</code> at the call opens a dictionary into <code>name=value</code> arguments. Each key must match a parameter's name, or Python stops with <code>TypeError</code>.",
-            "Use <code>*args</code> / <code>**kwargs</code> only when you cannot say how many arguments there will be.",
+            "Two stars, <code>def mark_paid(**paid):</code>, collect <code>name=value</code> pairs into a <b>dictionary</b>: <code>{'Teja': 1500, 'Ravi': 800}</code>.",
+            "It is a normal dictionary, so <code>paid.items()</code> and <code>\"Ravi\" in paid</code> work on it.",
+            "Have a dictionary already? <code>room(**data)</code> opens it. Each key must match a parameter's name.",
+            "Know exactly how many values there are? Then just name them. Use <code>*</code> and <code>**</code> only when you can't know.",
         ],
         "demo": 'def mark_paid(**paid):\n    print(paid)\n\nmark_paid(Teja=1500, Ravi=800)\n\ndef room(name, block):\n    print(name, block)\n\nroom(**{"block": "C", "name": "Teja"})',
         "learn": ["Collect name=value arguments with **kwargs", "Open a dictionary into a call with **", "Choose between fixed parameters, *args and **kwargs"],
@@ -160,11 +170,13 @@ LEVELS = [
         "main": ["L4-1", "L4-2", "L4-3", "L4-4", "L4-5", "L4-6", "L4-7"],
     },
     {
-        "id": "L5", "name": "Code Breaker", "difficulty": "Hard",
+        "id": "L5", "name": "Fix Divya's App", "difficulty": "Hard",
+        "job": "Divya's trip app has five bugs. Fix each one so the app works for every friend, not just the examples.",
+        "intel_title": "Before you start",
         "intel": [
-            "Each challenge reads input, uses a dictionary or a function, and prints. Sample tests show the format; <b>hidden tests</b> check the edge cases.",
-            "Output is checked exactly, line by line.",
-            "Some challenges also check <b>how</b> you solved it, for example that you used <code>*friends</code> or <code>**sheet</code>.",
+            "Each fix reads input and prints. The sample tests show what it should print.",
+            "Hidden tests try tricky cases, like an empty sheet or a friend who paid nothing.",
+            "Some fixes also check <b>how</b> you solved it, for example that split() really uses <code>*friends</code>.",
         ],
         "demo": f'trip = {{"Teja": 1500, "Kiran": 0, "Ravi": 800, "Sai": 0}}\nbackup = trip.copy()\nfor name in backup.keys():\n    if trip[name] == 0:\n        del trip[name]\nprint(trip)',
         "learn": ["Make a backup that really keeps the old sheet", "Delete safely while looping", "Write and call functions with *args and **kwargs"],
@@ -175,11 +187,13 @@ LEVELS = [
         "main": ["L5-1", "L5-2", "L5-3", "L5-4", "L5-5"],
     },
     {
-        "id": "BOSS", "name": "Final Boss", "difficulty": "Boss",
+        "id": "BOSS", "name": "Settle the Trip", "difficulty": "Boss",
+        "job": "Everything comes together: a backup, a second name, and a function that checks who has paid. Settle the trip.",
+        "intel_title": "Before you start",
         "intel": [
-            "One trip scenario mixes everything: a copy, a second name, and a function with <code>*names</code> and <code>**paid</code>.",
-            "Trace it line by line. Ask of each line: does it change a dictionary, or point a name somewhere new?",
-            "An AI writes what you ask for. A vague spec gets code that looks right and breaks.",
+            "Read the program on the left one line at a time.",
+            "For each line, ask: does it <b>change</b> a sheet, or does it give a name to a sheet?",
+            "Last two jobs: tell an AI exactly what you want, then spot what its code gets wrong.",
         ],
         "demo": BOSS_SCENARIO,
         "learn": ["Trace names, copies and arguments together", "Fix and rewrite real programs", "Write a spec an AI can follow"],
@@ -747,9 +761,14 @@ UI = {
     "id": "s30",
     "title": "Working with Dictionaries: The Python Challenge",
     "short": "Working with Dicts",
-    "hero_h1": "Working with Dictionaries: <em>The Python Challenge</em>",
-    "hero_p": "Divya keeps the Ooty trip money in one shared sheet. A link that is not a copy, a backup that is not a backup, and a dinner bill that breaks when Sai sits down. Master copies, clear() and functions that take any number of arguments, stage by stage. The Final Boss puts it all together.",
-    "story": "Agent, Divya's trip money sheet is in trouble: a \"backup\" that changes with the sheet, a delete that crashes, and a bill that breaks when one more friend sits down. Your tools: <b>copy()</b>, <b>clear()</b>, <b>*args</b> and <b>**kwargs</b>. Clear each stage to unlock the next. Ready?",
+    "hero_h1": "Mission: <em>Settle the Ooty Trip</em>",
+    "hero_p": "Divya and her friends just got back from Ooty. Divya kept everyone's money in one shared sheet, and now it is a mess: numbers change by themselves, the app crashes, and nobody knows who owes what. Help her fix it, one stage at a time.",
+    "story": """<p><b>Divya and her friends just got back from Ooty.</b> She kept everyone's money in one shared sheet. Now it's a mess: numbers changed by themselves, the app crashed, and nobody knows who owes what.</p>
+      <h3>Your 3 jobs</h3>
+      <ol><li>🔍 <b>Find the copy-cat.</b> Divya made a "backup", but it keeps changing with the sheet. Why?</li>
+        <li>🧹 <b>Clean the sheet.</b> Remove friends who paid nothing, without crashing the app.</li>
+        <li>🍽️ <b>Split the dinner bill.</b> Make it work for 3 friends, 4 friends, or 10.</li></ol>
+      <p class="win">You win when every stage is cleared and the trip is settled.</p>""",
     "lab": "trip",
     "lab_name": "Trip Lab",
     "boss_win": "Trip settled!",

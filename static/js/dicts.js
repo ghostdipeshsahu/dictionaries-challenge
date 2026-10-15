@@ -415,8 +415,9 @@ function renderBriefing(id){
     ${backBar()}
     <div class="eyebrow">${id==='BOSS'?'Final Boss':id==='L0'?'Mission briefing':'Stage '+i} · ${esc(l.difficulty)}</div>
     <h2>${esc(l.name)}</h2>
-    ${id==='L0'?`<p class="story">${M.ui.story}</p>`:''}
-    <div class="intel"><h3>Field intel</h3><ul>${l.intel.map(t=>`<li>${t}</li>`).join('')}</ul></div>
+    ${id==='L0'?`<div class="story">${M.ui.story}</div>`:''}
+    ${l.job?`<div class="jobbox"><h3>Your job</h3><p>${l.job}</p></div>`:''}
+    <div class="intel"><h3>${esc(l.intel_title||'Field intel')}</h3><ul>${l.intel.map(t=>`<li>${t}</li>`).join('')}</ul></div>
     ${codePanel(l.demo,{run:true,file:id==='BOSS'?'scenario.py':'intel.py'})}
     <p class="tipline">${ICON.bulb}<span>Stuck on a question? Open its <b>hint</b>. It names the concept and nudges you towards it. The <b>field guide</b> (book icon, top right) has every rule in one place.</span></p>
     <div class="stages"><div><b>${mains.length} challenge${mains.length>1?'s':''}</b><span>${s.cleared} cleared so far</span><small>${types.join(' · ')}</small></div><div><b>Up to ${mins(secs)}</b><span>question countdowns in total</span><small>Each question shows its own timer</small></div></div>

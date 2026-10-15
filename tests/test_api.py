@@ -505,8 +505,8 @@ def test_teacher_dashboard_columns_and_current_question(client):
     for k in ("rank", "name", "roll_no", "section", "status", "status_label", "done", "total", "first_try", "timed_out",
               "revealed", "used_minutes", "tab_switches", "copy_paste", "concepts", "last_seen", "online", "current"):
         assert k in s, k
-    assert s["current"]["qid"] == "L0-2" and s["current"]["stage"] == "Mission Briefing" and s["current"]["n"] == 2
-    assert [x["name"] for x in d["stages"]][0] == "Mission Briefing" and d["total_questions"] == 42
+    assert s["current"]["qid"] == "L0-2" and s["current"]["stage"] == C.LEVELS[0]["name"] and s["current"]["n"] == 2
+    assert [x["name"] for x in d["stages"]][0] == C.LEVELS[0]["name"] and d["total_questions"] == 42
 
 
 def test_section_filter(client):

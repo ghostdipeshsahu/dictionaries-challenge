@@ -354,6 +354,16 @@ body.dicts-app input,body.dicts-app textarea{-webkit-user-select:text;user-selec
 @media (max-width:560px){.resumewait{grid-template-columns:auto minmax(0,1fr)}.resumewait .btn{grid-column:1/-1}}
 
 
+/* ---------- story-led briefings (used by missions that give each stage a job) ---------- */
+.brief div.story p{margin:0 0 10px}
+.brief div.story h3{margin:14px 0 8px;font:700 12px/1 var(--f-mono);letter-spacing:.16em;text-transform:uppercase;color:var(--gold)}
+.brief div.story ol{margin:0;padding-left:0;list-style:none;display:grid;gap:8px}
+.brief div.story ol li{padding:10px 14px;border-radius:14px;background:var(--surface);border:1px solid var(--line);font-size:clamp(15.5px,1.3vw,17.5px);line-height:1.45}
+.brief div.story .win{margin:12px 0 0;font-size:clamp(15.5px,1.3vw,17.5px)}
+.jobbox{padding:16px 20px;border-radius:22px;background:color-mix(in srgb,var(--blue) 7%,var(--surface));border:2px solid color-mix(in srgb,var(--blue) 35%,var(--line))}
+.jobbox h3{margin:0 0 6px;font:700 12px/1 var(--f-mono);letter-spacing:.16em;text-transform:uppercase;color:var(--blue)}
+.jobbox p{margin:0;font:600 clamp(17px,1.5vw,20px)/1.4 var(--f-display);letter-spacing:-.01em}
+
 /* ---------- "Your task": closed by default; a student opens it only if they want the steps ---------- */
 .howto{align-self:flex-start;width:fit-content;max-width:100%}
 .howto summary{display:inline-flex;align-items:center;gap:6px;padding:5px 12px 5px 9px;border-radius:999px;border:1px solid var(--line);background:var(--surface);font:700 12.5px var(--f-display);color:var(--muted);cursor:pointer;list-style:none;user-select:none}

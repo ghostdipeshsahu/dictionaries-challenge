@@ -252,8 +252,8 @@ def main():
 
         # ---- start: briefing -> rules -> first question
         page.locator("#go").click()
-        expect(page.locator(".brief h2")).to_have_text("Mission Briefing")
-        expect(page.locator(".brief .story")).to_contain_text("Agent")
+        expect(page.locator(".brief h2")).to_have_text(C.LEVELS[0]["name"])
+        expect(page.locator(".brief .story")).to_be_visible()
         expect(page.locator(".learn")).to_have_count(0)
         expect(page.locator("#walk")).to_have_count(0)
         shot(page, "briefing")

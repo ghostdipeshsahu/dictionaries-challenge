@@ -82,6 +82,7 @@ def mission_payload(rules):
         "title": C.UI["title"],
         "levels": [{"id": l["id"], "name": l["name"], "difficulty": l["difficulty"], "intel": l["intel"], "demo": l["demo"],
                     "learn": l.get("learn", []), "walk": l.get("walk", []),
+                    **({"job": l["job"]} if l.get("job") else {}), **({"intel_title": l["intel_title"]} if l.get("intel_title") else {}),
                     "main": l["main"], "questions": [public_question(C.QUESTIONS[q]) for q in l["main"]]} for l in C.LEVELS],
         "badges": C.BADGES,
         "concepts": C.CONCEPTS,
