@@ -9,6 +9,22 @@ and the live dashboard are different. See `PARITY.md` for the item-by-item check
 - Teacher dashboard: `/teacher`
 - API docs: `/docs`
 
+## Two missions, one codebase
+
+| `MISSION` | Session | Story | Visual question | Lab |
+|---|---|---|---|---|
+| `s29` (default) | 29 · Dictionaries | the canteen price board | Board build | Dict Lab |
+| `s30` | 30 · Working with Dictionaries (copy, clear, `*args`, `**kwargs`) | Divya's Ooty trip money sheet | Where does it land? | Trip Lab |
+
+Each mission runs as its own site with its own database: set `MISSION` per deployment. Content lives in
+`app/mission_s29.py` and `app/mission_s30.py`; everything else (game, rules, teacher dashboard) is shared.
+
+### Guidance built into every mission
+Students were unsure what to do, so every mission guides them step by step: a 4-card **How to play** tour,
+a **Your task** box with numbered steps on every question, a **first-time card** for each new kind of question
+(its timer starts only after "Got it"), a line under Check saying what is still needed, and on each briefing the
+**goals** of the stage plus a **worked example** played one line at a time.
+
 ## Run locally
 
 ```bash
@@ -31,13 +47,16 @@ which is only for trying it on a laptop; always set your own).
 | `MAX_TAB_SWITCHES` | `3` | The mission ends at this many tab switches (`0` = record only) |
 | `REVEAL_AFTER` | `2` | Wrong tries before "Show the solution" appears |
 | `IDLE_SECONDS` | `120` | Mission running, page open, no step for this long: flagged "idle" to the teacher |
+| `MISSION` | `s29` | Which session's content this server runs (`s29` or `s30`) |
 | `DATABASE_URL` | empty | Postgres URL (Vercel + Neon). When set, used instead of SQLite |
 | `DB_PATH` | `data/dicts.db` | SQLite file |
 
 ## Tests
 
 ```bash
-python tests/verify_content.py            # every answer, option, solution and hidden test run in real Python
+python tests/verify_content.py            # Session 29: every answer, option, solution and hidden test run in real Python
+python tests/verify_s30.py                # Session 30: the same, plus every landing mapping against Python's own binder
+MISSION=s30 python -m pytest -q tests     # the backend suite on Session 30 (without MISSION: Session 29)
 python -m pytest -q tests                 # backend rules: login, timers, XP, combo, stars, badges, proctoring, teacher
 # browser walkthroughs (need Chrome + `pip install playwright`), against a running server:
 python tests/e2e_walkthrough.py http://localhost:8000 shots
@@ -60,6 +79,9 @@ The browser tests delete the students they create when they finish.
   the Resume button). The "Now on" column shows the same tags.
 
 ## Deploy on Vercel
+
+For Session 30, import the same repo as a **second** Vercel project, add `MISSION=s30`, and give it its own Neon database.
+
 
 1. Import the GitHub repo in Vercel (FastAPI is detected from `app/main.py`; `vercel.json` sets the Mumbai region).
 2. **Storage → Create Database → Neon (Postgres)** and connect it to the project. This sets `DATABASE_URL`.

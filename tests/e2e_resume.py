@@ -61,6 +61,8 @@ try:
         page.locator("#check").click()
         page.locator("#drawer.open #cont").click()            # L0-1 solved, now on L0-2
         expect(page.locator("#qtitle")).to_contain_text("True or false")
+        pass_coach(page, {"mcq"}, "tf")                       # first True/False: its timer starts after Got it
+        time.sleep(4)                                         # spend a few seconds on the question
 
         # 1) three tab switches end the mission
         for i in range(3):
@@ -95,7 +97,7 @@ try:
         mm, ss = left.split(":")
         secs = int(mm) * 60 + int(ss)
         # L0-2 has 30 s; a few were used before the tab switches, and the minutes spent ended are not counted
-        assert 10 < secs < 30, f"L0-2 should keep its remaining seconds, shows {left}"
+        assert 10 < secs <= 27, f"L0-2 should keep its remaining seconds (about 25 of 30), shows {left}"
         assert page.locator("#xpNum").inner_text() != "0", "XP was kept"
         print(f"student back on the same question with {left} left and XP kept")
         # 4) idle: no step for 20 s -> the teacher sees it

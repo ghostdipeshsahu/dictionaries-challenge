@@ -381,6 +381,60 @@ body.dicts-app input,body.dicts-app textarea{-webkit-user-select:text;user-selec
 .tourdots{display:flex;gap:6px;margin:10px 0 14px}.tourdots i{width:8px;height:8px;border-radius:50%;background:var(--line)}.tourdots i.on{background:var(--blue);width:22px;border-radius:8px}
 @media (prefers-reduced-motion:reduce){.btn.pulse{animation:none}}
 
+
+/* ---------- Where does it land? ---------- */
+.land{display:grid;gap:10px}
+.lsub{font:700 11px var(--f-mono);letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.largs{display:flex;flex-wrap:wrap;gap:8px}
+.lchip{appearance:none;display:grid;gap:2px;justify-items:start;padding:8px 12px;border-radius:12px;border:2px solid var(--line);background:var(--surface);box-shadow:0 3px 0 var(--line);cursor:pointer;color:var(--ink);transition:transform .14s var(--ease-out),border-color .2s,background-color .2s}
+.lchip code{background:none;padding:0;font:700 15px var(--f-mono)}
+.lchip small{font:600 11.5px var(--f-mono);color:var(--muted)}
+.lchip.sel{border-color:var(--blue);background:color-mix(in srgb,var(--blue) 9%,var(--surface));box-shadow:0 3px 0 color-mix(in srgb,var(--blue) 55%,#000)}
+.lchip.placed:not(.sel){opacity:.75}
+.lchip.is-ok{border-color:var(--good);background:var(--good-soft);opacity:1}.lchip.is-bad{border-color:var(--bad);background:var(--bad-soft);opacity:1}
+.lchip:active{transform:scale(.97)}
+.lboxes{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}
+.lbox{appearance:none;display:grid;gap:6px;align-content:start;min-height:84px;padding:10px 12px;border-radius:14px;border:2px dashed var(--line);background:var(--surface-2);text-align:left;cursor:pointer;color:var(--ink)}
+.lbox:hover{border-color:color-mix(in srgb,var(--blue) 45%,var(--line))}
+.lbhead{display:flex;justify-content:space-between;align-items:baseline;gap:6px}
+.lbhead code{background:none;padding:0;font:800 15px var(--f-mono)}
+.lbhead small{font:600 11px var(--f-mono);color:var(--muted);white-space:nowrap}
+.lbox.named{border-color:color-mix(in srgb,var(--key-c) 55%,var(--line))}
+.lbox.tuple{border-color:color-mix(in srgb,var(--val-c) 60%,var(--line))}
+.lbox.dict{border-color:color-mix(in srgb,#8B5CF6 55%,var(--line))}
+.lbox.none{border-color:color-mix(in srgb,var(--bad) 45%,var(--line));background:color-mix(in srgb,var(--bad) 5%,var(--surface-2))}
+.lin{display:flex;flex-wrap:wrap;gap:5px}
+.lgot{padding:3px 8px;border-radius:8px;background:var(--surface);border:1px solid var(--line);font:700 13px var(--f-mono)}
+.lboxes.result .lbox{cursor:default}
+
+/* ---------- Trip Lab ---------- */
+.labtabs{margin:12px 0 4px;width:fit-content;flex-wrap:wrap}
+.tripsheets{display:grid;gap:12px}
+.sheets{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}
+.sheet{display:grid;gap:8px;padding:12px;border-radius:16px;border:1px solid var(--line);background:var(--surface);transition:opacity .3s}
+.sheet.orphan{opacity:.45;border-style:dashed}
+.shead{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.shead small{margin-left:auto;font:600 11px var(--f-mono);color:var(--muted)}
+.ntag{padding:3px 10px;border-radius:999px;background:var(--blue);color:#fff;font:700 12.5px var(--f-mono)}
+.sheet .brows{min-height:60px;padding:10px}
+.sheet .brow{grid-template-columns:minmax(0,1fr) auto auto}
+.sheet .btag{overflow:visible;text-overflow:clip;font-size:14px;padding-right:18px}
+.sheet .bprice{min-width:52px;font-size:15px}
+.tsprint{display:grid;gap:6px}
+.tsprint div{display:grid;grid-template-columns:minmax(150px,auto) minmax(0,1fr);gap:10px;align-items:center;padding:8px 12px;border-radius:12px;background:var(--code-bg)}
+.tsprint code{background:none;padding:0;font:600 13.5px var(--f-mono);color:var(--syn-kw)}
+.tsprint code.out{color:#D7F2E4;overflow-wrap:anywhere}.tsprint code.out.err{color:#FF8E9A}
+.vmsg .bad,.vmsg.bad{color:var(--bad)}
+.calls{display:grid;gap:12px}
+.calldefs{flex-wrap:wrap}.calldefs button code{background:none;padding:0;font:600 12.5px var(--f-mono)}
+.calldefs button[aria-pressed="true"]{background:var(--blue);color:#fff}
+.callin{display:grid;gap:5px;font:700 11.5px var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.callin input{font:600 16px var(--f-mono);padding:10px 12px;border-radius:12px;border:2px solid var(--line);background:var(--surface-2);color:var(--ink);text-transform:none;letter-spacing:0}
+.callin input:focus{outline:none;border-color:var(--blue)}
+#callTries .btn{min-height:36px;padding:0 10px}#callTries code{background:none;padding:0;font-size:12.5px}
+.vres .vout.err{color:#FF8E9A}
+@media (max-width:560px){.tsprint div{grid-template-columns:minmax(0,1fr)}.lboxes{grid-template-columns:minmax(0,1fr)}}
+
 @media (max-width:980px){
   .cgrid,.labgrid,.repgrid{grid-template-columns:minmax(0,1fr)}
   .tally.four{grid-template-columns:repeat(2,minmax(0,1fr))}

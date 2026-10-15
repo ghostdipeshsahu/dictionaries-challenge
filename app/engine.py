@@ -59,7 +59,7 @@ def check_rules(q, code):
 # ---------------------------------------------------------------------------------------------
 # public mission payload (no answer keys)
 PUBLIC_FIELDS = ("id", "type", "title", "xp", "time", "concept", "level", "options", "code", "assertion", "reason",
-                 "left", "right", "items", "categories", "errors", "goal", "start", "scenario")
+                 "left", "right", "items", "categories", "errors", "goal", "start", "scenario", "boxes", "args")
 
 
 def public_question(q):
@@ -235,6 +235,8 @@ def solution(q):
         return {"line": q["line"], "error": q["error"], "error_text": q["errors"][q["error"]]}
     if t == "board":
         return {"rows": q["target"], "text": board_repr(q["target"])}
+    if t == "land":
+        return {"mapping": q["mapping"], "text": q["prints"]}
     if t == "coding":
         return {"solution": q["solution"]}
     return {}
@@ -318,6 +320,14 @@ def grade(q, ans, code=None):
         if len({r[0] for r in clean}) != len(clean):
             raise MissionError("A board cannot hold the same key twice.", 422)
         return board_check(q, clean, d)
+    if t == "land":
+        # one box per argument: an index into q["boxes"], or len(boxes) for "no box: Python stops"
+        if not isinstance(ans, list) or len(ans) != len(q["args"]) or not all(
+                isinstance(x, int) and not isinstance(x, bool) and 0 <= x <= len(q["boxes"]) for x in ans):
+            raise MissionError("Place every argument in a box.", 422)
+        per = [a == b for a, b in zip(ans, q["mapping"])]
+        d.update(per_item=per, right_count=sum(per))
+        return all(per), d
     if t == "coding":
         tests = q["challenge"]["tests"]
         outs = ans.get("outputs") if isinstance(ans, dict) else None

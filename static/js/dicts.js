@@ -33,6 +33,12 @@ const BADGE_ICON={
   'python-dicts-champion':'<path d="M7 3h10v2h3v3a4 4 0 0 1-4 4h-.3A5 5 0 0 1 13 14.9V18h3v3H8v-3h3v-3.1A5 5 0 0 1 8.3 12H8a4 4 0 0 1-4-4V5h3z"/>',
   'combo-5':'<path d="M12 2c1 4 6 6 6 12a6 6 0 0 1-12 0c0-3 2-5 3-6 0 2 1 3 2 3 0-4-1-6 1-9z"/>',
   'clean-sweep':'<path d="m12 2.5 2.9 6 6.6.8-4.9 4.6 1.3 6.6L12 17.3l-5.9 3.2 1.3-6.6L2.5 9.3l6.6-.8z"/>',
+  'sheet-explorer':'<path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm3.5 6.5-2 5-5 2 2-5z"/>',
+  'copy-maker':'<path d="M8 3h10a2 2 0 0 1 2 2v10h-2V5H8zM4 7h10a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2z"/>',
+  'star-packer':'<path d="M4 6h3l-2 12H2zm5 0h12v3H9zm0 5h12v3H9zm0 5h12v3H9z"/>',
+  'key-matcher':'<path d="M7.5 6.5a5.5 5.5 0 0 1 5.2 3.7H22v3.6h-2V17h-3.4v-3.2h-3.9A5.5 5.5 0 1 1 7.5 6.5zm0 3.4a2.1 2.1 0 1 0 0 4.2 2.1 2.1 0 0 0 0-4.2z"/>',
+  'trip-champion':'<path d="M7 3h10v2h3v3a4 4 0 0 1-4 4h-.3A5 5 0 0 1 13 14.9V18h3v3H8v-3h3v-3.1A5 5 0 0 1 8.3 12H8a4 4 0 0 1-4-4V5h3z"/>',
+  'landing-pro':'<path d="M3 4h7v7H3zm11 0h7v7h-7zM3 15h18v5H3zm4.5-4.5 2 3h-4zm11 0 2 3h-4z"/>',
   'board-pro':'<path d="M2 6.5h10.5L16.5 12l-4 5.5H2zm4 4a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3zM18 6.5h4v11h-4z"/>'
 };
 let CONCEPTS={pairs:'Key-value pairs',creation:'Creating a dictionary',empty:'Empty {} and dict()',unique_keys:'Unique keys',access:'menu[key] takes a key',
@@ -713,8 +719,131 @@ function padBoard(q){
   Q.mark=r=>{const ch=(r.detail&&r.detail.checks)||[];$('#pgChecks').innerHTML=ch.map(c=>`<li class="${c.ok?'ok':'bad'}">${c.ok?ICON.check:ICON.x}<span>${c.text}</span></li>`).join('');if(r.correct)b.lock()};
   Q.solve=s=>{b.load(s.rows);b.lock();$('#pgChecks').innerHTML=`<li class="ok">${ICON.check}<span>print(menu) gives <code>${esc(s.text)}</code></span></li>`};
 }
+/* ---------- Where does it land? (graded): tap an argument, then the box it lands in ---------- */
+function boxKind(label){return label.startsWith('**')?['dict','dict { }']:label.startsWith('*')?['tuple','tuple ( )']:['named','one value']}
+function padLand(q){
+  const pad=$('#pad'),n=q.boxes.length;Q.land=q.args.map(()=>null);Q.lsel=0;
+  pad.innerHTML=`<div class="land"><div class="lsub">The call's arguments</div><div class="largs" id="largs"></div>
+    <div class="lsub">The boxes in the def</div><div class="lboxes" id="lboxes"></div></div>`;
+  const draw=()=>{
+    $('#largs').innerHTML=q.args.map((a,i)=>`<button type="button" class="lchip${Q.lsel===i?' sel':''}${Q.land[i]!==null?' placed':''}" data-a="${i}" aria-pressed="${Q.lsel===i}"><code>${esc(a)}</code>${Q.land[i]!==null?`<small>→ ${Q.land[i]===n?'no box':esc(q.boxes[Q.land[i]])}</small>`:''}</button>`).join('');
+    $('#lboxes').innerHTML=q.boxes.map((b,k)=>{const [cls,desc]=boxKind(b);return `<button type="button" class="lbox ${cls}" data-b="${k}"><span class="lbhead"><code>${esc(b)}</code><small>${desc}</small></span><span class="lin">${Q.land.map((x,i)=>x===k?`<code class="lgot" data-i="${i}">${esc(q.args[i])}</code>`:'').join('')}</span></button>`}).join('')
+      +`<button type="button" class="lbox none" data-b="${n}"><span class="lbhead"><b>No box</b><small>Python stops: TypeError</small></span><span class="lin">${Q.land.map((x,i)=>x===n?`<code class="lgot" data-i="${i}">${esc(q.args[i])}</code>`:'').join('')}</span></button>`;
+    $$('#largs .lchip').forEach(b=>b.onclick=()=>{if(Q.done)return;Q.reset();Q.lsel=+b.dataset.a;sfx.tap();draw()});
+    $$('#lboxes .lbox').forEach(b=>b.onclick=()=>{if(Q.done||Q.lsel===null)return;Q.reset();Q.land[Q.lsel]=+b.dataset.b;
+      const nx=Q.land.findIndex(x=>x===null);Q.lsel=nx<0?null:nx;sfx.tap();draw()});
+    canCheck(Q.land.every(x=>x!==null));
+  };
+  draw();
+  Q.keyPick=i=>{const b=$$('#largs .lchip')[i];if(b)b.click()};
+  Q.get=()=>Q.land.every(x=>x!==null)?Q.land.slice():null;
+  Q.reset=()=>$$('#largs .lchip').forEach(b=>b.classList.remove('is-ok','is-bad'));
+  Q.mark=r=>{const per=(r.detail&&r.detail.per_item)||[];$$('#largs .lchip').forEach((b,i)=>b.classList.add(per[i]?'is-ok':'is-bad'))};
+  Q.solve=s=>{Q.land=s.mapping.slice();Q.lsel=null;draw();$$('#largs .lchip').forEach(b=>b.classList.add('is-ok'))};
+}
+
+/* ---------- Trip Lab (free play): Sheets (names and copies) + Calls (where arguments land, in real Python) ---------- */
+const TRIP0=[['Teja',1500],['Ravi',800],['Kiran',0]];
+function renderTripLab(){
+  R=null;Q=null;stopQTimer();closeDrawer();
+  view.innerHTML=`<section class="lab enter">${backBar('Back to mission map','quit')}<h2 class="labtitle">${esc(M.ui.lab_name)} <small>free play</small></h2>
+    <div class="vnote seg2 labtabs" role="tablist" aria-label="Lab"><button type="button" role="tab" aria-pressed="true" data-tab="sheets">Sheets: names and copies</button><button type="button" role="tab" aria-pressed="false" data-tab="calls">Calls: where arguments land</button></div>
+    <div id="labBody"></div></section>`;
+  const tabs=$$('.labtabs button');
+  tabs.forEach(b=>b.onclick=()=>{tabs.forEach(x=>x.setAttribute('aria-pressed',x===b));sfx.tap();b.dataset.tab==='sheets'?sheetsTab():callsTab()});
+  $('#quit').onclick=renderMap;sheetsTab();window.scrollTo(0,0);mark('lab');
+}
+function sheetsTab(){
+  // A tiny model of Python names and objects: names point at sheets; = moves an arrow, copy() makes a sheet.
+  let sheets,names,seq,last;
+  const reset=()=>{seq=1;sheets={1:TRIP0.map(r=>r.slice())};names={trip:1};last=['trip = {"Teja": 1500, "Ravi": 800, "Kiran": 0}','One sheet, one name.']};
+  reset();
+  const repr=rows=>rows.length?'{'+rows.map(([k,v])=>`'${k}': ${v}`).join(', ')+'}':'{}';
+  const set=(id,k,v)=>{const r=sheets[id].find(x=>x[0]===k);if(r)r[1]=v;else sheets[id].push([k,v])};
+  const ACTS=[
+    ['backup = trip',()=>{names.backup=names.trip;return 'Only an arrow is added: backup is a second name for the <b>same</b> sheet.'}],
+    ['backup = trip.copy()',()=>{sheets[++seq]=sheets[names.trip].map(r=>r.slice());names.backup=seq;return '<b>A second sheet</b> with the same rows. backup points at it.'}],
+    ['trip["Kiran"] = 500',()=>{set(names.trip,'Kiran',500);return names.backup===names.trip?'Changed through trip, and backup sees it: one sheet.':'Changed on trip\'s sheet only.'}],
+    ['backup["Kiran"] = 2000',()=>{if(!('backup' in names))return null;set(names.backup,'Kiran',2000);return names.backup===names.trip?'Changed through backup, and trip sees it: one sheet.':'Changed on backup\'s sheet only.'}],
+    ['trip.clear()',()=>{sheets[names.trip].length=0;return 'The sheet is emptied in place. <b>Every</b> name pointing at it sees {}.'}],
+    ['trip = {}',()=>{sheets[++seq]=[];names.trip=seq;return 'trip now points at a <b>new</b> empty sheet. Other names keep the old one.'}],
+  ];
+  $('#labBody').innerHTML=`<div class="labgrid"><div class="tripsheets card">
+      <div class="vops" role="group" aria-label="Run a line">${ACTS.map(([c],i)=>`<button type="button" data-i="${i}"><code>${esc(c)}</code></button>`).join('')}<button type="button" data-i="reset">Start over</button></div>
+      <div class="vres"><code class="vexpr" id="tsLine"></code></div><p class="vmsg" id="tsMsg"></p>
+      <div class="sheets" id="sheets"></div>
+      <div class="tsprint" id="tsPrint"></div></div>
+    <div class="card"><h4>Experiments to try</h4><ol class="exp">
+      <li>Press <code>backup = trip</code>, then <code>trip["Kiran"] = 500</code>. What does backup show?</li>
+      <li>Start over. Press <code>backup = trip.copy()</code>, then change trip. Now?</li>
+      <li>Make backup with <code>=</code>, then <code>trip.clear()</code>. Then try it with <code>trip = {}</code> instead.</li>
+      <li>Watch <code>id(trip) == id(backup)</code> after each line.</li></ol>
+      <p class="muted small">The Lab is free play: nothing here is graded. The mission clock keeps running.</p></div></div>`;
+  const draw=()=>{
+    $('#tsLine').textContent=last[0];$('#tsMsg').innerHTML=last[1];
+    const ids=[...new Set(Object.keys(sheets).map(Number))];
+    $('#sheets').innerHTML=ids.map(id=>{const tags=Object.keys(names).filter(n=>names[n]===id);
+      return `<div class="sheet${tags.length?'':' orphan'}"><div class="shead">${tags.length?tags.map(t=>`<span class="ntag">${t}</span>`).join(''):'<span class="muted small">no name points here</span>'}<small>dictionary #${id}</small></div>
+        <ol class="brows">${sheets[id].map(([k,v])=>`<li class="brow"><span class="btag">${esc(k)}</span><span class="barrow">→</span><span class="bprice">${v}</span></li>`).join('')||'<li class="bempty">empty: <code>{}</code></li>'}</ol></div>`}).join('');
+    const has='backup' in names;
+    $('#tsPrint').innerHTML=`<div><code>print(trip)</code><code class="out">${esc(repr(sheets[names.trip]))}</code></div>
+      <div><code>print(backup)</code><code class="out${has?'':' err'}">${has?esc(repr(sheets[names.backup])):"NameError: name 'backup' is not defined"}</code></div>
+      <div><code>id(trip) == id(backup)</code><code class="out${has?'':' err'}">${has?(names.trip===names.backup?'True':'False'):'NameError'}</code></div>`;
+  };
+  $$('.tripsheets .vops button').forEach(b=>b.onclick=()=>{sfx.tap();
+    if(b.dataset.i==='reset'){reset();return draw()}
+    const [code,fn]=ACTS[+b.dataset.i],msg=fn();
+    last=msg===null?[code,"<span class='bad'>backup does not exist yet: Python would stop with NameError.</span>"]:[code,msg];draw()});
+  draw();
+}
+const CALL_DEFS=[
+  {sig:'def split(bill, *friends):',body:'    print(bill, friends)',name:'split',tries:['1200, "Teja", "Ravi", "Kiran"','1200, "Sai"','1200','1200, ["Teja", "Ravi"]','1200, *["Teja", "Ravi"]']},
+  {sig:'def mark_paid(**paid):',body:'    print(paid)',name:'mark_paid',tries:['Teja=1500, Ravi=800','','"Teja", 1500','**{"Teja": 1500, "Kiran": 0}']},
+  {sig:'def room(name, block):',body:'    print(name, block)',name:'room',tries:['"Teja", "C"','block="C", name="Teja"','**{"block": "C", "name": "Teja"}','**{"student": "Teja", "block": "C"}']},
+  {sig:'def student_info(*args, **kwargs):',body:'    print(args, kwargs)',name:'student_info',tries:["'Math', 'Science', 'Rahul', age='15'",'age=15','']},
+];
+function callsTab(){
+  let d=CALL_DEFS[0];
+  $('#labBody').innerHTML=`<div class="labgrid"><div class="card calls">
+      <div class="seg2 wide calldefs" role="radiogroup" aria-label="Function">${CALL_DEFS.map((c,i)=>`<button type="button" role="radio" aria-pressed="${i===0}" aria-checked="${i===0}" data-i="${i}"><code>${esc(c.sig)}</code></button>`).join('')}</div>
+      <div id="callCode"></div>
+      <label class="callin"><span>Arguments in the call</span><input id="callArgs" autocomplete="off" autocapitalize="off" spellcheck="false" maxlength="120"></label>
+      <div class="vtools" id="callTries"></div>
+      <div class="power-row"><button class="btn primary" id="callRun" type="button">${ICON.play}Run the call</button><span class="pystate" id="callPy">Python: loading…</span></div>
+      <div id="callOut"></div></div>
+    <div class="card"><h4>Experiments to try</h4><ol class="exp">
+      <li><code>split</code> with three names, one name, and none. What is friends each time?</li>
+      <li><code>split(1200, ["Teja", "Ravi"])</code>, then with a <code>*</code> before the list.</li>
+      <li><code>mark_paid</code> with names and amounts, then with plain values.</li>
+      <li><code>room(**data)</code> with the keys in any order, then with a key called student.</li></ol>
+      <p class="muted small">This runs real Python in your browser. Nothing here is graded.</p></div></div>`;
+  const inp=$('#callArgs');
+  const show=()=>{$('#callCode').innerHTML=codePanel(`${d.sig}\n${d.body}\n\n${d.name}(${inp.value})`,{file:'call.py'});
+    $('#callTries').innerHTML=d.tries.map(t=>`<button class="btn ghost" type="button" data-t="${esc(t)}"><code>${esc(d.name)}(${esc(t)})</code></button>`).join('');
+    $$('#callTries button').forEach(b=>b.onclick=()=>{inp.value=b.dataset.t;show();run()})};
+  $$('.calldefs button').forEach(b=>b.onclick=()=>{d=CALL_DEFS[+b.dataset.i];$$('.calldefs button').forEach(x=>{x.setAttribute('aria-pressed',x===b);x.setAttribute('aria-checked',x===b)});inp.value=d.tries[0];$('#callOut').innerHTML='';sfx.tap();show()});
+  inp.oninput=show;inp.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();e.stopPropagation();run()}};
+  async function run(){
+    const args=inp.value,b=$('#callRun');b.disabled=true;$('#callPy').textContent=PYR.ready?'running':'loading Python…';
+    // Python's own binder says where each argument lands; then the call itself runs.
+    const code=`${d.sig}\n${d.body}\n\nimport inspect as __i\ntry:\n    for __k, __v in __i.signature(${d.name}).bind(${args}).arguments.items():\n        print("@@" + __k + "\\t" + repr(__v))\nexcept TypeError as __e:\n    print("@@!" + str(__e))\nprint("@@--")\n${d.name}(${args})`;
+    const r=await PYR.run(code,'');b.disabled=false;$('#callPy').textContent='real Python';$('#callPy').className='pystate ok';
+    const lines=(r.stdout||'').split('\n'),landed=[],out=[];let after=false,bindErr=null;
+    lines.forEach(l=>{if(l.startsWith('@@--')){after=true;return}if(!after&&l.startsWith('@@!')){bindErr=l.slice(3);return}if(!after&&l.startsWith('@@')){const [k,v]=l.slice(2).split('\t');landed.push([k,v]);return}if(after)out.push(l)});
+    const params=[...d.sig.matchAll(/(\*{0,2})(\w+)(?=[,)])/g)].filter(m=>m[2]!==d.name).map(m=>m[1]+m[2]);
+    const val=p=>{const f=landed.find(([k])=>k===p.replace(/^\*+/,''));return f?f[1]:p.startsWith('**')?'{}':p.startsWith('*')?'()':'—'};
+    $('#callOut').innerHTML=r.error&&r.error.type==='SyntaxError'?`<p class="vmsg bad">That is not a valid call: ${esc(r.error.msg)}</p>`
+      :`<div class="lboxes result">${params.map(p=>{const [cls,desc]=boxKind(p);return `<div class="lbox ${cls}"><span class="lbhead"><code>${esc(p)}</code><small>${desc}</small></span><span class="lin"><code class="lgot">${esc(bindErr?'—':val(p))}</code></span></div>`}).join('')}</div>
+        <div class="vres"><code class="vexpr">Prints</code><span class="veq">→</span><code class="vout${r.error?' err':''}">${r.error?esc(r.error.type+': '+r.error.msg):esc(out.join('\n').replace(/\n+$/,''))||'(nothing)'}</code></div>
+        ${bindErr?`<p class="vmsg bad">No box for an argument, so Python stops before the function runs.</p>`:''}`;
+    sfx.tap();
+  }
+  $('#callRun').onclick=run;inp.value=d.tries[0];show();
+  PYR.start().then(()=>{const s=$('#callPy');if(s){s.textContent='Python ready';s.className='pystate ok'}}).catch(()=>{const s=$('#callPy');if(s){s.textContent='Python failed to load';s.className='pystate bad'}});
+}
+
 const PADS={mcq:q=>choicePad(q,false),predict:q=>choicePad(q,false),ar:q=>choicePad(q,false),msq:q=>choicePad(q,true),tf:padTF,numeric:padNumeric,fill:padFill,
-  match:padMatch,order:padOrder,categorize:padCategorize,debug:padDebug,board:padBoard};
+  match:padMatch,order:padOrder,categorize:padCategorize,debug:padDebug,board:padBoard,land:padLand};
 
 /* ---------- hints, checking, feedback ---------- */
 async function showHint(silent){
@@ -1052,7 +1181,7 @@ function Board(root,opts){
   return self;
 }
 function renderLab(){
-  if(M.ui.lab!=='board'&&window.renderMissionLab)return window.renderMissionLab();
+  if(M.ui.lab==='trip')return renderTripLab();
   R=null;Q=null;stopQTimer();closeDrawer();
   view.innerHTML=`<section class="lab enter">${backBar('Back to mission map','quit')}<h2 class="labtitle">Dict Lab <small>free play</small></h2>
     <div class="labgrid"><div>${boardHTML('lab')}</div>

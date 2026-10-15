@@ -105,6 +105,10 @@ def answer_ui(page, q, correct=True):
     elif t == "debug":
         page.locator(f".code .ln.tappable[data-n='{q['line']}']").click()
         page.locator(f".errseg button[data-k='{q['error']}']").click()
+    elif t == "land":
+        for i, k in enumerate(q["mapping"]):
+            page.locator(f"#largs .lchip[data-a='{i}']").click()
+            page.locator(f"#lboxes .lbox[data-b='{k}']").click()
     elif t == "board":
         build_board(page, q["start"], q["target"])
     if t != "coding":
@@ -199,44 +203,72 @@ def main():
         dup.close()
         log("duplicate tab screen shown")
 
-        # ---- dict lab (free play)
-        page.locator("#labBtn").click()
-        expect(page.locator(".labtitle")).to_contain_text("Dict Lab")
-        page.locator(".board [data-f='k']").fill("Tea")
-        page.locator(".board [data-f='v']").fill("16")
-        page.locator(".board [data-a='set']").click()
-        expect(page.locator(".board .vmsg")).to_contain_text("case-sensitive")
-        page.locator(".board [data-t='photo']").click()
-        page.locator(".board [data-f='k']").fill("bun")
-        page.locator(".board [data-f='v']").fill("10")
-        page.locator(".board [data-a='set']").click()
-        expect(page.locator(".board .bview")).to_contain_text("'bun'")
-        expect(page.locator(".board .bphoto")).not_to_contain_text("'bun'")
-        page.locator(".board [data-f='q']").fill("15")
-        page.locator(".board [data-l='in']").click()
-        expect(page.locator(".board .bres")).to_have_text("False")
-        expect(page.locator(".board .vmsg")).to_contain_text("keys only")
-        page.locator(".board [data-f='q']").fill("dosa")
-        page.locator(".board [data-l='br']").click()
-        expect(page.locator(".board .bres")).to_have_text("KeyError: 'dosa'")
-        page.locator(".board [data-l='get']").click()
-        expect(page.locator(".board .bres")).to_have_text("None")
-        page.locator(".board [data-t='dup']").click()
-        expect(page.locator(".board .bprint")).to_have_text("{'tea': 14, 'coffee': 15}")
-        shot(page, "dict-lab")
-        page.locator("#quit").click()
-        log("dict lab experiments behave like Python")
+        if C.MISSION == "s29":
+            # ---- dict lab (free play)
+            page.locator("#labBtn").click()
+            expect(page.locator(".labtitle")).to_contain_text("Dict Lab")
+            page.locator(".board [data-f='k']").fill("Tea")
+            page.locator(".board [data-f='v']").fill("16")
+            page.locator(".board [data-a='set']").click()
+            expect(page.locator(".board .vmsg")).to_contain_text("case-sensitive")
+            page.locator(".board [data-t='photo']").click()
+            page.locator(".board [data-f='k']").fill("bun")
+            page.locator(".board [data-f='v']").fill("10")
+            page.locator(".board [data-a='set']").click()
+            expect(page.locator(".board .bview")).to_contain_text("'bun'")
+            expect(page.locator(".board .bphoto")).not_to_contain_text("'bun'")
+            page.locator(".board [data-f='q']").fill("15")
+            page.locator(".board [data-l='in']").click()
+            expect(page.locator(".board .bres")).to_have_text("False")
+            expect(page.locator(".board .vmsg")).to_contain_text("keys only")
+            page.locator(".board [data-f='q']").fill("dosa")
+            page.locator(".board [data-l='br']").click()
+            expect(page.locator(".board .bres")).to_have_text("KeyError: 'dosa'")
+            page.locator(".board [data-l='get']").click()
+            expect(page.locator(".board .bres")).to_have_text("None")
+            page.locator(".board [data-t='dup']").click()
+            expect(page.locator(".board .bprint")).to_have_text("{'tea': 14, 'coffee': 15}")
+            shot(page, "dict-lab")
+            page.locator("#quit").click()
+            log("dict lab experiments behave like Python")
+        else:
+            # ---- trip lab (free play): Sheets, then Calls in real Python
+            page.locator("#labBtn").click()
+            expect(page.locator(".labtitle")).to_contain_text(C.UI["lab_name"])
+            page.locator(".tripsheets .vops button", has_text="backup = trip").first.click()
+            page.locator(".tripsheets .vops button", has_text='trip["Kiran"] = 500').click()
+            expect(page.locator("#tsPrint")).to_contain_text("{'Teja': 1500, 'Ravi': 800, 'Kiran': 500}")
+            expect(page.locator("#tsPrint div").nth(2)).to_contain_text("True")
+            page.locator(".tripsheets .vops button", has_text="Start over").click()
+            page.locator(".tripsheets .vops button", has_text="backup = trip.copy()").click()
+            page.locator(".tripsheets .vops button", has_text='trip["Kiran"] = 500').click()
+            expect(page.locator("#tsPrint div").nth(1)).to_contain_text("'Kiran': 0")
+            page.locator(".tripsheets .vops button", has_text="trip = {}").click()
+            expect(page.locator("#sheets .sheet")).to_have_count(3)  # trip's old sheet now has no name
+            expect(page.locator("#sheets .sheet.orphan")).to_have_count(1)
+            shot(page, "trip-lab-sheets")
+            page.locator(".labtabs button[data-tab='calls']").click()
+            page.locator("#callTries button", has_text='split(1200, ["Teja", "Ravi"])').click()
+            expect(page.locator("#callOut .vout")).to_have_text("1200 (['Teja', 'Ravi'],)", timeout=120000)
+            page.locator("#callTries button", has_text='split(1200, *["Teja", "Ravi"])').click()
+            expect(page.locator("#callOut .vout")).to_have_text("1200 ('Teja', 'Ravi')", timeout=30000)
+            page.locator(".calldefs button[data-i='2']").click()
+            page.locator("#callTries button", has_text="student").click()
+            expect(page.locator("#callOut .vout")).to_contain_text("unexpected keyword argument 'student'", timeout=30000)
+            shot(page, "trip-lab-calls")
+            page.locator("#quit").click()
+            log("trip lab: names, copies and argument landing behave like Python")
 
         # ---- field guide
         page.locator("#guideBtn").click()
-        expect(page.locator("#guideTitle")).to_have_text("Field guide: Python dictionaries")
+        expect(page.locator("#guideTitle")).to_have_text(C.UI["guide_title"])
         shot(page, "field-guide")
         page.locator("#gclose").click()
 
         # ---- start: briefing -> rules -> first question
         page.locator("#go").click()
         expect(page.locator(".brief h2")).to_have_text("Mission Briefing")
-        expect(page.locator(".brief .story")).to_contain_text("32")
+        expect(page.locator(".brief .story")).to_contain_text("Agent")
         expect(page.locator(".learn li").first).to_be_visible()
         # Watch it first: step through the worked example; the output must be what Python prints
         walk = C.LEVELS[0]["walk"]
@@ -266,7 +298,7 @@ def main():
                 expect(page.locator("#qtitle")).to_have_text(re.compile(re.escape(title[:40])), timeout=20000)
                 expect(page.locator(".qchip")).to_contain_text(C.TYPE_LABEL[q["type"]] if q["type"] != "coding" else "Coding")
                 expect(page.locator(".howto").first).to_be_visible()
-                pass_coach(page, seen_types, q["type"], shot if q["type"] in ("match", "board", "coding") else None)
+                pass_coach(page, seen_types, q["type"], shot if q["type"] in ("match", "board", "land", "coding") else None)
 
                 if qid == "L0-2":  # a wrong answer first: drawer shows the catch, retry works, XP stays
                     answer_ui(page, q, correct=False)
@@ -300,14 +332,14 @@ def main():
                 else:
                     answer_ui(page, q, correct=True)
                 expect(page.locator("#drawer.open.ok")).to_be_visible(timeout=60000)
-                if qid in ("L0-1", "L2-2", "L3-7", "L5-1"):
+                if qid in ("L0-1", "L2-2", "L3-2", "L3-7", "L5-1"):
                     shot(page, f"correct-{qid}")
                 continue_drawer(page)
                 played += 1
 
             # stage clear screen
             if lvl["id"] == "BOSS":
-                expect(page.locator("section.done h2")).to_have_text("Board fixed!", timeout=15000)
+                expect(page.locator("section.done h2")).to_have_text(C.UI["boss_win"], timeout=15000)
             else:
                 expect(page.locator("section.done h2")).to_have_text("Stage clear!", timeout=15000)
             if lvl["id"] in ("L0", "BOSS"):
@@ -315,12 +347,12 @@ def main():
             log(f"{lvl['name']} cleared ({played} questions so far)")
             if lvl["id"] == "L2":  # the teacher sees where the student is, without reloading
                 cur = tpage.locator("#rows tr", has_text="Walk Through").locator("td.curcell")
-                expect(cur).to_contain_text("Board Builder", timeout=10000)
+                expect(cur).to_contain_text(C.LEVELS[2]["name"], timeout=10000)
                 shot(tpage, "teacher-live")
             page.locator("#nextL").click()
 
         # ---- mission report
-        expect(page.locator(".report h2")).to_have_text("Python Dictionaries Champion", timeout=15000)
+        expect(page.locator(".report h2")).to_have_text(C.UI["champion"], timeout=15000)
         expect(page.locator(".endbanner.done")).to_be_visible()
         shot(page, "report")
         log(f"mission complete: {played} questions played through the UI")

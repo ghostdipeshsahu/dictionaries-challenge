@@ -54,6 +54,10 @@ def client(clock):
     return TestClient(main.app)
 
 
+S29, S30 = C.MISSION == "s29", C.MISSION == "s30"
+only_s29 = pytest.mark.skipif(not S29, reason="Session 29 question")
+only_s30 = pytest.mark.skipif(not S30, reason="Session 30 question")
+
 _roll = [0]
 
 
@@ -92,6 +96,8 @@ def right(q):
         return {"line": q["line"], "error": q["error"]}
     if t == "board":
         return {"rows": q["target"]}
+    if t == "land":
+        return q["mapping"]
     if t == "coding":
         return {"outputs": [{"stdout": tt["expected"] + "\n", "error": None} for tt in q["challenge"]["tests"]]}
 
@@ -267,14 +273,15 @@ def test_fixing_a_mistake_earns_60_percent_and_miss_keeps_xp(client):
 def test_hint_costs_a_little_xp_and_unlocks_progressively(client):
     h = login(client)
     start(client, h)
-    client.post("/api/dicts/open", json={"qid": "L1-6"}, headers=h)  # needs L1 unlocked
+    hq = next(q for q in C.LEVEL_BY_ID["L1"]["main"] if len(C.QUESTIONS[q]["hints"]) >= 2)
+    assert client.post("/api/dicts/open", json={"qid": hq}, headers=h).status_code == 403  # L1 still locked
     clear_stage(client, h, "L0")
-    r = client.post("/api/dicts/hint", json={"qid": "L1-6"}, headers=h).json()
-    assert r["concept"] == "pairs" and len(r["hints"]) == 1 and r["more"] is True
-    r = client.post("/api/dicts/hint", json={"qid": "L1-6"}, headers=h).json()
+    r = client.post("/api/dicts/hint", json={"qid": hq}, headers=h).json()
+    assert r["concept"] == C.QUESTIONS[hq]["concept"] and len(r["hints"]) == 1 and r["more"] is True
+    r = client.post("/api/dicts/hint", json={"qid": hq}, headers=h).json()
     assert len(r["hints"]) == 2 and r["more"] is False
-    res = ans(client, h, "L1-6", right(C.QUESTIONS["L1-6"])).json()
-    base = C.QUESTIONS["L1-6"]["xp"]  # 15: 2 hints cost 2 x 2; no first-try bonus with a hint
+    res = ans(client, h, hq, right(C.QUESTIONS[hq])).json()
+    base = C.QUESTIONS[hq]["xp"]  # 2 hints cost 2 x 10% of base; no first-try bonus with a hint
     assert res["correct"] and res["xp_parts"]["clean"] == 0 and res["xp_parts"]["base"] == base - 2 * max(1, round(base * 0.1))
 
 
@@ -317,7 +324,7 @@ def test_three_stars_needs_every_first_try(client):
     st = client.get("/api/dicts/mission", headers=h).json()["state"]
     l0, l1 = st["levels"][0], st["levels"][1]
     assert l0["done"] and l0["stars"] == 3 and l1["stars"] == 3 and st["levels"][2]["unlocked"]
-    assert "board-explorer" in st["badges"] and "clean-sweep" in st["badges"] and "combo-5" in st["badges"]
+    assert C.STAGE_BADGE["L1"] in st["badges"] and "clean-sweep" in st["badges"] and "combo-5" in st["badges"]
 
 
 def test_stars_drop_with_mistakes(client):
@@ -333,6 +340,7 @@ def test_stars_drop_with_mistakes(client):
 
 
 # ---------------------------------------------------------------- grading details
+@only_s29
 def test_board_build_checks_order(client):
     h = login(client)
     start(client, h)
@@ -352,18 +360,21 @@ def test_coding_hidden_test_note_and_exact_order(client):
     start(client, h)
     for lid in ("L0", "L1", "L2", "L3", "L4"):
         clear_stage(client, h, lid)
-    q = C.QUESTIONS["L5-3"]
+    qid = C.LEVEL_BY_ID["L5"]["main"][2]
+    q = C.QUESTIONS[qid]
+    i = next(k for k, t in enumerate(q["challenge"]["tests"]) if t.get("hidden") and t.get("note"))
     outs = right(q)["outputs"]
-    outs[2] = {"stdout": "{'coffee': 15, 'tea': 14}\n", "error": None}  # wrong order for a repeated name
-    r = ans(client, h, "L5-3", {"outputs": outs}).json()
+    outs[i] = {"stdout": "something else\n", "error": None}  # one hidden test fails
+    r = ans(client, h, qid, {"outputs": outs}, code=q["solution"]).json()
     assert not r["correct"]
-    t = r["detail"]["tests"][2]
-    assert t["hidden"] and not t["passed"] and t["note"] == "a name read out twice"
-    outs[2] = {"stdout": "", "error": {"type": "KeyError", "msg": "'x'"}}
-    r = ans(client, h, "L5-3", {"outputs": outs}).json()
-    assert r["detail"]["tests"][2]["error"] == "KeyError"
+    t = r["detail"]["tests"][i]
+    assert t["hidden"] and not t["passed"] and t["note"] == q["challenge"]["tests"][i]["note"]
+    outs[i] = {"stdout": "", "error": {"type": "KeyError", "msg": "'x'"}}
+    r = ans(client, h, qid, {"outputs": outs}, code=q["solution"]).json()
+    assert r["detail"]["tests"][i]["error"] == "KeyError"
 
 
+@only_s29
 def test_optimize_challenge_rejects_two_lists(client):
     h = login(client)
     start(client, h)
@@ -376,6 +387,55 @@ def test_optimize_challenge_rejects_two_lists(client):
     assert not r["correct"] and "Every test passes" in r["detail"]["why_wrong"]
     r = ans(client, h, "B-4", right(q), code=q["solution"]).json()
     assert r["correct"]
+
+
+@only_s30
+def test_split_the_bill_must_use_star_friends(client):
+    # equal output is not enough: the starter's three-parameter split() is refused by the code check
+    h = login(client)
+    start(client, h)
+    for lid in ("L0", "L1", "L2", "L3", "L4"):
+        clear_stage(client, h, lid)
+    for qid in ("L5-1", "L5-2"):
+        solve(client, h, qid)
+    q = C.QUESTIONS["L5-3"]
+    r = ans(client, h, "L5-3", right(q), code=q["challenge"]["starter"]).json()
+    assert not r["correct"] and "split(bill, *friends)" in r["detail"]["why_wrong"]
+    assert ans(client, h, "L5-3", right(q), code=q["solution"]).json()["correct"]
+
+
+@only_s30
+def test_landing_question_is_graded_per_argument(client):
+    h = login(client)
+    start(client, h)
+    for lid in ("L0", "L1", "L2"):
+        clear_stage(client, h, lid)
+    for qid in ("L3-1",):
+        solve(client, h, qid)
+    q = C.QUESTIONS["L3-2"]
+    wrong = [1, 1, 1, 1]  # 1200 put in the tuple too
+    r = ans(client, h, "L3-2", wrong).json()
+    assert not r["correct"] and r["detail"]["per_item"] == [False, True, True, True] and r["detail"]["right_count"] == 3
+    assert "solution" not in r
+    assert ans(client, h, "L3-2", [0, 1, 1, 9]).status_code == 422   # 9 is not a box
+    assert ans(client, h, "L3-2", [0, 1, 1]).status_code == 422      # one argument left unplaced
+    r = ans(client, h, "L3-2", q["mapping"]).json()
+    assert r["correct"]
+
+
+@only_s30
+def test_landing_no_box_and_reveal_gives_the_printed_line(client):
+    h = login(client)
+    start(client, h)
+    for lid in ("L0", "L1", "L2", "L3"):
+        clear_stage(client, h, lid)
+    for qid in ("L4-1", "L4-2", "L4-3", "L4-4", "L4-5"):
+        solve(client, h, qid)
+    nobox = len(C.QUESTIONS["L4-6"]["boxes"])
+    ans(client, h, "L4-6", [0, 0])
+    ans(client, h, "L4-6", [0, nobox])
+    r = client.post("/api/dicts/reveal", json={"qid": "L4-6"}, headers=h).json()
+    assert r["solution"]["mapping"] == [nobox, nobox] and r["solution"]["text"].startswith("!TypeError")
 
 
 def test_malformed_answer_is_422(client):

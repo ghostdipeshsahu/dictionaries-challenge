@@ -13,7 +13,9 @@ import time
 from playwright.sync_api import expect, sync_playwright
 
 sys.path.insert(0, os.path.dirname(__file__))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from e2e_walkthrough import dismiss_tour, pass_coach  # noqa: E402
+from app import content as C  # noqa: E402
 
 BASE = sys.argv[1] if len(sys.argv) > 1 else "http://localhost:8011"
 SHOTS = sys.argv[2] if len(sys.argv) > 2 else "shots-timers"
@@ -68,7 +70,7 @@ try:
       expect(page.locator("#qtimer")).to_have_class("qtimer low", timeout=20000)  # red under 10 s
       page.screenshot(path=os.path.join(SHOTS, "01-question-timer-low.png"))
       expect(page.locator("#drawer.open.timeup")).to_be_visible(timeout=20000)
-      expect(page.locator("#drawer .dr-ans")).to_contain_text('"tea"')
+      expect(page.locator("#drawer .dr-ans")).to_contain_text(C.QUESTIONS["L0-1"]["options"][C.QUESTIONS["L0-1"]["answer"]])
       page.screenshot(path=os.path.join(SHOTS, "02-time-up-drawer.png"))
       print("time-up drawer shows the answer")
       page.locator("#cont").click()
