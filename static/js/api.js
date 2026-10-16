@@ -15,23 +15,22 @@ const API=(()=>{
   function remember(t,u){token=t;user=u;try{localStorage.setItem(TOKEN_KEY,t);localStorage.setItem(USER_KEY,JSON.stringify(u))}catch(e){}}
   function forget(){token=null;user=null;try{localStorage.removeItem(TOKEN_KEY);localStorage.removeItem(USER_KEY)}catch(e){}}
 
-  /* Called once at start-up. Resolves to {online, user, needsLogin, classCode, sections}. */
-  let sections=[];
+  /* Called once at start-up. Resolves to {online, user, needsLogin, classCode}. */
   async function boot(){
     try{const ctl=new AbortController(),t=setTimeout(()=>ctl.abort(),5000);
-      const h=await call('GET','/health',null,{signal:ctl.signal});clearTimeout(t);online=true;sections=h.sections||[];
-      if(!token)return {online,needsLogin:true,classCode:h.class_code_required,sections};
-      const me=await call('GET','/me');user=me.student;return {online,user,classCode:h.class_code_required,sections};
+      const h=await call('GET','/health',null,{signal:ctl.signal});clearTimeout(t);online=true;
+      if(!token)return {online,needsLogin:true,classCode:h.class_code_required};
+      const me=await call('GET','/me');user=me.student;return {online,user,classCode:h.class_code_required};
     }catch(e){
-      if(e.message==='signed-out')return {online:true,needsLogin:true,sections};
+      if(e.message==='signed-out')return {online:true,needsLogin:true};
       online=false;return {online:false,user:null};
     }
   }
-  async function login(name,roll_no,section,class_code){
-    const r=await call('POST','/login',{name,roll_no,section,class_code:class_code||null});
+  async function login(name,roll_no,section,university,class_code){
+    const r=await call('POST','/login',{name,roll_no,section,university,class_code:class_code||null});
     remember(r.token,r.student);online=true;return r;
   }
   async function logout(){try{await call('POST','/logout')}catch(e){}forget()}
 
-  return {boot,login,logout,call,get user(){return user},get online(){return online},get signedIn(){return !!token},get sections(){return sections}};
+  return {boot,login,logout,call,get user(){return user},get online(){return online},get signedIn(){return !!token}};
 })();

@@ -1190,6 +1190,7 @@ function svSave(){try{localStorage.setItem(svKey(),JSON.stringify(SV))}catch(e){
 function svLoad(){let d=null;try{d=JSON.parse(localStorage.getItem(svKey())||'null')}catch(e){}
   SV=Object.assign({step:0,university:'',contact:'',enjoy:0,throws:[],instructor_note:'',difficulty:'',confidence:0,helped:[],tech:'',improve:''},d&&typeof d==='object'?d:{});
   SV.step=Math.min(Math.max(0,SV.step|0),5);if(!Array.isArray(SV.throws))SV.throws=[];SV.throws=SV.throws.slice(0,THROWS);if(!Array.isArray(SV.helped))SV.helped=[]}
+const svUni=()=>String((API.user&&API.user.university)||SV.university||'').trim();
 const phoneOK=v=>/^(\+?91|0)?[6-9]\d{9}$/.test(String(v).replace(/[\s-]/g,''));
 const PROF=()=>`<svg class="prof" viewBox="0 0 220 230" aria-hidden="true">
   <rect class="wb" x="6" y="10" width="208" height="112" rx="10"/>${M.ui.lab==='trip'?'<text class="wbt" x="20" y="40">trip["Teja"]</text><text class="wbt dim" x="20" y="62"># 1500</text>':'<text class="wbt" x="20" y="40">menu["tea"]</text><text class="wbt dim" x="20" y="62"># 12</text>'}
@@ -1206,13 +1207,13 @@ function finalMood(){const r=SV.throws.filter(t=>t==='rose').length;return SV.th
 function finalSay(){const r=SV.throws.filter(t=>t==='rose').length;
   return r===THROWS?'A full bouquet! Thank you! 💐':r===0?'Message received. I will work on it!':r>=3?'Thanks! Tell me what to make even better.':'Thanks for being honest. Tell me what to fix 👇'}
 const SV_STEPS=[
-  {need:'Type your university name and a 10-digit mobile number.',ok:()=>SV.university.trim().length>=2&&phoneOK(SV.contact),
+  {need:'Type your university name and a 10-digit mobile number.',ok:()=>svUni().length>=2&&phoneOK(SV.contact),
    html:()=>{const u=API.user||{};return `<h3 class="svq">First, who is sending this? 👋</h3>
     <div class="svgrid"><label class="svf"><span>Your name</span><input value="${esc(u.name)}" readonly></label>
     <label class="svf"><span>Roll number</span><input value="${esc(u.roll_no)}" readonly></label>
-    <label class="svf"><span>University name</span><input id="svUni" maxlength="120" autocomplete="organization" value="${esc(SV.university)}" placeholder="Your university"></label>
+    <label class="svf"><span>University name</span>${u.university?`<input value="${esc(u.university)}" readonly>`:`<input id="svUni" maxlength="120" autocomplete="organization" value="${esc(SV.university)}" placeholder="Your university">`}</label>
     <label class="svf"><span>Contact no.</span><input id="svPhone" type="tel" inputmode="tel" maxlength="16" autocomplete="tel" value="${esc(SV.contact)}" placeholder="10-digit mobile number"></label></div>`},
-   bind:()=>{$('#svUni').oninput=e=>{SV.university=e.target.value;svSave()};$('#svPhone').oninput=e=>{SV.contact=e.target.value;svSave()};if(!SV.university)$('#svUni').focus()}},
+   bind:()=>{const ui=$('#svUni');if(ui)ui.oninput=e=>{SV.university=e.target.value;svSave()};$('#svPhone').oninput=e=>{SV.contact=e.target.value;svSave()};(ui&&!SV.university?ui:$('#svPhone')).focus()}},
   {need:'Tap a face.',ok:()=>SV.enjoy>0,
    html:()=>`<h3 class="svq">How much did you enjoy the practice?</h3>
     <div class="bigface" id="bigFace" aria-hidden="true">${SV.enjoy?ENJOY[SV.enjoy-1][0]:'🤔'}</div><p class="facelab" id="faceLab">${SV.enjoy?ENJOY[SV.enjoy-1][1]:'Tap a face'}</p>
@@ -1323,7 +1324,7 @@ function bindThrows(){
 }
 async function sendSurvey(){
   const b=$('#svNext');b.disabled=true;b.classList.add('busy');
-  const body={university:SV.university.trim(),contact:SV.contact.trim(),enjoy:SV.enjoy,confidence:SV.confidence,
+  const body={university:svUni(),contact:SV.contact.trim(),enjoy:SV.enjoy,confidence:SV.confidence,
     roses:SV.throws.filter(t=>t==='rose').length,tomatoes:SV.throws.filter(t=>t==='tomato').length,instructor_note:SV.instructor_note.trim(),
     difficulty:SV.difficulty,helped:SV.helped,tech:SV.tech,improve:SV.improve.trim()};
   try{const r=await api('POST','/feedback',body);adopt(r.state)}
@@ -1404,15 +1405,16 @@ function renderLogin(msg){
     <form id="loginForm" class="loginf" novalidate>
       <label>Your name<input id="lgName" autocomplete="name" maxlength="60" required></label>
       <label>Roll number<input id="lgRoll" autocomplete="off" maxlength="30" required></label>
-      <label>Section<select id="lgSec" required><option value="" disabled selected>Choose your section</option>${(API.sections||[]).map(s=>`<option value="${esc(s)}">${esc(s)}</option>`).join('')}</select></label>
+      <label>Section<input id="lgSec" autocomplete="off" maxlength="40" placeholder="For example S-001" required></label>
+      <label>University name<input id="lgUni" autocomplete="organization" maxlength="120" placeholder="Your university" required></label>
       ${CLASS_CODE?'<label>Class code<input id="lgCode" autocomplete="off" maxlength="40" required></label>':''}
       <p class="lgerr" id="lgErr" role="alert">${msg?esc(msg):''}</p>
       <div class="power-row"><button class="btn primary" type="submit">${ICON.play}Continue</button></div>
     </form></section>`;
-  $('#loginForm').onsubmit=async e=>{e.preventDefault();const n=$('#lgName').value.trim(),r=$('#lgRoll').value.trim(),s=$('#lgSec').value.trim(),c=CLASS_CODE?$('#lgCode').value.trim():null;
-    if(!n||!r||!s||(CLASS_CODE&&!c)){$('#lgErr').textContent=!s?'Choose your section from the list.':'Fill in every field to join.';return}
+  $('#loginForm').onsubmit=async e=>{e.preventDefault();const n=$('#lgName').value.trim(),r=$('#lgRoll').value.trim(),s=$('#lgSec').value.trim(),uni=$('#lgUni').value.trim(),c=CLASS_CODE?$('#lgCode').value.trim():null;
+    if(!n||!r||!s||!uni||(CLASS_CODE&&!c)){$('#lgErr').textContent=!s?'Type your section, for example S-001.':!uni?'Type your university name.':'Fill in every field to join.';return}
     const b=$('#loginForm button[type=submit]');b.disabled=true;$('#lgErr').textContent='';
-    try{await API.login(n,r,s,c);ac();paintUser();await loadMission()}catch(err){$('#lgErr').textContent=err.message==='signed-out'?'Please sign in again.':err.message;b.disabled=false}};
+    try{await API.login(n,r,s,uni,c);ac();paintUser();await loadMission()}catch(err){$('#lgErr').textContent=err.message==='signed-out'?'Please sign in again.':err.message;b.disabled=false}};
   paintUser();window.scrollTo(0,0);
 }
 function paintUser(){const c=$('#userChip'),u=API.user;c.hidden=!u;if(u){c.innerHTML=`<b>${esc(u.name)}</b><small>${esc(u.section)} · profile</small>`;c.setAttribute('aria-label','Open your profile')}}
@@ -1429,7 +1431,7 @@ async function renderProfile(){
     ${backBar()}
     <div class="pcard">
       <span class="avatar" aria-hidden="true">${esc(initials)}</span>
-      <div><h2>${esc(u.name)}</h2><p class="pmeta"><span>Roll no <b>${esc(u.roll_no)}</b></span><span>Section <b>${esc(u.section)}</b></span><span class="pstatus ${reason||''}">${esc(status)}</span></p></div>
+      <div><h2>${esc(u.name)}</h2><p class="pmeta"><span>Roll no <b>${esc(u.roll_no)}</b></span><span>Section <b>${esc(u.section)}</b></span>${u.university?`<span>University <b>${esc(u.university)}</b></span>`:''}<span class="pstatus ${reason||''}">${esc(status)}</span></p></div>
     </div>
     <div class="tally four"><div><b id="pRank">–</b><span>Rank in ${esc(u.section)}</span></div><div><b>${ST.xp}</b><span>XP</span></div><div><b>${p.done}/${p.total}</b><span>Challenges cleared</span></div><div><b>${stages}/${M.levels.length}</b><span>Stages cleared</span></div></div>
     <div class="tally four small"><div><b>${ST.badges.length}/${Object.keys(M.badges).length}</b><span>Badges</span></div><div><b>${ST.best_combo}</b><span>Best combo</span></div>

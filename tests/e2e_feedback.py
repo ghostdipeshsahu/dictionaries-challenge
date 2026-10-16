@@ -38,7 +38,8 @@ try:
         page.goto(BASE + "/")
         page.locator("#lgName").fill("Feedback Check")
         page.locator("#lgRoll").fill(ROLL)
-        page.locator("#lgSec").select_option(index=1)
+        page.locator("#lgSec").fill("S-001")
+        page.locator("#lgUni").fill("Test University")
         page.locator("#loginForm button[type=submit]").click()
         dismiss_tour(page)
         page.locator("#go").click()
@@ -56,7 +57,8 @@ try:
 
         # 2) about you: name and roll come from the login, the rest is required
         must_fill_first(page, "university")
-        page.locator("#svUni").fill("Test University")
+        expect(page.locator("#svUni")).to_have_count(0)            # the university comes from the sign-in
+        expect(page.locator(".svgrid input[readonly]").nth(2)).to_have_value("Test University")
         page.locator("#svPhone").fill("98765 43210")
         page.locator("#svNext").click()
 

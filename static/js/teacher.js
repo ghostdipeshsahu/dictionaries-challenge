@@ -116,7 +116,7 @@ function render(){
     <div class="panel"><h2>Question types, hardest first</h2><div class="typegrid" id="pTypes"></div></div>
     <div class="panel fb" id="fbPanel"><div class="fbhead"><h2>Student feedback <span class="acount" id="fbCount"></span></h2><button class="nbtn" id="fbExport" type="button">Download feedback CSV</button></div><div id="pFb"></div></div>
     <div class="panel"><h2>Students</h2>
-      <div class="tools"><input id="find" type="search" placeholder="Search by name or roll number" value="${esc(filter)}"><span class="hint2"><b>Resume</b>: continue an ended mission from exactly where it stopped. Release login: lets a student sign in on another device. Reset mission: erases everything and starts again from zero.</span></div>
+      <div class="tools"><input id="find" type="search" placeholder="Search by name, roll number or university" value="${esc(filter)}"><span class="hint2"><b>Resume</b>: continue an ended mission from exactly where it stopped. Release login: lets a student sign in on another device. Reset mission: erases everything and starts again from zero.</span></div>
       <div class="tablewrap"><table><thead><tr>
         ${[['rank','#'],['name','Name'],['roll_no','Roll no'],['section','Section'],['status','Status'],['current','Now on'],['done','Cleared'],['first_try','First try'],['timed_out','Timed out'],['revealed','Solutions viewed'],['used_minutes','Time used'],['tab_switches','Tab switches'],['copy_paste','Copy/paste'],['weak','Weakest idea'],['last_seen','Last seen']]
           .map(([k,l])=>`<th data-k="${k}"${sortKey===k?` aria-sort="${sortDir>0?'ascending':'descending'}"`:''}>${l}</th>`).join('')}<th>Actions</th>
@@ -132,10 +132,10 @@ function rows(){
   const f=filter.trim().toLowerCase(),max=data.max_tab_switches;
   const STAGE_ORDER=Object.fromEntries(data.stages.map((x,i)=>[x.name,i]));
   const val=(s,k)=>k==='weak'?(weakest(s)||['~'])[0]:k==='current'?(s.current?STAGE_ORDER[s.current.stage]*100+s.current.n:999):s[k]==null?-1:s[k];
-  const list=data.students.filter(s=>!f||s.name.toLowerCase().includes(f)||s.roll_no.toLowerCase().includes(f))
+  const list=data.students.filter(s=>!f||s.name.toLowerCase().includes(f)||s.roll_no.toLowerCase().includes(f)||(s.university||'').toLowerCase().includes(f))
     .sort((a,b)=>{const x=val(a,sortKey),y=val(b,sortKey);return (typeof x==='string'?x.localeCompare(y):x-y)*sortDir});
   $('#rows').innerHTML=list.map(s=>{const w=weakest(s);
-    return `<tr><td>${s.rank}</td><td><b>${esc(s.name)}</b>${s.online?' <span class="dot" title="Signed in right now"></span>':''}</td><td>${esc(s.roll_no)}</td><td>${esc(s.section)}</td>
+    return `<tr><td>${s.rank}</td><td><b>${esc(s.name)}</b>${s.online?' <span class="dot" title="Signed in right now"></span>':''}${s.university?`<small class="uni">${esc(s.university)}</small>`:''}</td><td>${esc(s.roll_no)}</td><td>${esc(s.section)}</td>
     <td class="m ${STATUS_CLS[s.status]||''}">${esc(s.status_label)}${s.feedback_sent?'<small class="fbsent">feedback sent</small>':''}</td><td class="curcell">${s.current?`<b>${esc(s.current.stage)}${actTag(s)}</b><small title="${esc(s.current.title)}">Q${s.current.n}/${s.current.of} · ${esc(s.current.title)}${s.current.cleared?' (done)':''}</small>`:actTag(s)||'–'}</td><td>${s.done}/${s.total}</td><td>${s.first_try}</td><td>${s.timed_out}</td><td>${s.revealed}</td><td>${s.used_minutes} min</td>
     <td class="${s.tab_switches?(max&&s.tab_switches>=max?'m lo':'m mid'):''}">${s.tab_switches}</td><td class="${s.copy_paste?'m mid':''}">${s.copy_paste}</td>
     <td>${w?esc(w[0])+' · '+Math.round(w[1]*100)+'%':'–'}</td><td>${esc((s.last_seen||'').replace('T',' ').slice(0,16))}</td>

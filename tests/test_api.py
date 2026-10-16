@@ -12,7 +12,6 @@ import pytest
 
 os.environ["DB_PATH"] = ":memory:"
 os.environ.setdefault("TEACHER_PASSWORD", "test-pass")
-os.environ["SECTIONS"] = "Section A,Section B,Section C,Section D"
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from fastapi.testclient import TestClient  # noqa: E402
@@ -65,7 +64,8 @@ _roll = [0]
 
 def login(client, name="Ravi Kumar", section="Section A", roll=None):
     _roll[0] += 1
-    r = client.post("/api/login", json={"name": name, "roll_no": roll or f"R{_roll[0]:03d}", "section": section})
+    r = client.post("/api/login", json={"name": name, "roll_no": roll or f"R{_roll[0]:03d}", "section": section,
+                                          "university": "NIAT Hyderabad"})
     assert r.status_code == 200, r.text
     return {"Authorization": "Bearer " + r.json()["token"]}
 
@@ -139,34 +139,51 @@ def clear_stage(client, h, lid):
 
 
 # ---------------------------------------------------------------- sign-in
-def test_health_and_sections(client):
+def test_health(client):
     r = client.get("/api/health").json()
-    assert r["ok"] and r["sections"] and r["class_code_required"] is False
+    assert r["ok"] and r["class_code_required"] is False and "sections" not in r
 
 
 def test_login_validation(client):
-    assert client.post("/api/login", json={"name": "A", "roll_no": "1", "section": "Nope"}).status_code == 422
-    assert client.post("/api/login", json={"name": " ", "roll_no": "1", "section": "Section A"}).status_code == 422
+    ok = {"name": "A", "roll_no": "1", "section": "S-001", "university": "NIAT"}
+    for bad in ({"section": ""}, {"section": " - "}, {"university": ""}, {"university": "X"}):
+        assert client.post("/api/login", json=dict(ok, **bad)).status_code == 422, bad
+
+
+def test_students_type_their_section_and_university(client):
+    """No fixed list: any section is accepted, and "s 001" joins the "S-001" already in use."""
+    h1 = client.post("/api/login", json={"name": "A", "roll_no": "1", "section": "s-001", "university": " NIAT  Hyd "}).json()
+    assert h1["student"]["section"] == "S-001" and h1["student"]["university"] == "NIAT Hyd"
+    h2 = client.post("/api/login", json={"name": "B", "roll_no": "2", "section": "S 001", "university": "NIAT"}).json()
+    assert h2["student"]["section"] == "S-001"
+    h3 = client.post("/api/login", json={"name": "C", "roll_no": "3", "section": "CSE B", "university": "NIAT"}).json()
+    assert h3["student"]["section"] == "CSE B"
+    # signing in again with the section typed another way is the same student
+    assert client.post("/api/login", json={"name": "A", "roll_no": "1", "section": "S001", "university": "NIAT"}).status_code in (200, 409)
+    d = client.get("/api/teacher/dicts", headers=teacher(client)).json()
+    assert d["sections"] == ["CSE B", "S-001"]
+    assert {s["name"]: s["university"] for s in d["students"]} == {"A": "NIAT Hyd", "B": "NIAT", "C": "NIAT"}
+    assert client.post("/api/login", json={"name": " ", "roll_no": "1", "section": "Section A", "university": "NIAT"}).status_code == 422
 
 
 def test_one_device_at_a_time_and_release(client, clock):
     h1 = login(client, roll="X1")
-    r = client.post("/api/login", json={"name": "Ravi Kumar", "roll_no": "x1", "section": "Section A"})
+    r = client.post("/api/login", json={"name": "Ravi Kumar", "roll_no": "x1", "section": "Section A", "university": "NIAT"})
     assert r.status_code == 409 and "another device" in r.json()["detail"]
     # same roll number, different name: refused
-    assert client.post("/api/login", json={"name": "Someone", "roll_no": "X1", "section": "Section A"}).status_code == 409
+    assert client.post("/api/login", json={"name": "Someone", "roll_no": "X1", "section": "Section A", "university": "NIAT"}).status_code == 409
     # teacher releases the login: old device is signed out, a new device can sign in
     sid = client.get("/api/me", headers=h1).json()["student"]["id"]
     t = teacher(client)
     assert client.post(f"/api/teacher/students/{sid}/release", headers=t).status_code == 200
     assert client.post("/api/ping", headers=h1).status_code == 401
-    assert client.post("/api/login", json={"name": "ravi kumar", "roll_no": "X1", "section": "Section A"}).status_code == 200
+    assert client.post("/api/login", json={"name": "ravi kumar", "roll_no": "X1", "section": "Section A", "university": "NIAT"}).status_code == 200
 
 
 def test_device_lock_expires_without_heartbeat(client, clock):
     login(client, roll="X2")
     clock.t += main.DEVICE_LOCK + 1
-    assert client.post("/api/login", json={"name": "Ravi Kumar", "roll_no": "X2", "section": "Section A"}).status_code == 200
+    assert client.post("/api/login", json={"name": "Ravi Kumar", "roll_no": "X2", "section": "Section A", "university": "NIAT"}).status_code == 200
 
 
 def test_logout(client):
@@ -517,7 +534,7 @@ def test_section_filter(client):
     t = teacher(client)
     login(client, name="A1", section="Section A")
     login(client, name="B1", section="Section B")
-    d = client.get("/api/teacher/dicts?section=Section%20B", headers=t).json()
+    d = client.get("/api/teacher/dicts?section=SECTION%20B", headers=t).json()
     assert [s["name"] for s in d["students"]] == ["B1"]
 
 
@@ -543,7 +560,7 @@ def test_csv_export(client):
     r = client.get("/api/teacher/dicts/export.csv", headers=t)
     assert r.status_code == 200 and r.headers["content-type"].startswith("text/csv")
     lines = r.text.strip().splitlines()
-    assert lines[0].startswith("rank,name,roll_no,section,status,xp") and '"Teja, R"' in lines[1]
+    assert lines[0].startswith("rank,name,roll_no,section,university,status,xp") and '"Teja, R"' in lines[1]
 
 
 def test_leaderboard_is_per_section(client):
@@ -810,7 +827,7 @@ def test_feedback_opens_only_after_the_mission_ends(client, clock):
 
 
 @pytest.mark.parametrize("bad", [
-    {"university": ""}, {"contact": "12345"}, {"contact": "5876543210"}, {"enjoy": 0}, {"enjoy": 6}, {"confidence": None},
+    {"contact": ""}, {"contact": "12345"}, {"contact": "5876543210"}, {"enjoy": 0}, {"enjoy": 6}, {"confidence": None},
     {"roses": 3, "tomatoes": 1}, {"roses": 6, "tomatoes": -1}, {"difficulty": "meh"}, {"tech": ""}, {"helped": ["nope"]},
 ])
 def test_feedback_is_validated(client, bad):

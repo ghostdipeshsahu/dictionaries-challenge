@@ -41,7 +41,6 @@ which is only for trying it on a laptop; always set your own).
 | Variable | Default | Meaning |
 |---|---|---|
 | `TEACHER_PASSWORD` | `change-me` | Teacher dashboard password (always set it) |
-| `SECTIONS` | `S-001,S-002,S-003,S-004` | Sections in the sign-in dropdown (same as Sets) |
 | `CLASS_CODE` | empty | If set, students must also type this code |
 | `MISSION_MINUTES` | `45` | Mission clock |
 | `MAX_TAB_SWITCHES` | `3` | The mission ends at this many tab switches (`0` = record only) |
@@ -78,6 +77,9 @@ The browser tests delete the students they create when they finish.
 - **Needs attention** panel at the top of the dashboard: students who are **idle** (page open, mission running, no
   step for `IDLE_SECONDS`), **offline** (mission running, page stopped responding) or whose mission **ended** (with
   the Resume button). The "Now on" column shows the same tags.
+- **Sign-in**: students type their name, roll number, section and university (all required). There is no fixed
+  section list: "s-001", "S 001" and "S001" join the same section, and the dashboard's section filter lists the
+  sections students actually typed. The university shows under each name on the dashboard and in the CSV.
 - **Student feedback**: when a mission ends (time, tab switches, Final Boss or bonus round cleared, or Finish), a
   six-step feedback opens by itself and must be sent before the report: university and contact number, enjoyment
   faces, 5 throws of roses or tomatoes at a cartoon instructor, difficulty, confidence meter, what helped, technical
@@ -93,7 +95,7 @@ For Session 30, import the same repo as a **second** Vercel project, add `MISSIO
 1. Import the GitHub repo in Vercel (FastAPI is detected from `app/main.py`; `vercel.json` sets the Mumbai region).
 2. **Storage → Create Database → Neon (Postgres)** and connect it to the project. This sets `DATABASE_URL`.
    Without it, the dashboard shows a red warning: Vercel's disk is temporary and progress would be lost.
-3. Set `TEACHER_PASSWORD` (and `SECTIONS` if needed) under Settings → Environment Variables, then redeploy.
+3. Set `TEACHER_PASSWORD` under Settings → Environment Variables, then redeploy.
 
 On Vercel the teacher dashboard refreshes every 5 seconds (each request may reach a different short-lived server,
 so the push stream is turned off). Python for the coding challenges loads from the jsDelivr CDN.

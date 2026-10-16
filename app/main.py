@@ -26,7 +26,6 @@ from . import engine as E
 ROOT = Path(__file__).resolve().parent.parent
 STATIC = ROOT / "static"
 
-SECTIONS = [s.strip() for s in os.environ.get("SECTIONS", "S-001,S-002,S-003,S-004").split(",") if s.strip()]
 CLASS_CODE = os.environ.get("CLASS_CODE", "").strip()
 # Set TEACHER_PASSWORD in the environment. The fallback is for a laptop demo only.
 TEACHER_PASSWORD = os.environ.get("TEACHER_PASSWORD") or "change-me"
@@ -90,6 +89,7 @@ class LoginIn(BaseModel):
     name: str
     roll_no: str
     section: str
+    university: str = ""
     class_code: Optional[str] = None
 
 
@@ -155,7 +155,8 @@ def teacher(authorization: Optional[str] = Header(default=None)):
 
 
 def public_student(s):
-    return {"id": s["id"], "name": s["name"], "roll_no": s["roll_no"], "section": s["section"]}
+    return {"id": s["id"], "name": s["name"], "roll_no": s["roll_no"], "section": s["section"],
+            "university": s.get("university") or ""}
 
 
 def clean(text, n):
@@ -165,22 +166,25 @@ def clean(text, n):
 # ---------- shared ----------
 @app.get("/api/health")
 def health():
-    return {"ok": True, "app": "dictionaries", "sections": SECTIONS, "class_code_required": bool(CLASS_CODE), "build": BUILD,
+    return {"ok": True, "app": "dictionaries", "class_code_required": bool(CLASS_CODE), "build": BUILD,
             "storage": STORAGE, "mission": C.MISSION, "title": C.UI["title"], "short": C.UI["short"]}
 
 
 @app.post("/api/login")
 def login(body: LoginIn):
-    name, roll, section = clean(body.name, 60), clean(body.roll_no, 30), clean(body.section, 40)
-    if not name or not roll or not section:
+    name, roll, section = clean(body.name, 60), clean(body.roll_no, 30), clean(body.section, 40).upper()
+    university = clean(body.university, 120)
+    if not name or not roll or not section or not university:
         raise HTTPException(422, "Fill in every field to join.")
-    if section not in SECTIONS:
-        raise HTTPException(422, "Choose your section from the list.")
+    if not db.section_key(section):
+        raise HTTPException(422, "Type your section, for example S-001.")
+    if len(university) < 2:
+        raise HTTPException(422, "Type your university name.")
     if CLASS_CODE and not hmac.compare_digest((body.class_code or "").strip().upper(), CLASS_CODE.upper()):
         raise HTTPException(403, "That class code is not right. Ask your teacher.")
     token = secrets.token_urlsafe(24)
     try:
-        return _login(name, roll, section, token)
+        return _login(name, roll, section, token, university)
     except HTTPException:
         raise
     except Exception as e:  # the same roll number signing in twice at the same instant (unique key)
@@ -189,18 +193,20 @@ def login(body: LoginIn):
         raise
 
 
-def _login(name, roll, section, token):
+def _login(name, roll, section, token, university):
     with db.tx():
         s = db.by_roll(roll)
         if s:
-            if s["name"].casefold() != name.casefold() or s["section"] != section:
+            if s["name"].casefold() != name.casefold() or db.section_key(s["section"]) != db.section_key(section):
                 raise HTTPException(409, "This roll number is already used by another student. Check it, or ask your teacher.")
             if s["token"] and s["last_seen"] and time.time() - s["last_seen"] < DEVICE_LOCK:
                 raise HTTPException(409, "This roll number is signed in on another device. Sign out there, or ask your teacher to release it.")
             db.set_token(s["id"], token)
+            if not s.get("university"):  # signed up before the university field
+                db.set_university(s["id"], university)
             s = db.by_id(s["id"])
         else:
-            sid = db.insert_student(name, roll, section, token, E.new_state())
+            sid = db.insert_student(name, roll, db.known_section(section) or section, token, E.new_state(), university)
             s = db.by_id(sid)
     return {"token": token, "student": public_student(s)}
 
@@ -292,7 +298,12 @@ def finish(s=Depends(student)):
 
 @app.post("/api/dicts/feedback")
 def feedback(body: FeedbackIn, s=Depends(student)):
-    return mutate(s, E.feedback, body.model_dump())
+    fb = body.model_dump()
+    fb["university"] = s.get("university") or fb["university"]
+    if not s.get("university") and len(clean(fb["university"], 120)) >= 2:  # signed up before the field existed
+        with db.tx():
+            db.set_university(s["id"], clean(fb["university"], 120))
+    return mutate(s, E.feedback, fb)
 
 
 @app.post("/api/dicts/proctor")
@@ -349,6 +360,7 @@ def dashboard(section=None):
     now = time.time()
     with db.tx():
         studs = db.all_students(section or None)
+        all_sections = db.sections()
     rows = []
     stage_cleared = {l["id"]: 0 for l in C.LEVELS}
     concept_tot, type_tot = {}, {}
@@ -380,7 +392,7 @@ def dashboard(section=None):
             activity = "offline" if not online else "idle" if idle_for >= IDLE_SECONDS else "active"
         rows.append({
             "id": x["id"], "name": x["name"], "roll_no": x["roll_no"], "section": x["section"],
-            "status": status, "status_label": E.STATUS_LABEL[status], "xp": ps["xp"],
+            "university": x.get("university") or "", "status": status, "status_label": E.STATUS_LABEL[status], "xp": ps["xp"],
             "done": ps["progress"]["done"], "total": C.TOTAL,
             "first_try": sum(1 for q in qv if q["solved"] and not q["wrong"]),
             "timed_out": sum(1 for q in qv if q["timed_out"]),
@@ -410,7 +422,7 @@ def dashboard(section=None):
     feedback = feedback_summary(studs, rows)
     acc = lambda t: sorted(({"key": k, "accuracy": c / n, "answers": n} for k, (c, n) in t.items()), key=lambda d: d["accuracy"])
     return {
-        "section": section or "", "sections": SECTIONS, "total_questions": C.TOTAL, "max_tab_switches": RULES.max_tab_switches,
+        "section": section or "", "sections": all_sections, "total_questions": C.TOTAL, "max_tab_switches": RULES.max_tab_switches,
         "mission_minutes": round(RULES.mission_seconds / 60), "mission": C.MISSION, "title": C.UI["title"], "short": C.UI["short"],
         "concept_labels": C.CONCEPTS, "type_labels": C.TYPE_LABEL, "idle_minutes": round(IDLE_SECONDS / 60, 1),
         "overview": overview,
@@ -502,13 +514,13 @@ def teacher_export(section: str = "", _t=Depends(teacher)):
     d = dashboard(section)
     buf = io.StringIO()
     w = csv.writer(buf)
-    w.writerow(["rank", "name", "roll_no", "section", "status", "xp", "cleared", "total", "stars", "first_try", "timed_out",
+    w.writerow(["rank", "name", "roll_no", "section", "university", "status", "xp", "cleared", "total", "stars", "first_try", "timed_out",
                 "solutions_viewed", "time_used_min", "tab_switches", "copy_paste", "second_tab", "weakest_idea",
                 "current_stage", "current_question", "activity", "idle_minutes", "teacher_resumes", "last_seen"])
     for r in d["students"]:
         weak = min(r["concepts"].items(), key=lambda kv: kv[1]) if r["concepts"] else None
         cur = r["current"] or {}
-        w.writerow([r["rank"], r["name"], r["roll_no"], r["section"], r["status_label"], r["xp"], r["done"], r["total"],
+        w.writerow([r["rank"], r["name"], r["roll_no"], r["section"], r["university"], r["status_label"], r["xp"], r["done"], r["total"],
                     r["stars"], r["first_try"], r["timed_out"], r["revealed"], r["used_minutes"], r["tab_switches"],
                     r["copy_paste"], r["multi_tab"],
                     f"{C.CONCEPTS.get(weak[0], weak[0])} ({round(weak[1] * 100)}%)" if weak else "",
