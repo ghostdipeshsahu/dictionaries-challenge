@@ -521,8 +521,13 @@ def teacher_export(section: str = "", _t=Depends(teacher)):
     w = csv.writer(buf)
     w.writerow(["rank", "name", "roll_no", "section", "university", "contact", "status", "xp", "cleared", "total", "stars", "first_try", "timed_out",
                 "solutions_viewed", "time_used_min", "tab_switches", "copy_paste", "second_tab", "weakest_idea",
-                "current_stage", "current_question", "activity", "idle_minutes", "teacher_resumes", "last_seen"])
+                "current_stage", "current_question", "activity", "idle_minutes", "teacher_resumes", "last_seen",
+                # the end-of-mission feedback (blank until the student sends it)
+                "feedback_sent", "fb_enjoyed_1_to_5", "fb_toughest_stage", "fb_favourite_stage", "fb_difficulty", "fb_time",
+                "fb_confidence_1_to_5", "fb_helped_most", "fb_technical_problems", "fb_improve"])
+    fb = {f["id"]: f for f in d["feedback"]["responses"]}
     for r in d["students"]:
+        f = fb.get(r["id"])
         weak = min(r["concepts"].items(), key=lambda kv: kv[1]) if r["concepts"] else None
         cur = r["current"] or {}
         w.writerow([r["rank"], r["name"], r["roll_no"], r["section"], r["university"], r["contact"], r["status_label"], r["xp"], r["done"], r["total"],
@@ -530,9 +535,13 @@ def teacher_export(section: str = "", _t=Depends(teacher)):
                     r["copy_paste"], r["multi_tab"],
                     f"{C.CONCEPTS.get(weak[0], weak[0])} ({round(weak[1] * 100)}%)" if weak else "",
                     cur.get("stage", ""), f"{cur['n']}/{cur['of']} {cur['title']}" if cur else "",
-                    r["activity"] or "", round(r["idle_seconds"] / 60, 1) if r["activity"] else "", r["resumes"], r["last_seen"] or ""])
+                    r["activity"] or "", round(r["idle_seconds"] / 60, 1) if r["activity"] else "", r["resumes"], r["last_seen"] or "",
+                    *(["yes", f["enjoy"], f["toughest_label"], f["favourite_label"], f["difficulty_label"], f["pace_label"],
+                       f["confidence"], "; ".join(f["helped"]), f["tech_label"], f["improve"]] if f else ["no"] + [""] * 9)])
     name = f"{C.UI['short'].lower().replace(' ', '-')}-{(section or 'all').lower().replace(' ', '-')}.csv"
-    return Response(buf.getvalue(), media_type="text/csv", headers={"Content-Disposition": f'attachment; filename="{name}"'})
+    # BOM: Excel then reads the emoji and Indian names as UTF-8
+    return Response("\ufeff" + buf.getvalue(), media_type="text/csv; charset=utf-8",
+                    headers={"Content-Disposition": f'attachment; filename="{name}"'})
 
 
 @app.get("/api/teacher/dicts/feedback.csv")

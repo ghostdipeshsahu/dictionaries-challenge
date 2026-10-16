@@ -564,7 +564,7 @@ def test_csv_export(client):
     solve(client, h, "L0-1")
     r = client.get("/api/teacher/dicts/export.csv", headers=t)
     assert r.status_code == 200 and r.headers["content-type"].startswith("text/csv")
-    lines = r.text.strip().splitlines()
+    lines = r.text.lstrip("\ufeff").strip().splitlines()
     assert lines[0].startswith("rank,name,roll_no,section,university,contact,status,xp") and '"Teja, R"' in lines[1]
 
 
@@ -867,6 +867,9 @@ def test_feedback_reaches_the_teacher_dashboard_and_csv(client, clock):
     assert {s["name"]: s["feedback_sent"] for s in d["students"]} == {"Asha Rao": True, "Not Done Yet": False}
     csv_text = client.get("/api/teacher/dicts/feedback.csv", headers=t).text
     assert "Asha Rao" in csv_text and "More coding time" in csv_text and "Not Done Yet" not in csv_text
+    # the main export carries the feedback too, on each student's row
+    rows = {line.split(",")[1]: line for line in client.get("/api/teacher/dicts/export.csv", headers=t).text.lstrip("\ufeff").splitlines()[1:]}
+    assert "More coding time" in rows["Asha Rao"] and ",yes," in rows["Asha Rao"] and ",no," in rows["Not Done Yet"]
     # the mission payload lists this mission's "what helped" options
     m = client.get("/api/dicts/mission", headers=h).json()
     assert [x["key"] for x in m["feedback"]["helped"]] == [k for k, _, _ in C.FEEDBACK_HELPED]
