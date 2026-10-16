@@ -73,9 +73,9 @@ try:
                 expect(page.locator("#modal")).to_contain_text("You left the mission tab", timeout=10000)
                 page.locator("#okBack").click()
         expect(page.locator(".endbanner.proctor")).to_be_visible(timeout=15000)
-        expect(page.locator("#resumeWait")).to_be_visible()
+        expect(page.locator(".survey #svNext")).to_be_visible()   # the feedback opens; the page still watches for a resume
         shot(page, "02-student-waiting")
-        print("mission ended on tab switches; student waits for the teacher")
+        print("mission ended on tab switches; feedback opened while the student waits for the teacher")
 
         # 2) the teacher resumes from the attention panel (tap twice)
         btn = tpage.locator("#pAttn .del[data-a='resume']")

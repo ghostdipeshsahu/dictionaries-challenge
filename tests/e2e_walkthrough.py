@@ -125,6 +125,30 @@ def answer_coding(page, q):
     expect(page.locator("#tscore")).to_have_text(f"{len(q['challenge']['tests'])} / {len(q['challenge']['tests'])}", timeout=60000)
 
 
+def send_feedback(page, shoot=None):
+    """The end-of-mission feedback: it opens before the report and must be sent to see the report."""
+    expect(page.locator(".survey")).to_be_visible(timeout=15000)
+    if shoot:
+        shoot(page, "feedback")
+    page.locator("#svUni").fill("Test University")
+    page.locator("#svPhone").fill("9876543210")
+    page.locator("#svNext").click()
+    page.locator(".face[data-v='4']").click()
+    page.locator("#svNext").click()
+    for _ in range(5):
+        page.locator("#tRose").click()
+    expect(page.locator("#ammo span")).to_have_text("All thrown!")
+    page.locator("#svNext").click()
+    page.locator(".bigopt[data-k='right']").click()
+    page.locator(".mbar[data-v='3']").click()
+    page.locator("#svNext").click()
+    page.locator(".chip").first.click()
+    page.locator("#svNext").click()
+    page.locator(".bigopt[data-k='no']").click()
+    page.locator("#svNext").click()
+    expect(page.locator(".thanks")).to_be_visible(timeout=10000)
+
+
 def cleanup(base, prefix):
     """Delete every student this test created (roll numbers starting with `prefix`), so the teacher
     dashboard only shows real students."""
@@ -345,7 +369,13 @@ def main():
                 cur = tpage.locator("#rows tr", has_text="Walk Through").locator("td.curcell")
                 expect(cur).to_contain_text(C.LEVELS[2]["name"], timeout=10000)
                 shot(tpage, "teacher-live")
+            if lvl is C.LEVELS[-1]:
+                expect(page.locator("#nextL")).to_have_text("Last step: quick feedback")
             page.locator("#nextL").click()
+
+        # ---- the feedback opens before the report
+        send_feedback(page, shot)
+        log("feedback sent")
 
         # ---- mission report
         expect(page.locator(".report h2")).to_have_text(C.UI["champion"], timeout=15000)

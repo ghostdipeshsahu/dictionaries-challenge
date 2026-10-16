@@ -73,7 +73,34 @@ function panels(){
   const d=data,max=Math.max(1,d.overview.students),col=a=>a<.5?'var(--bad)':a<.75?'var(--gold)':'var(--good)';
   $('#pStages').innerHTML=d.stages.map(s=>`<div class="srow"><span>${esc(s.name)}</span><small>${s.cleared} / ${d.overview.students} cleared</small><span class="sbar${s.cleared===d.overview.students&&s.cleared?' ok':''}"><i style="width:${Math.round(s.cleared/max*100)}%"></i></span></div>`).join('');
   $('#pConcepts').innerHTML=d.concepts.map(c=>`<div class="trow2"><span>${esc(CONCEPTS[c.concept]||c.concept)}</span><span class="tb"><i style="width:${Math.round(c.accuracy*100)}%;background:${col(c.accuracy)}"></i></span><b>${pct(c.accuracy)}</b></div>`).join('')||'<p class="empty">No answers yet.</p>';
+  feedback();
   $('#pTypes').innerHTML=d.types.map(t=>`<div class="trow2"><span>${esc(TYPES[t.qtype]||t.qtype)}</span><span class="tb"><i style="width:${Math.round(t.accuracy*100)}%;background:${col(t.accuracy)}"></i></span><b>${pct(t.accuracy)}</b></div>`).join('')||'<p class="empty">No answers yet.</p>';
+}
+/* End-of-mission feedback: every student fills it in after the mission ends, before seeing the report. */
+const FACE=['😴','😕','🙂','😄','🤩'];
+function feedback(){
+  const f=data.feedback,el=$('#pFb');if(!f||!el)return;
+  const wasOpen=!!($('.fball')||{}).open;  // live updates redraw the panel: keep the response table open
+  $('#fbCount').textContent=f.count?f.count:'';
+  if(!f.count){el.innerHTML=`<p class="empty">Feedback appears here as students finish. Each student fills it in when their mission ends, before they see the report.${f.pending?` ${f.pending} finished student${f.pending>1?'s have':' has'} not sent it yet.`:''}</p>`;return}
+  const bars=(list,tot)=>list.map(x=>`<div class="trow2"><span>${esc(x.label)}</span><span class="tb"><i style="width:${tot?Math.round(x.count/tot*100):0}%;background:var(--blue)"></i></span><b>${x.count}</b></div>`).join('');
+  const dist=(d,labels)=>`<div class="fbdist">${d.map((c,i)=>`<div><span class="fbcol"><i style="height:${Math.round(c/Math.max(1,...d)*100)}%"></i></span><b>${c}</b><small>${labels[i]}</small></div>`).join('')}</div>`;
+  const notes=f.responses.filter(r=>r.improve||r.instructor_note);
+  el.innerHTML=`<div class="fbtiles">
+      <div class="tile"><b>${f.count}${f.ended?' / '+f.ended:''}</b><span>Responses${f.pending?` · ${f.pending} pending`:''}</span></div>
+      <div class="tile"><b>${FACE[Math.max(0,Math.round(f.enjoy)-1)]} ${f.enjoy} / 5</b><span>Enjoyed it</span></div>
+      <div class="tile"><b>🌹 ${f.roses} <small>/ ${f.throws}</small></b><span>Instructor: roses · 🍅 ${f.tomatoes}</span></div>
+      <div class="tile"><b>💪 ${f.confidence} / 5</b><span>Confidence now</span></div></div>
+    <div class="fbgrid">
+      <div><h3>How much they enjoyed it</h3>${dist(f.enjoy_dist,FACE)}</div>
+      <div><h3>Confidence now</h3>${dist(f.confidence_dist,['1','2','3','4','5'])}</div>
+      <div><h3>Difficulty</h3>${bars(f.difficulty,f.count)}</div>
+      <div><h3>Technical problems</h3>${bars(f.tech,f.count)}</div>
+      <div class="wide"><h3>What helped them learn most</h3>${bars(f.helped,f.count)}</div>
+    </div>
+    ${notes.length?`<h3>What students said · ${notes.length}</h3><ul class="fbnotes">${notes.map(r=>`<li><span class="aname"><b>${esc(r.name)}</b><small>${esc(r.roll_no)} · ${esc(r.section)} · 🌹${r.roses} 🍅${r.tomatoes}</small></span><div>${r.improve?`<p><em>Improve:</em> ${esc(r.improve)}</p>`:''}${r.instructor_note?`<p><em>To the instructor:</em> ${esc(r.instructor_note)}</p>`:''}</div></li>`).join('')}</ul>`:''}
+    <details class="fball"${wasOpen?' open':''}><summary>All responses (${f.count})</summary><div class="tablewrap"><table><thead><tr><th>Name</th><th>Roll no</th><th>Section</th><th>University</th><th>Contact</th><th>Enjoyed</th><th>Instructor</th><th>Difficulty</th><th>Confidence</th><th>Helped most</th><th>Tech problems</th><th>Reached</th><th>Sent</th></tr></thead>
+      <tbody>${f.responses.map(r=>`<tr><td><b>${esc(r.name)}</b></td><td>${esc(r.roll_no)}</td><td>${esc(r.section)}</td><td>${esc(r.university)}</td><td>${esc(r.contact)}</td><td>${FACE[r.enjoy-1]} ${r.enjoy}</td><td>🌹${r.roses} 🍅${r.tomatoes}</td><td>${esc(r.difficulty_label)}</td><td>${r.confidence} / 5</td><td class="fbhelp">${r.helped.map(esc).join('<br>')}</td><td class="${r.tech==='blocked'?'m lo':r.tech==='small'?'m mid':''}">${esc(r.tech_label)}</td><td>${esc(r.reached)}<small>${esc(r.status_label)}</small></td><td>${esc((r.at||'').replace('T',' ').slice(11,16))}</td></tr>`).join('')}</tbody></table></div></details>`;
 }
 function render(){
   const d=data;
@@ -87,6 +114,7 @@ function render(){
       <div class="panel"><h2>Hardest ideas first</h2><div id="pConcepts"></div></div>
     </div>
     <div class="panel"><h2>Question types, hardest first</h2><div class="typegrid" id="pTypes"></div></div>
+    <div class="panel fb" id="fbPanel"><div class="fbhead"><h2>Student feedback <span class="acount" id="fbCount"></span></h2><button class="nbtn" id="fbExport" type="button">Download feedback CSV</button></div><div id="pFb"></div></div>
     <div class="panel"><h2>Students</h2>
       <div class="tools"><input id="find" type="search" placeholder="Search by name or roll number" value="${esc(filter)}"><span class="hint2"><b>Resume</b>: continue an ended mission from exactly where it stopped. Release login: lets a student sign in on another device. Reset mission: erases everything and starts again from zero.</span></div>
       <div class="tablewrap"><table><thead><tr>
@@ -108,7 +136,7 @@ function rows(){
     .sort((a,b)=>{const x=val(a,sortKey),y=val(b,sortKey);return (typeof x==='string'?x.localeCompare(y):x-y)*sortDir});
   $('#rows').innerHTML=list.map(s=>{const w=weakest(s);
     return `<tr><td>${s.rank}</td><td><b>${esc(s.name)}</b>${s.online?' <span class="dot" title="Signed in right now"></span>':''}</td><td>${esc(s.roll_no)}</td><td>${esc(s.section)}</td>
-    <td class="m ${STATUS_CLS[s.status]||''}">${esc(s.status_label)}</td><td class="curcell">${s.current?`<b>${esc(s.current.stage)}${actTag(s)}</b><small title="${esc(s.current.title)}">Q${s.current.n}/${s.current.of} · ${esc(s.current.title)}${s.current.cleared?' (done)':''}</small>`:actTag(s)||'–'}</td><td>${s.done}/${s.total}</td><td>${s.first_try}</td><td>${s.timed_out}</td><td>${s.revealed}</td><td>${s.used_minutes} min</td>
+    <td class="m ${STATUS_CLS[s.status]||''}">${esc(s.status_label)}${s.feedback_sent?'<small class="fbsent">feedback sent</small>':''}</td><td class="curcell">${s.current?`<b>${esc(s.current.stage)}${actTag(s)}</b><small title="${esc(s.current.title)}">Q${s.current.n}/${s.current.of} · ${esc(s.current.title)}${s.current.cleared?' (done)':''}</small>`:actTag(s)||'–'}</td><td>${s.done}/${s.total}</td><td>${s.first_try}</td><td>${s.timed_out}</td><td>${s.revealed}</td><td>${s.used_minutes} min</td>
     <td class="${s.tab_switches?(max&&s.tab_switches>=max?'m lo':'m mid'):''}">${s.tab_switches}</td><td class="${s.copy_paste?'m mid':''}">${s.copy_paste}</td>
     <td>${w?esc(w[0])+' · '+Math.round(w[1]*100)+'%':'–'}</td><td>${esc((s.last_seen||'').replace('T',' ').slice(0,16))}</td>
     <td class="acts">${s.can_resume?`<button class="del go" data-a="resume" data-id="${s.id}" type="button">Resume</button>`:''}<button class="del" data-a="release" data-id="${s.id}" type="button"${s.online?'':' disabled'}>Release login</button><button class="del" data-a="reset" data-id="${s.id}" type="button">Reset mission</button><button class="del" data-a="remove" data-id="${s.id}" type="button">Remove</button></td></tr>`}).join('')
@@ -148,6 +176,11 @@ function attention(){
 $('#secSel').onchange=e=>{section=e.target.value;stopLive();load()};
 $('#refresh').onclick=()=>load(true);
 $('#signout').onclick=signOut;
+document.addEventListener('click',async e=>{
+  if(!e.target.closest('#fbExport'))return;
+  const r=await api('/teacher/dicts/feedback.csv'+(section?'?section='+encodeURIComponent(section):''));const blob=await r.blob();
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`${(data.short||'mission').toLowerCase().replace(/\s+/g,'-')}-feedback-${(section||'all').toLowerCase().replace(/\s+/g,'-')}.csv`;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},500);
+});
 $('#export').onclick=async()=>{
   const r=await api('/teacher/dicts/export.csv'+(section?'?section='+encodeURIComponent(section):''));const blob=await r.blob();
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`${(data.short||'mission').toLowerCase().replace(/\s+/g,'-')}-${(section||'all').toLowerCase().replace(/\s+/g,'-')}.csv`;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},500);

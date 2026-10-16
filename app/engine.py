@@ -89,6 +89,7 @@ def mission_payload(rules):
         "type_labels": C.TYPE_LABEL,
         "ui": C.UI,
         "rules": rules.public(),
+        "feedback": {"topic": C.FEEDBACK_TOPIC, "helped": [{"key": k, "emoji": e, "label": t} for k, e, t in C.FEEDBACK_HELPED]},
     }
 
 
@@ -212,6 +213,7 @@ def public_state(state, rules, now=None):
         "mission_seconds": rules.mission_seconds + int(state.get("grace", 0)), "used_seconds": used_seconds(state, now),
         "progress": {"done": done, "total": C.TOTAL},
         "core_done": bool(state.get("core_done_at")),
+        "feedback_done": bool(state.get("feedback")),
         "levels": levels,
         "questions": {qid: {"solved": s["solved"], "wrong": s["wrong"], "revealed": s["revealed"],
                             "timed_out": s["timed_out"], "hint": s["hints"] > 0} for qid, s in state["q"].items() if qid in C.QUESTIONS},
@@ -636,6 +638,62 @@ def status_of(state):
     if state.get("core_done_at"):
         return "complete"
     return "in progress" if state["started_at"] else "not started"
+
+
+# ---------------------------------------------------------------------------------------------
+# end-of-mission feedback
+FEEDBACK_DIFFICULTY = {"easy": "Too easy", "right": "Just right", "hard": "Too hard"}
+FEEDBACK_TECH = {"no": "No", "small": "Yes, small ones", "blocked": "Yes, it blocked me"}
+INSTRUCTOR_THROWS = 5   # every learner throws exactly 5: roses (liked it) or tomatoes (did not)
+
+
+def _scale(v, name):
+    if not isinstance(v, int) or isinstance(v, bool) or not 1 <= v <= 5:
+        raise MissionError(f"Pick {name} on the 1 to 5 scale.", 422)
+    return v
+
+
+def feedback(state, rules, fb, now=None):
+    """Save the learner's feedback. Asked once, when the mission has ended; a repeat send is ignored."""
+    now = now or time.time()
+    if not state["ended_at"]:
+        raise MissionError("Feedback opens when your mission ends.", 409)
+    if state.get("feedback"):
+        return {"state": public_state(state, rules, now), "already": True}
+    uni = " ".join(str(fb.get("university") or "").split())[:120]
+    if len(uni) < 2:
+        raise MissionError("Type your university name.", 422)
+    phone = re.sub(r"[\s-]", "", str(fb.get("contact") or ""))
+    m = re.fullmatch(r"(?:\+?91|0)?([6-9]\d{9})", phone)
+    if not m:
+        raise MissionError("Type a 10-digit mobile number.", 422)
+    roses, tomatoes = fb.get("roses"), fb.get("tomatoes")
+    if not all(isinstance(x, int) and not isinstance(x, bool) and x >= 0 for x in (roses, tomatoes)) \
+            or roses + tomatoes != INSTRUCTOR_THROWS:
+        raise MissionError(f"Throw all {INSTRUCTOR_THROWS} at your instructor first.", 422)
+    if fb.get("difficulty") not in FEEDBACK_DIFFICULTY:
+        raise MissionError("Choose how difficult it was.", 422)
+    if fb.get("tech") not in FEEDBACK_TECH:
+        raise MissionError("Tell us about technical problems.", 422)
+    keys = [k for k, _, _ in C.FEEDBACK_HELPED]
+    helped = [k for k in keys if k in (fb.get("helped") or [])]
+    if not helped:
+        raise MissionError("Pick at least one thing that helped you learn.", 422)
+    done = sum(level_stats(state, l)["cleared"] for l in C.LEVELS if not l.get("bonus"))
+    state["feedback"] = {
+        "university": uni, "contact": m.group(1),
+        "enjoy": _scale(fb.get("enjoy"), "how much you enjoyed it"),
+        "confidence": _scale(fb.get("confidence"), "your confidence"),
+        "roses": roses, "tomatoes": tomatoes,
+        "instructor_note": " ".join(str(fb.get("instructor_note") or "").split())[:300],
+        "difficulty": fb["difficulty"], "helped": helped, "tech": fb["tech"],
+        "improve": str(fb.get("improve") or "").strip()[:600],
+        # how far the learner got, recorded by the app (not asked)
+        "reached": {"done": done, "total": C.TOTAL, "status": status_of(state),
+                    "bonus": any(level_stats(state, l)["done"] for l in C.LEVELS if l.get("bonus"))},
+        "at": now,
+    }
+    return {"state": public_state(state, rules, now)}
 
 
 RESUME_MIN_SECONDS = 300

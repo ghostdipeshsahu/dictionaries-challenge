@@ -346,6 +346,7 @@ function starsHTML(n,cls){return `<span class="${cls||'stars'}" aria-label="${n}
 function badgeHTML(id,earned,small){const b=M.badges[id];return `<div class="badge${earned?' got':''}${small?' sm':''}" title="${esc(b.name)}: ${esc(b.desc)}"><span class="bico"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">${BADGE_ICON[id]||''}</svg></span><span><b>${esc(b.name)}</b><small>${esc(b.desc)}</small></span></div>`}
 function nextLevel(){return M.levels.find(l=>lvState(l.id).unlocked&&!lvState(l.id).done)}
 function renderMap(){
+  if(needSurvey())return renderSurvey();
   R=null;Q=null;stopQTimer();closeDrawer();document.title=M.ui.title;
   const nx=nextLevel(),done=ST.levels.filter(l=>l.done).length,ended=!!ST.ended_at;
   const p=ST.progress,pct=p.total?Math.round(p.done/p.total*100):0;
@@ -1124,6 +1125,7 @@ function Board(root,opts){
   return self;
 }
 function renderLab(){
+  if(needSurvey())return renderSurvey();
   if(M.ui.lab==='trip')return renderTripLab();
   R=null;Q=null;stopQTimer();closeDrawer();
   view.innerHTML=`<section class="lab enter">${backBar('Back to mission map','quit')}<h2 class="labtitle">Dict Lab <small>free play</small></h2>
@@ -1157,7 +1159,7 @@ function renderLevelDone(){
     <p class="muted">${s.stars<3?'Answer every challenge right on the first try for 3 stars.':'Flawless stage. Every challenge right on the first try.'}</p>
     <div class="hero-row" style="justify-content:center">
       ${offerBonus?`<button class="btn gold" id="nextL" type="button">${ICON.play}Play the bonus round</button><button class="btn primary" id="finishBtn" type="button">Finish: see my report</button>`
-        :boss||bonusLv?`<button class="btn gold" id="nextL" type="button">See your mission report</button>`:next?`<button class="btn primary" id="nextL" type="button">${ICON.play}Next: ${esc(next.name)}</button>`:''}
+        :boss||bonusLv?`<button class="btn gold" id="nextL" type="button">${needSurvey()?'Last step: quick feedback':'See your mission report'}</button>`:next?`<button class="btn primary" id="nextL" type="button">${ICON.play}Next: ${esc(next.name)}</button>`:''}
       <button class="btn ghost" id="toMap" type="button">Mission map</button></div></section>`;
   sfx.win();rain(boss?220:s.stars*50);setTimeout(()=>burst(innerWidth/2,innerHeight*.35,boss?140:90,1.3),400);
   const nb=$('#nextL');if(nb)nb.onclick=()=>offerBonus?renderBriefing(next.id):(boss||bonusLv)?renderSummary():renderBriefing(next.id);
@@ -1169,7 +1171,174 @@ async function finishMission(){
   const b=$('#finishBtn');if(b)b.disabled=true;
   try{const r=await api('POST','/finish');adopt(r.state);overHandled=true;renderSummary()}catch(e){if(b)b.disabled=false;netError(e)}
 }
+/* ---------- end-of-mission feedback ----------
+   Opens by itself when the mission ends (time, tab switches, Final Boss / bonus cleared, or Finish) and must be sent
+   before the report. Six short steps; a draft is kept in this browser so a reload does not lose answers. */
+const needSurvey=()=>!!(ST&&ST.ended_at&&!ST.feedback_done);
+const THROWS=5;
+const ENJOY=[['😴','Not at all'],['😕','Not much'],['🙂','It was okay'],['😄','Liked it'],['🤩','Loved it']];
+const CONF=['Not confident','A little','Getting there','Confident','Very confident'];
+const DIFF=[['easy','🥱','Too easy'],['right','👌','Just right'],['hard','🥵','Too hard']];
+const TECH=[['no','✅','No problems'],['small','⚠️','Yes, small ones'],['blocked','🧱','Yes, it blocked me']];
+const SAY={rose:['Aww, thank you!','That made my day 😊','I will keep teaching like this!','So kind!','A rose for me?'],
+  tomato:['Ouch! Noted.','Fair. I will do better.','Splat! Tell me what to fix 👇','I deserved that one.','Okay, okay!']};
+// fixed landing spots per throw, so the picture redraws the same way after Back / reload
+const HIT=[[-.09,-.05],[.1,.02],[-.02,.1],[.07,-.1],[-.11,.07]],PILE=[.36,.62,.47,.29,.7];
+let SV=null;
+const svKey=()=>'dicts-survey:'+(API.user?API.user.roll_no:'');
+function svSave(){try{localStorage.setItem(svKey(),JSON.stringify(SV))}catch(e){}}
+function svLoad(){let d=null;try{d=JSON.parse(localStorage.getItem(svKey())||'null')}catch(e){}
+  SV=Object.assign({step:0,university:'',contact:'',enjoy:0,throws:[],instructor_note:'',difficulty:'',confidence:0,helped:[],tech:'',improve:''},d&&typeof d==='object'?d:{});
+  SV.step=Math.min(Math.max(0,SV.step|0),5);if(!Array.isArray(SV.throws))SV.throws=[];SV.throws=SV.throws.slice(0,THROWS);if(!Array.isArray(SV.helped))SV.helped=[]}
+const phoneOK=v=>/^(\+?91|0)?[6-9]\d{9}$/.test(String(v).replace(/[\s-]/g,''));
+const PROF=()=>`<svg class="prof" viewBox="0 0 220 230" aria-hidden="true">
+  <rect class="wb" x="6" y="10" width="208" height="112" rx="10"/>${M.ui.lab==='trip'?'<text class="wbt" x="20" y="40">trip["Teja"]</text><text class="wbt dim" x="20" y="62"># 1500</text>':'<text class="wbt" x="20" y="40">menu["tea"]</text><text class="wbt dim" x="20" y="62"># 12</text>'}
+  <g class="who"><path class="shirt" d="M46 232c0-48 28-74 64-74s64 26 64 74z"/><path class="collar" d="M95 160l15 18 15-18"/>
+    <rect class="skin" x="100" y="136" width="20" height="26" rx="8"/><circle class="skin" cx="110" cy="102" r="40"/>
+    <path class="hair" d="M69 100c-2-32 18-50 42-50 26 0 42 18 40 44-12-14-30-18-48-15-15 2-26 10-34 21z"/>
+    <g class="glasses"><circle cx="94" cy="104" r="11"/><circle cx="126" cy="104" r="11"/><path d="M105 104h10"/></g>
+    <circle class="eye" cx="94" cy="104" r="3.2"/><circle class="eye" cx="126" cy="104" r="3.2"/>
+    <path class="m m-neutral" d="M99 126h22"/><path class="m m-happy" d="M95 121q15 15 30 0"/>
+    <path class="m m-sad" d="M96 131q14-11 28 0"/><ellipse class="m m-ouch" cx="110" cy="127" rx="7" ry="9"/>
+    <ellipse class="blush" cx="82" cy="118" rx="7" ry="3.5"/><ellipse class="blush" cx="138" cy="118" rx="7" ry="3.5"/></g></svg>`;
+const SPLAT='<svg viewBox="0 0 60 60" aria-hidden="true"><path d="M30 6c4 0 5 7 9 8s9-4 11 0-3 8-1 12 9 5 7 10-9 2-11 6 2 10-3 12-7-5-12-5-8 7-12 4 0-9-3-12-10-2-11-7 6-7 7-11-5-8-2-11 8 1 11-2 1-8 5-8z"/><circle cx="52" cy="48" r="3"/><circle cx="8" cy="20" r="2.5"/><circle cx="48" cy="8" r="2"/></svg>';
+function finalMood(){const r=SV.throws.filter(t=>t==='rose').length;return SV.throws.length<THROWS?'neutral':r>=4?'happy':r<=1?'sad':'neutral'}
+function finalSay(){const r=SV.throws.filter(t=>t==='rose').length;
+  return r===THROWS?'A full bouquet! Thank you! 💐':r===0?'Message received. I will work on it!':r>=3?'Thanks! Tell me what to make even better.':'Thanks for being honest. Tell me what to fix 👇'}
+const SV_STEPS=[
+  {need:'Type your university name and a 10-digit mobile number.',ok:()=>SV.university.trim().length>=2&&phoneOK(SV.contact),
+   html:()=>{const u=API.user||{};return `<h3 class="svq">First, who is sending this? 👋</h3>
+    <div class="svgrid"><label class="svf"><span>Your name</span><input value="${esc(u.name)}" readonly></label>
+    <label class="svf"><span>Roll number</span><input value="${esc(u.roll_no)}" readonly></label>
+    <label class="svf"><span>University name</span><input id="svUni" maxlength="120" autocomplete="organization" value="${esc(SV.university)}" placeholder="Your university"></label>
+    <label class="svf"><span>Contact no.</span><input id="svPhone" type="tel" inputmode="tel" maxlength="16" autocomplete="tel" value="${esc(SV.contact)}" placeholder="10-digit mobile number"></label></div>`},
+   bind:()=>{$('#svUni').oninput=e=>{SV.university=e.target.value;svSave()};$('#svPhone').oninput=e=>{SV.contact=e.target.value;svSave()};if(!SV.university)$('#svUni').focus()}},
+  {need:'Tap a face.',ok:()=>SV.enjoy>0,
+   html:()=>`<h3 class="svq">How much did you enjoy the practice?</h3>
+    <div class="bigface" id="bigFace" aria-hidden="true">${SV.enjoy?ENJOY[SV.enjoy-1][0]:'🤔'}</div><p class="facelab" id="faceLab">${SV.enjoy?ENJOY[SV.enjoy-1][1]:'Tap a face'}</p>
+    <div class="faces" role="radiogroup" aria-label="How much you enjoyed it, 1 to 5">${ENJOY.map(([e,l],k)=>`<button type="button" role="radio" class="face${SV.enjoy===k+1?' on':''}" aria-checked="${SV.enjoy===k+1}" aria-label="${k+1}: ${l}" data-v="${k+1}"><span>${e}</span><small>${k+1}</small></button>`).join('')}</div>
+    <div class="scaleends"><span>Not at all</span><span>Loved it</span></div>`,
+   bind:()=>$$('.face').forEach(b=>b.onclick=()=>{const v=+b.dataset.v;SV.enjoy=v;svSave();
+     $$('.face').forEach(x=>{const on=+x.dataset.v===v;x.classList.toggle('on',on);x.setAttribute('aria-checked',on)});
+     const f=$('#bigFace');f.textContent=ENJOY[v-1][0];f.classList.remove('pop');void f.offsetWidth;f.classList.add('pop');$('#faceLab').textContent=ENJOY[v-1][1];
+     tone(300+v*90,0,.12,'triangle',.06);if(v===5){const r=f.getBoundingClientRect();burst(r.left+r.width/2,r.top+r.height/2,50,1)}})},
+  {need:`Throw all ${THROWS} first: roses or tomatoes.`,ok:()=>SV.throws.length===THROWS,
+   html:()=>`<h3 class="svq">How did you like your instructor today?</h3>
+    <p class="svsub">You have <b>${THROWS} throws</b>. Throw a <b>rose 🌹</b> for every bit you liked, a <b>tomato 🍅</b> for every bit you did not. Be honest: your instructor wants to know.</p>
+    <div class="stage" id="stage" data-mood="${finalMood()}"><div class="bubble" id="bubble">${SV.throws.length===THROWS?finalSay():SV.throws.length?'Keep going…':'Go on, I can take it! 😅'}</div><div class="profbox" id="profbox">${PROF()}<div class="splats" id="splats"></div></div><div class="pile" id="pile"></div></div>
+    <div class="ammo" id="ammo"></div>
+    <div class="throwbar"><button class="btn throw rose" id="tRose" type="button"><span>🌹</span>Throw a rose</button><button class="btn throw tomato" id="tTom" type="button"><span>🍅</span>Throw a tomato</button></div>
+    <div class="throwfoot"><button class="linkbtn" id="tAgain" type="button">Start over</button></div>
+    <label class="svf"><span>Anything to tell your instructor? (optional)</span><textarea id="svNote" maxlength="300" rows="2" placeholder="A thank-you, or one thing to change">${esc(SV.instructor_note)}</textarea></label>`,
+   bind:bindThrows},
+  {need:'Pick the difficulty and your confidence.',ok:()=>!!SV.difficulty&&SV.confidence>0,
+   html:()=>`<h3 class="svq">The difficulty was…</h3>
+    <div class="bigopts three" role="radiogroup" aria-label="Difficulty">${DIFF.map(([k,e,l])=>`<button type="button" role="radio" class="bigopt${SV.difficulty===k?' on':''}" aria-checked="${SV.difficulty===k}" data-k="${k}"><span class="be">${e}</span><b>${l}</b></button>`).join('')}</div>
+    <h3 class="svq">How confident are you with ${esc(M.feedback.topic)} now?</h3>
+    <div class="meter" role="radiogroup" aria-label="Confidence, 1 to 5">${[1,2,3,4,5].map(v=>`<button type="button" role="radio" class="mbar${v<=SV.confidence?' on':''}" aria-checked="${v===SV.confidence}" aria-label="${v}: ${CONF[v-1]}" data-v="${v}" style="--h:${28+v*18}px;--c:var(--c${v})"><span>${v}</span></button>`).join('')}</div>
+    <p class="facelab" id="confLab">${SV.confidence?CONF[SV.confidence-1]+' '+'💪'.repeat(Math.max(0,SV.confidence-2)):'Tap a bar'}</p>
+    <div class="scaleends"><span>Not confident</span><span>Very confident</span></div>`,
+   bind:()=>{
+     $$('.bigopt').forEach(b=>b.onclick=()=>{SV.difficulty=b.dataset.k;svSave();$$('.bigopt').forEach(x=>{const on=x===b;x.classList.toggle('on',on);x.setAttribute('aria-checked',on)});sfx.tap()});
+     $$('.mbar').forEach(b=>b.onclick=()=>{const v=+b.dataset.v;SV.confidence=v;svSave();
+       $$('.mbar').forEach(x=>{const n=+x.dataset.v;x.classList.toggle('on',n<=v);x.setAttribute('aria-checked',n===v)});
+       $('#confLab').textContent=CONF[v-1]+' '+'💪'.repeat(Math.max(0,v-2));tone(260+v*110,0,.12,'triangle',.06)})}},
+  {need:'Pick at least one thing that helped.',ok:()=>SV.helped.length>0,
+   html:()=>`<h3 class="svq">What helped you learn the most?</h3><p class="svsub">Pick as many as you like.</p>
+    <div class="chips">${M.feedback.helped.map(h=>{const on=SV.helped.includes(h.key);return `<button type="button" class="chip${on?' on':''}" aria-pressed="${on}" data-k="${h.key}"><span>${h.emoji}</span>${esc(h.label)}</button>`}).join('')}</div>`,
+   bind:()=>$$('.chip').forEach(b=>b.onclick=()=>{const k=b.dataset.k,on=!SV.helped.includes(k);
+     SV.helped=on?[...SV.helped,k]:SV.helped.filter(x=>x!==k);svSave();b.classList.toggle('on',on);b.setAttribute('aria-pressed',on);
+     if(on){b.classList.remove('pop');void b.offsetWidth;b.classList.add('pop');tone(660,0,.08,'triangle',.05)}})},
+  {need:'Tell us about technical problems.',ok:()=>!!SV.tech,
+   html:()=>`<h3 class="svq">Did you face any technical problems?</h3>
+    <div class="bigopts three" role="radiogroup" aria-label="Technical problems">${TECH.map(([k,e,l])=>`<button type="button" role="radio" class="bigopt${SV.tech===k?' on':''}" aria-checked="${SV.tech===k}" data-k="${k}"><span class="be">${e}</span><b>${l}</b></button>`).join('')}</div>
+    <label class="svf"><span>One thing we should improve (optional)</span><textarea id="svImp" maxlength="600" rows="3" placeholder="What would make the next practice better?">${esc(SV.improve)}</textarea></label>`,
+   bind:()=>{$$('.bigopt').forEach(b=>b.onclick=()=>{SV.tech=b.dataset.k;svSave();$$('.bigopt').forEach(x=>{const on=x===b;x.classList.toggle('on',on);x.setAttribute('aria-checked',on)});sfx.tap()});
+     $('#svImp').oninput=e=>{SV.improve=e.target.value;svSave()}}},
+];
+function renderSurvey(){
+  R=null;Q=null;stopQTimer();closeDrawer();if(guide.open)guide.close();
+  if(!SV)svLoad();
+  const i=SV.step,st=SV_STEPS[i],last=i===SV_STEPS.length-1,reason=ST.ended_reason;
+  const head=reason==='time'?`<div class="endbanner time">${ICON.clock}<div><b>Time's up! Your progress is saved.</b><p>Every answer you checked is saved on the server. One last step: a quick feedback (about 2 minutes), then your report.</p></div></div>`
+    :reason==='proctor'?`<div class="endbanner proctor">${ICON.eye}<div><b>Mission ended: you left the mission tab ${ST.proctor.tab_switches} times.</b><p>Your work is saved. One last step: a quick feedback, then your report.</p></div></div>`
+    :`<div class="endbanner done">${ICON.trophy.replace('width="26" height="26"','width="22" height="22"')}<div><b>Mission complete! Brilliant work.</b><p>One last step: a quick feedback (about 2 minutes), then your report.</p></div></div>`;
+  view.innerHTML=`<section class="survey enter">
+    ${i===0?head:''}
+    <div class="svtop"><div class="eyebrow">Your feedback · ${i+1} of ${SV_STEPS.length}</div><div class="svdots" aria-hidden="true">${SV_STEPS.map((x,k)=>`<i class="${k<i?'done':k===i?'cur':''}"></i>`).join('')}</div></div>
+    <div class="card svcard">${st.html()}</div>
+    <p class="lgerr" id="svErr" role="alert"></p>
+    <div class="power-row svnav">${i?`<button class="btn ghost" id="svBack" type="button">${ICON.back}Back</button>`:''}<button class="btn ${last?'gold':'primary'}" id="svNext" type="button">${last?'Send feedback and see my report':'Next'}</button></div>
+  </section>`;
+  st.bind();
+  $('.svcard').addEventListener('click',()=>{if(st.ok())$('#svErr').textContent=''});
+  $('.svcard').addEventListener('input',()=>{if(st.ok())$('#svErr').textContent=''});
+  if(i)$('#svBack').onclick=()=>{SV.step--;svSave();renderSurvey();window.scrollTo(0,0)};
+  $('#svNext').onclick=()=>{
+    if(!st.ok()){const e=$('#svErr');e.textContent=st.need;const c=$('.svcard');c.classList.remove('nope');void c.offsetWidth;c.classList.add('nope');sfx.tap();return}
+    if(last)return sendSurvey();
+    SV.step++;svSave();sfx.tap();renderSurvey();window.scrollTo(0,0)};
+  window.scrollTo(0,0);mark('survey');
+  if((reason==='time'||reason==='proctor')&&!resumeTimer)watchResume();
+}
+function bindThrows(){
+  const stage=$('#stage'),svg=$('#profbox'),bubble=$('#bubble');  // splats sit on the instructor's face at any screen size
+  const left=()=>THROWS-SV.throws.length;
+  function spot(k){const s=stage.getBoundingClientRect(),r=svg.getBoundingClientRect(),[dx,dy]=HIT[k%HIT.length];
+    return {x:r.left-s.left+r.width*(110/220+dx),y:r.top-s.top+r.height*(104/230+dy)}}
+  function land(kind,k,fresh){
+    if(kind==='tomato'){const [dx,dy]=HIT[k%HIT.length],el=document.createElement('span');el.className='splat'+(fresh?' new':'');el.innerHTML=SPLAT;
+      el.style.left=(110/220+dx)*100+'%';el.style.top=(104/230+dy)*100+'%';el.style.setProperty('--r',(k*67%360)+'deg');$('#splats').appendChild(el)}
+    else{const el=document.createElement('span');el.className='rosep'+(fresh?' new':'');el.textContent='🌹';
+      el.style.left=PILE[k%PILE.length]*100+'%';el.style.setProperty('--r',((k*37%50)-25)+'deg');$('#pile').appendChild(el)}
+  }
+  function ammo(){$('#ammo').innerHTML=`${Array.from({length:THROWS},(x,k)=>`<i class="${SV.throws[k]||''}">${SV.throws[k]==='rose'?'🌹':SV.throws[k]==='tomato'?'🍅':''}</i>`).join('')}<span>${left()?left()+' throw'+(left()>1?'s':'')+' left':'All thrown!'}</span>`;
+    $('#tRose').disabled=$('#tTom').disabled=!left()}
+  function redraw(){$('#splats').innerHTML='';$('#pile').innerHTML='';SV.throws.forEach((t,k)=>land(t,k,false));ammo()}
+  let moodT=null;
+  function mood(m,ms){stage.dataset.mood=m;clearTimeout(moodT);if(ms)moodT=setTimeout(()=>{stage.dataset.mood=finalMood()},ms)}
+  function say(t){bubble.textContent=t;bubble.classList.remove('pop');void bubble.offsetWidth;bubble.classList.add('pop')}
+  function hit(kind,k){
+    if(!stage.isConnected)return;   // the learner moved on before this throw landed
+    land(kind,k,true);
+    if(kind==='tomato'){svg.classList.remove('hitme');void svg.getBoundingClientRect();svg.classList.add('hitme');mood('ouch',700);tone(130,0,.22,'square',.06);tone(90,.05,.25,'sawtooth',.04)}
+    else{mood('happy',900);tone(880,0,.12,'sine',.06);tone(1175,.08,.16,'sine',.06);const r=svg.getBoundingClientRect();burst(r.left+r.width/2,r.top+r.height*.62,22,.7)}
+    say(SV.throws.length===THROWS?finalSay():SAY[kind][k%SAY[kind].length]);
+    if(SV.throws.length===THROWS)setTimeout(()=>{stage.dataset.mood=finalMood()},kind==='tomato'?720:920);
+  }
+  function fire(kind,btn){
+    if(!left())return;const k=SV.throws.length;SV.throws.push(kind);svSave();ammo();
+    if(reduce){hit(kind,k);return}
+    const s=stage.getBoundingClientRect(),b=btn.getBoundingClientRect(),to=kind==='tomato'?spot(k):{x:s.width*PILE[k%PILE.length],y:s.height-30};
+    const from={x:b.left-s.left+b.width/2,y:b.top-s.top},p=document.createElement('span');p.className='proj';p.textContent=kind==='rose'?'🌹':'🍅';stage.appendChild(p);
+    const midX=(from.x+to.x)/2,midY=Math.min(from.y,to.y)-120,spin=kind==='rose'?200:540;
+    p.animate([{transform:`translate(${from.x}px,${from.y}px) rotate(0) scale(.8)`},{transform:`translate(${midX}px,${midY}px) rotate(${spin/2}deg) scale(1.25)`},{transform:`translate(${to.x}px,${to.y}px) rotate(${spin}deg) scale(1)`}],
+      {duration:560,easing:'cubic-bezier(.3,.1,.4,1)'}).onfinish=()=>{p.remove();hit(kind,k)};
+    sfx.tap();
+  }
+  $('#tRose').onclick=e=>fire('rose',e.currentTarget);$('#tTom').onclick=e=>fire('tomato',e.currentTarget);
+  $('#tAgain').onclick=()=>{SV.throws=[];svSave();redraw();mood('neutral');say('Okay, from the top! 😅')};
+  $('#svNote').oninput=e=>{SV.instructor_note=e.target.value;svSave()};
+  requestAnimationFrame(redraw);
+}
+async function sendSurvey(){
+  const b=$('#svNext');b.disabled=true;b.classList.add('busy');
+  const body={university:SV.university.trim(),contact:SV.contact.trim(),enjoy:SV.enjoy,confidence:SV.confidence,
+    roses:SV.throws.filter(t=>t==='rose').length,tomatoes:SV.throws.filter(t=>t==='tomato').length,instructor_note:SV.instructor_note.trim(),
+    difficulty:SV.difficulty,helped:SV.helped,tech:SV.tech,improve:SV.improve.trim()};
+  try{const r=await api('POST','/feedback',body);adopt(r.state)}
+  catch(e){b.disabled=false;b.classList.remove('busy');
+    if(e&&e.message==='signed-out')return netError(e);
+    if(e&&/opens when your mission ends/.test(e.message)){SV=null;return loadMission()}   // the teacher resumed the mission meanwhile
+    $('#svErr').textContent=e instanceof TypeError?'Could not reach the server. Check the connection and press Send again.':(e&&e.message)||'Something went wrong. Try again.';return}
+  try{localStorage.removeItem(svKey())}catch(e){}
+  SV=null;
+  view.innerHTML=`<section class="power enter thanks"><div class="thx" aria-hidden="true">🎉</div><h2>Thank you!</h2><p class="loginlead">Your feedback is in. Here comes your report…</p></section>`;
+  sfx.win();rain(180);setTimeout(()=>burst(innerWidth/2,innerHeight*.35,120,1.2),200);
+  setTimeout(renderSummary,reduce?300:1700);
+}
 async function renderSummary(){
+  if(needSurvey())return renderSurvey();
   R=null;Q=null;stopQTimer();closeDrawer();
   let rev={items:[]};try{rev=await api('GET','/review')}catch(e){}
   const ent=Object.values(ST.questions),firstTry=ent.filter(v=>v.solved&&!v.wrong).length,attempted=ent.filter(v=>v.solved||v.revealed||v.timed_out).length;
@@ -1251,6 +1420,7 @@ $('#userChip').onclick=()=>{if(M&&ST)renderProfile()};
 
 /* ---------- profile ---------- */
 async function renderProfile(){
+  if(needSurvey())return renderSurvey();
   R=null;Q=null;stopQTimer();closeDrawer();
   const u=API.user||{},p=ST.progress,stages=ST.levels.filter(l=>l.done).length,reason=ST.ended_reason;
   const status=reason==='complete'?'Completed':reason==='time'?'Time ran out':reason==='proctor'?'Ended: tab switches':ST.started_at?'In progress':'Not started';

@@ -97,3 +97,28 @@ td.curcell small{display:block;max-width:230px;overflow:hidden;text-overflow:ell
 td .del.go,.alist .del.go{text-decoration:none;color:#fff;background:var(--good);padding:5px 12px;border-radius:9px;font:700 12.5px var(--f-display);box-shadow:0 2px 0 color-mix(in srgb,var(--good) 55%,#000)}
 td .del.go.armed,.alist .del.go.armed{background:var(--gold);color:#1A1200;box-shadow:0 2px 0 color-mix(in srgb,var(--gold) 55%,#000)}
 @media (max-width:700px){.alist li{grid-template-columns:minmax(0,1fr)}}
+
+/* student feedback */
+.fbhead{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+.fbhead h2{margin:0}
+.panel.fb h3{margin:18px 0 10px;font:700 12px/1 var(--f-mono);letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.fbtiles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.fbtiles .tile b{font-size:24px}.fbtiles .tile b small{font-size:15px;color:var(--muted)}
+.fbgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 28px}
+.fbgrid .wide{grid-column:1/-1}
+.fbgrid .trow2{grid-template-columns:minmax(150px,260px) minmax(0,1fr) 40px}
+.fbdist{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;align-items:end}
+.fbdist div{display:grid;justify-items:center;gap:4px}
+.fbcol{display:flex;align-items:flex-end;width:100%;max-width:46px;height:80px;border-radius:8px;background:var(--surface-2);overflow:hidden}
+.fbcol i{display:block;width:100%;background:linear-gradient(180deg,var(--cyan),var(--blue));border-radius:6px 6px 0 0}
+.fbdist b{font:700 13px var(--f-mono)}.fbdist small{font-size:18px;line-height:1;color:var(--muted)}
+.fbnotes{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.fbnotes li{display:grid;grid-template-columns:minmax(140px,220px) minmax(0,1fr);gap:12px;padding:10px 12px;border-radius:12px;background:var(--surface-2)}
+.fbnotes .aname{display:grid}.fbnotes .aname small{color:var(--muted);font-size:12px}
+.fbnotes p{margin:0 0 4px}.fbnotes em{font-style:normal;font-weight:700;color:var(--muted)}
+.fball{margin-top:16px}
+.fball summary{cursor:pointer;font:700 14px var(--f-display)}
+.fball td small{display:block;color:var(--muted);font-size:11.5px}
+.fbhelp{font-size:12.5px;min-width:200px}
+.fbsent{display:block;font:600 11px var(--f-mono);color:var(--good)}
+@media (max-width:760px){.fbtiles{grid-template-columns:repeat(2,minmax(0,1fr))}.fbgrid{grid-template-columns:1fr}.fbnotes li{grid-template-columns:1fr}}

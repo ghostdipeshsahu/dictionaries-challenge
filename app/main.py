@@ -113,6 +113,20 @@ class ProctorIn(BaseModel):
     qid: Optional[str] = None
 
 
+class FeedbackIn(BaseModel):
+    university: str = Field(default="", max_length=200)
+    contact: str = Field(default="", max_length=30)
+    enjoy: Optional[int] = None
+    roses: Optional[int] = None
+    tomatoes: Optional[int] = None
+    instructor_note: str = Field(default="", max_length=600)
+    difficulty: str = Field(default="", max_length=20)
+    confidence: Optional[int] = None
+    helped: list[str] = Field(default_factory=list, max_length=20)
+    tech: str = Field(default="", max_length=20)
+    improve: str = Field(default="", max_length=2000)
+
+
 class TeacherLoginIn(BaseModel):
     password: str
 
@@ -276,6 +290,11 @@ def finish(s=Depends(student)):
     return mutate(s, E.finish)
 
 
+@app.post("/api/dicts/feedback")
+def feedback(body: FeedbackIn, s=Depends(student)):
+    return mutate(s, E.feedback, body.model_dump())
+
+
 @app.post("/api/dicts/proctor")
 def proctor(body: ProctorIn, s=Depends(student)):
     with db.tx():
@@ -370,7 +389,7 @@ def dashboard(section=None):
             "tab_switches": st["proctor"].get("tab_total", st["proctor"]["tab_switches"]),
             "tab_switches_now": st["proctor"]["tab_switches"], "copy_paste": st["proctor"]["copy_paste"],
             "activity": activity, "idle_seconds": idle_for, "resumes": len(st.get("resumes", [])),
-            "can_resume": st["ended_reason"] in ("proctor", "time"),
+            "can_resume": st["ended_reason"] in ("proctor", "time"), "feedback_sent": bool(st.get("feedback")),
             "multi_tab": st["proctor"]["multi_tab"], "devtools": st["proctor"]["devtools"],
             "concepts": {k: v["c"] / v["a"] for k, v in ps["concepts"].items()},
             "last_seen": E.iso(x["last_seen"]), "online": online, "current": E.current_of(st),
@@ -388,6 +407,7 @@ def dashboard(section=None):
         "flagged": sum(1 for r in rows if r["tab_switches"] or r["copy_paste"] or r["multi_tab"] or r["devtools"]),
         "attention": sum(1 for r in rows if r["activity"] in ("idle", "offline") or r["can_resume"]),
     }
+    feedback = feedback_summary(studs, rows)
     acc = lambda t: sorted(({"key": k, "accuracy": c / n, "answers": n} for k, (c, n) in t.items()), key=lambda d: d["accuracy"])
     return {
         "section": section or "", "sections": SECTIONS, "total_questions": C.TOTAL, "max_tab_switches": RULES.max_tab_switches,
@@ -397,7 +417,52 @@ def dashboard(section=None):
         "stages": [{"id": l["id"], "name": l["name"], "cleared": stage_cleared[l["id"]], "total": len(l["main"])} for l in C.LEVELS],
         "concepts": [{"concept": d["key"], "accuracy": d["accuracy"], "answers": d["answers"]} for d in acc(concept_tot)],
         "types": [{"qtype": d["key"], "accuracy": d["accuracy"], "answers": d["answers"]} for d in acc(type_tot)],
+        "feedback": feedback,
         "students": rows, "version": db.VERSION["n"], "server_time": E.iso(now), "build": BUILD, "push": LIVE_PUSH, "storage": STORAGE,
+    }
+
+
+HELPED_LABEL = {k: f"{e} {t}" for k, e, t in C.FEEDBACK_HELPED}
+
+
+def feedback_summary(studs, rows):
+    """The class's end-of-mission feedback: averages, counts, and every response (newest first)."""
+    by_id = {r["id"]: r for r in rows}
+    resp = []
+    for x in studs:
+        f = x["state"].get("feedback")
+        if not f:
+            continue
+        reached = f["reached"]
+        resp.append({
+            "id": x["id"], "name": x["name"], "roll_no": x["roll_no"], "section": x["section"],
+            "university": f["university"], "contact": f["contact"], "enjoy": f["enjoy"], "confidence": f["confidence"],
+            "roses": f["roses"], "tomatoes": f["tomatoes"], "instructor_note": f["instructor_note"],
+            "difficulty": f["difficulty"], "difficulty_label": E.FEEDBACK_DIFFICULTY[f["difficulty"]],
+            "tech": f["tech"], "tech_label": E.FEEDBACK_TECH[f["tech"]],
+            "helped": [HELPED_LABEL.get(k, k) for k in f["helped"]], "improve": f["improve"],
+            "reached": f"{reached['done']}/{reached['total']}" + (" + bonus" if reached.get("bonus") else ""),
+            "status_label": E.STATUS_LABEL.get(reached["status"], reached["status"]), "at": E.iso(f["at"]),
+        })
+    resp.sort(key=lambda r: r["at"] or "", reverse=True)
+    n = len(resp)
+    avg = lambda k: round(sum(r[k] for r in resp) / n, 1) if n else None
+    count = lambda k, labels: [{"key": key, "label": lab, "count": sum(r[k] == key for r in resp)} for key, lab in labels.items()]
+    helped = {}
+    for x in studs:
+        for k in (x["state"].get("feedback") or {}).get("helped", []):
+            helped[k] = helped.get(k, 0) + 1
+    ended = sum(1 for r in rows if r["status"] in ("complete", "time", "proctor"))
+    return {
+        "count": n, "ended": ended, "pending": ended - n if ended > n else 0,
+        "enjoy": avg("enjoy"), "confidence": avg("confidence"), "roses": avg("roses"), "tomatoes": avg("tomatoes"),
+        "throws": E.INSTRUCTOR_THROWS,
+        "enjoy_dist": [sum(r["enjoy"] == i for r in resp) for i in range(1, 6)],
+        "confidence_dist": [sum(r["confidence"] == i for r in resp) for i in range(1, 6)],
+        "difficulty": count("difficulty", E.FEEDBACK_DIFFICULTY), "tech": count("tech", E.FEEDBACK_TECH),
+        "helped": sorted(({"key": k, "label": HELPED_LABEL[k], "count": helped.get(k, 0)} for k in HELPED_LABEL),
+                         key=lambda d: -d["count"]),
+        "responses": resp,
     }
 
 
@@ -451,6 +516,23 @@ def teacher_export(section: str = "", _t=Depends(teacher)):
                     r["activity"] or "", round(r["idle_seconds"] / 60, 1) if r["activity"] else "", r["resumes"], r["last_seen"] or ""])
     name = f"{C.UI['short'].lower().replace(' ', '-')}-{(section or 'all').lower().replace(' ', '-')}.csv"
     return Response(buf.getvalue(), media_type="text/csv", headers={"Content-Disposition": f'attachment; filename="{name}"'})
+
+
+@app.get("/api/teacher/dicts/feedback.csv")
+def teacher_feedback_export(section: str = "", _t=Depends(teacher)):
+    d = dashboard(section)
+    buf = io.StringIO()
+    w = csv.writer(buf)
+    w.writerow(["name", "roll_no", "section", "university", "contact", "enjoyed_1_to_5", "instructor_roses",
+                "instructor_tomatoes", "note_for_instructor", "difficulty", "confidence_1_to_5", "helped_most",
+                "technical_problems", "improve", "reached", "status", "sent_at"])
+    for r in d["feedback"]["responses"]:
+        w.writerow([r["name"], r["roll_no"], r["section"], r["university"], r["contact"], r["enjoy"], r["roses"],
+                    r["tomatoes"], r["instructor_note"], r["difficulty_label"], r["confidence"], "; ".join(r["helped"]),
+                    r["tech_label"], r["improve"], r["reached"], r["status_label"], r["at"] or ""])
+    name = f"{C.UI['short'].lower().replace(' ', '-')}-feedback-{(section or 'all').lower().replace(' ', '-')}.csv"
+    return Response("\ufeff" + buf.getvalue(), media_type="text/csv; charset=utf-8",
+                    headers={"Content-Disposition": f'attachment; filename="{name}"'})
 
 
 @app.post("/api/teacher/dicts/{student_id}/reset")

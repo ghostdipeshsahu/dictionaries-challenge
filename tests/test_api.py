@@ -785,3 +785,77 @@ def test_full_mission_complete(client):
     assert all(l["stars"] == 3 for l in st["levels"])
     rev = client.get("/api/dicts/review", headers=h).json()
     assert rev["items"] == []
+
+
+# ---------- end-of-mission feedback ----------
+FB = {"university": "NIAT Hyderabad", "contact": "+91 98765-43210", "enjoy": 5, "roses": 4, "tomatoes": 1,
+      "instructor_note": "Great examples", "difficulty": "right", "confidence": 4,
+      "helped": ["predict", "coding", "made-up"], "tech": "small", "improve": "More coding time"}
+
+
+def test_feedback_opens_only_after_the_mission_ends(client, clock):
+    h = login(client)
+    start(client, h)
+    r = client.post("/api/dicts/feedback", json=FB, headers=h)
+    assert r.status_code == 409
+    clock.t += MISSION_S + 1
+    st = client.get("/api/dicts/mission", headers=h).json()["state"]
+    assert st["ended_reason"] == "time" and st["feedback_done"] is False
+    r = client.post("/api/dicts/feedback", json=FB, headers=h)
+    assert r.status_code == 200, r.text
+    assert r.json()["state"]["feedback_done"] is True
+    # a repeat send (a retry) changes nothing
+    r = client.post("/api/dicts/feedback", json=dict(FB, enjoy=1), headers=h)
+    assert r.status_code == 200 and r.json()["already"] is True
+
+
+@pytest.mark.parametrize("bad", [
+    {"university": ""}, {"contact": "12345"}, {"contact": "5876543210"}, {"enjoy": 0}, {"enjoy": 6}, {"confidence": None},
+    {"roses": 3, "tomatoes": 1}, {"roses": 6, "tomatoes": -1}, {"difficulty": "meh"}, {"tech": ""}, {"helped": ["nope"]},
+])
+def test_feedback_is_validated(client, bad):
+    h = login(client)
+    start(client, h)
+    end_by_tab_switches(client, h)
+    r = client.post("/api/dicts/feedback", json=dict(FB, **bad), headers=h)
+    assert r.status_code == 422, (bad, r.text)
+    assert client.get("/api/dicts/mission", headers=h).json()["state"]["feedback_done"] is False
+
+
+def test_feedback_reaches_the_teacher_dashboard_and_csv(client, clock):
+    h = login(client, name="Asha Rao")
+    h2 = login(client, name="Not Done Yet")
+    start(client, h)
+    start(client, h2)
+    end_by_tab_switches(client, h)
+    end_by_tab_switches(client, h2)
+    assert client.post("/api/dicts/feedback", json=FB, headers=h).status_code == 200
+    t = teacher(client)
+    d = client.get("/api/teacher/dicts", headers=t).json()
+    f = d["feedback"]
+    assert f["count"] == 1 and f["ended"] == 2 and f["pending"] == 1
+    assert f["enjoy"] == 5 and f["roses"] == 4 and f["tomatoes"] == 1 and f["confidence"] == 4
+    r = f["responses"][0]
+    assert r["name"] == "Asha Rao" and r["contact"] == "9876543210" and r["university"] == "NIAT Hyderabad"
+    assert r["difficulty_label"] == "Just right" and r["tech_label"] == "Yes, small ones" and len(r["helped"]) == 2
+    assert r["reached"].startswith("0/") and r["status_label"] == "Ended: tab switches"
+    assert {s["name"]: s["feedback_sent"] for s in d["students"]} == {"Asha Rao": True, "Not Done Yet": False}
+    csv_text = client.get("/api/teacher/dicts/feedback.csv", headers=t).text
+    assert "Asha Rao" in csv_text and "More coding time" in csv_text and "Not Done Yet" not in csv_text
+    # the mission payload lists this mission's "what helped" options
+    m = client.get("/api/dicts/mission", headers=h).json()
+    assert [x["key"] for x in m["feedback"]["helped"]] == [k for k, _, _ in C.FEEDBACK_HELPED]
+
+
+def test_feedback_survives_a_resume_and_reset_clears_it(client, clock):
+    h = login(client)
+    start(client, h)
+    end_by_tab_switches(client, h)
+    assert client.post("/api/dicts/feedback", json=FB, headers=h).status_code == 200
+    t = teacher(client)
+    sid = sid_of(client, h)
+    assert client.post(f"/api/teacher/dicts/{sid}/resume", headers=t).status_code == 200
+    st = client.get("/api/dicts/mission", headers=h).json()["state"]
+    assert st["ended_at"] is None and st["feedback_done"] is True   # not asked a second time
+    assert client.post(f"/api/teacher/dicts/{sid}/reset", headers=t).status_code == 200
+    assert client.get("/api/dicts/mission", headers=h).json()["state"]["feedback_done"] is False

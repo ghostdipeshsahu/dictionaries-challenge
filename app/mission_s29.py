@@ -648,3 +648,15 @@ assert TOTAL == 30 and len(Q) == 35, (TOTAL, len(Q))
 for lvl in LEVELS:
     for qid in lvl["main"]:
         assert QUESTIONS[qid]["stage"] == lvl["id"], qid
+
+# End-of-mission feedback: "What helped you learn the most?" (key, emoji, label)
+FEEDBACK_HELPED = [
+    ("predict", "🔮", "Predict-the-output questions"),
+    ("board", "🧪", "Canteen Board builds and the Dict Lab"),
+    ("debug", "🐞", "Debugging missions"),
+    ("coding", "💻", "Coding challenges"),
+    ("hints", "💡", "Hints and explanations"),
+    ("xp", "🏆", "XP and badges"),
+]
+
+FEEDBACK_TOPIC = "Python dictionaries"

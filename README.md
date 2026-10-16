@@ -62,6 +62,7 @@ python -m pytest -q tests                 # backend rules: login, timers, XP, co
 python tests/e2e_walkthrough.py http://localhost:8000 shots
 MISSION_MINUTES=1 DB_PATH=data/timers.db uvicorn app.main:app --port 8011   # separate server for the clock test
 python tests/e2e_timers.py http://localhost:8011 shots-timers
+python tests/e2e_feedback.py http://localhost:8011 shots-feedback               # same 1-minute server: the feedback
 IDLE_SECONDS=20 DB_PATH=data/scratch.db uvicorn app.main:app --port 8012           # separate server for resume + idle
 python tests/e2e_resume.py http://localhost:8012 shots-resume
 ```
@@ -77,6 +78,12 @@ The browser tests delete the students they create when they finish.
 - **Needs attention** panel at the top of the dashboard: students who are **idle** (page open, mission running, no
   step for `IDLE_SECONDS`), **offline** (mission running, page stopped responding) or whose mission **ended** (with
   the Resume button). The "Now on" column shows the same tags.
+- **Student feedback**: when a mission ends (time, tab switches, Final Boss or bonus round cleared, or Finish), a
+  six-step feedback opens by itself and must be sent before the report: university and contact number, enjoyment
+  faces, 5 throws of roses or tomatoes at a cartoon instructor, difficulty, confidence meter, what helped, technical
+  problems and one thing to improve. How far the student got is recorded by the app. The dashboard's **Student
+  feedback** panel shows averages, counts, comments and every response; **Download feedback CSV** exports them.
+  Asked once per attempt (a teacher Resume keeps it; Reset mission clears it).
 
 ## Deploy on Vercel
 

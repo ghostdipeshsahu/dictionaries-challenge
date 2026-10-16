@@ -14,7 +14,7 @@ from playwright.sync_api import expect, sync_playwright
 
 sys.path.insert(0, os.path.dirname(__file__))
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-from e2e_walkthrough import dismiss_tour, pass_coach  # noqa: E402
+from e2e_walkthrough import dismiss_tour, pass_coach, send_feedback  # noqa: E402
 from app import content as C  # noqa: E402
 
 BASE = sys.argv[1] if len(sys.argv) > 1 else "http://localhost:8011"
@@ -77,7 +77,9 @@ try:
 
       # mission clock: red under 5 minutes, then the mission ends on its own
       expect(page.locator("#clock")).to_have_class("stat clock low")
-      expect(page.locator(".report h2")).to_have_text("Mission over", timeout=40000)
+      expect(page.locator(".survey .endbanner.time")).to_contain_text("Time's up", timeout=40000)  # feedback first
+      send_feedback(page)
+      expect(page.locator(".report h2")).to_have_text("Mission over", timeout=15000)
       expect(page.locator(".endbanner.time")).to_contain_text("Time's up")
       page.screenshot(path=os.path.join(SHOTS, "03-mission-time-up.png"))
       print("mission clock ended the mission and the report says so")
