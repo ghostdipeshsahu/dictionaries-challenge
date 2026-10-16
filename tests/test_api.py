@@ -65,7 +65,7 @@ _roll = [0]
 def login(client, name="Ravi Kumar", section="Section A", roll=None):
     _roll[0] += 1
     r = client.post("/api/login", json={"name": name, "roll_no": roll or f"R{_roll[0]:03d}", "section": section,
-                                          "university": "NIAT Hyderabad"})
+                                          "university": "NIAT Hyderabad", "contact": "9876543210"})
     assert r.status_code == 200, r.text
     return {"Authorization": "Bearer " + r.json()["token"]}
 
@@ -145,45 +145,50 @@ def test_health(client):
 
 
 def test_login_validation(client):
-    ok = {"name": "A", "roll_no": "1", "section": "S-001", "university": "NIAT"}
-    for bad in ({"section": ""}, {"section": " - "}, {"university": ""}, {"university": "X"}):
+    ok = {"name": "A", "roll_no": "1", "section": "S-001", "university": "NIAT", "contact": "9876543210"}
+    for bad in ({"section": ""}, {"section": " - "}, {"university": ""}, {"university": "X"}, {"contact": ""},
+                {"contact": "12345"}, {"contact": "5876543210"}):
         assert client.post("/api/login", json=dict(ok, **bad)).status_code == 422, bad
 
 
 def test_students_type_their_section_and_university(client):
     """No fixed list: any section is accepted, and "s 001" joins the "S-001" already in use."""
-    h1 = client.post("/api/login", json={"name": "A", "roll_no": "1", "section": "s-001", "university": " NIAT  Hyd "}).json()
+    h1 = client.post("/api/login", json={"name": "A", "roll_no": "1", "section": "s-001", "university": " NIAT  Hyd ", "contact": "9876543210"}).json()
     assert h1["student"]["section"] == "S-001" and h1["student"]["university"] == "NIAT Hyd"
-    h2 = client.post("/api/login", json={"name": "B", "roll_no": "2", "section": "S 001", "university": "NIAT"}).json()
+    h2 = client.post("/api/login", json={"name": "B", "roll_no": "2", "section": "S 001", "university": "NIAT", "contact": "9876543210"}).json()
     assert h2["student"]["section"] == "S-001"
-    h3 = client.post("/api/login", json={"name": "C", "roll_no": "3", "section": "CSE B", "university": "NIAT"}).json()
+    h3 = client.post("/api/login", json={"name": "C", "roll_no": "3", "section": "CSE B", "university": "NIAT", "contact": "9876543210"}).json()
     assert h3["student"]["section"] == "CSE B"
     # signing in again with the section typed another way is the same student
-    assert client.post("/api/login", json={"name": "A", "roll_no": "1", "section": "S001", "university": "NIAT"}).status_code in (200, 409)
+    assert client.post("/api/login", json={"name": "A", "roll_no": "1", "section": "S001", "university": "NIAT", "contact": "9876543210"}).status_code in (200, 409)
     d = client.get("/api/teacher/dicts", headers=teacher(client)).json()
     assert d["sections"] == ["CSE B", "S-001"]
     assert {s["name"]: s["university"] for s in d["students"]} == {"A": "NIAT Hyd", "B": "NIAT", "C": "NIAT"}
-    assert client.post("/api/login", json={"name": " ", "roll_no": "1", "section": "Section A", "university": "NIAT"}).status_code == 422
+    assert {s["contact"] for s in d["students"]} == {"9876543210"}
+    r = client.post("/api/login", json={"name": "D", "roll_no": "4", "section": "S-001", "university": "NIAT", "contact": "+91 91234-56789"})
+    assert r.status_code == 200
+    assert [s["contact"] for s in client.get("/api/teacher/dicts", headers=teacher(client)).json()["students"] if s["name"] == "D"] == ["9123456789"]
+    assert client.post("/api/login", json={"name": " ", "roll_no": "1", "section": "Section A", "university": "NIAT", "contact": "9876543210"}).status_code == 422
 
 
 def test_one_device_at_a_time_and_release(client, clock):
     h1 = login(client, roll="X1")
-    r = client.post("/api/login", json={"name": "Ravi Kumar", "roll_no": "x1", "section": "Section A", "university": "NIAT"})
+    r = client.post("/api/login", json={"name": "Ravi Kumar", "roll_no": "x1", "section": "Section A", "university": "NIAT", "contact": "9876543210"})
     assert r.status_code == 409 and "another device" in r.json()["detail"]
     # same roll number, different name: refused
-    assert client.post("/api/login", json={"name": "Someone", "roll_no": "X1", "section": "Section A", "university": "NIAT"}).status_code == 409
+    assert client.post("/api/login", json={"name": "Someone", "roll_no": "X1", "section": "Section A", "university": "NIAT", "contact": "9876543210"}).status_code == 409
     # teacher releases the login: old device is signed out, a new device can sign in
     sid = client.get("/api/me", headers=h1).json()["student"]["id"]
     t = teacher(client)
     assert client.post(f"/api/teacher/students/{sid}/release", headers=t).status_code == 200
     assert client.post("/api/ping", headers=h1).status_code == 401
-    assert client.post("/api/login", json={"name": "ravi kumar", "roll_no": "X1", "section": "Section A", "university": "NIAT"}).status_code == 200
+    assert client.post("/api/login", json={"name": "ravi kumar", "roll_no": "X1", "section": "Section A", "university": "NIAT", "contact": "9876543210"}).status_code == 200
 
 
 def test_device_lock_expires_without_heartbeat(client, clock):
     login(client, roll="X2")
     clock.t += main.DEVICE_LOCK + 1
-    assert client.post("/api/login", json={"name": "Ravi Kumar", "roll_no": "X2", "section": "Section A", "university": "NIAT"}).status_code == 200
+    assert client.post("/api/login", json={"name": "Ravi Kumar", "roll_no": "X2", "section": "Section A", "university": "NIAT", "contact": "9876543210"}).status_code == 200
 
 
 def test_logout(client):
@@ -560,7 +565,7 @@ def test_csv_export(client):
     r = client.get("/api/teacher/dicts/export.csv", headers=t)
     assert r.status_code == 200 and r.headers["content-type"].startswith("text/csv")
     lines = r.text.strip().splitlines()
-    assert lines[0].startswith("rank,name,roll_no,section,university,status,xp") and '"Teja, R"' in lines[1]
+    assert lines[0].startswith("rank,name,roll_no,section,university,contact,status,xp") and '"Teja, R"' in lines[1]
 
 
 def test_leaderboard_is_per_section(client):
@@ -805,9 +810,8 @@ def test_full_mission_complete(client):
 
 
 # ---------- end-of-mission feedback ----------
-FB = {"university": "NIAT Hyderabad", "contact": "+91 98765-43210", "enjoy": 5, "roses": 4, "tomatoes": 1,
-      "instructor_note": "Great examples", "difficulty": "right", "confidence": 4,
-      "helped": ["predict", "coding", "made-up"], "tech": "small", "improve": "More coding time"}
+FB = {"enjoy": 5, "toughest": C.LEVELS[2]["id"], "favourite": "BOSS", "difficulty": "right", "pace": "more",
+      "confidence": 4, "helped": ["predict", "coding", "made-up"], "tech": "small", "improve": "More coding time"}
 
 
 def test_feedback_opens_only_after_the_mission_ends(client, clock):
@@ -827,8 +831,8 @@ def test_feedback_opens_only_after_the_mission_ends(client, clock):
 
 
 @pytest.mark.parametrize("bad", [
-    {"contact": ""}, {"contact": "12345"}, {"contact": "5876543210"}, {"enjoy": 0}, {"enjoy": 6}, {"confidence": None},
-    {"roses": 3, "tomatoes": 1}, {"roses": 6, "tomatoes": -1}, {"difficulty": "meh"}, {"tech": ""}, {"helped": ["nope"]},
+    {"enjoy": 0}, {"enjoy": 6}, {"confidence": None}, {"toughest": ""}, {"toughest": "BONUS"}, {"favourite": "L99"},
+    {"difficulty": "meh"}, {"pace": ""}, {"tech": ""}, {"helped": ["nope"]},
 ])
 def test_feedback_is_validated(client, bad):
     h = login(client)
@@ -851,9 +855,13 @@ def test_feedback_reaches_the_teacher_dashboard_and_csv(client, clock):
     d = client.get("/api/teacher/dicts", headers=t).json()
     f = d["feedback"]
     assert f["count"] == 1 and f["ended"] == 2 and f["pending"] == 1
-    assert f["enjoy"] == 5 and f["roses"] == 4 and f["tomatoes"] == 1 and f["confidence"] == 4
+    assert f["enjoy"] == 5 and f["confidence"] == 4 and f["needed_more_time"] == 1
+    assert {x["key"]: x["count"] for x in f["toughest"]}[C.LEVELS[2]["id"]] == 1
+    assert {x["key"]: x["count"] for x in f["favourite"]}["BOSS"] == 1
     r = f["responses"][0]
+    # who sent it comes from the sign-in
     assert r["name"] == "Asha Rao" and r["contact"] == "9876543210" and r["university"] == "NIAT Hyderabad"
+    assert r["toughest_label"] == C.LEVELS[2]["name"] and r["pace_label"] == "Needed more time"
     assert r["difficulty_label"] == "Just right" and r["tech_label"] == "Yes, small ones" and len(r["helped"]) == 2
     assert r["reached"].startswith("0/") and r["status_label"] == "Ended: tab switches"
     assert {s["name"]: s["feedback_sent"] for s in d["students"]} == {"Asha Rao": True, "Not Done Yet": False}

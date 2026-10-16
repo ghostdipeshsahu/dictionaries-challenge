@@ -77,15 +77,17 @@ The browser tests delete the students they create when they finish.
 - **Needs attention** panel at the top of the dashboard: students who are **idle** (page open, mission running, no
   step for `IDLE_SECONDS`), **offline** (mission running, page stopped responding) or whose mission **ended** (with
   the Resume button). The "Now on" column shows the same tags.
-- **Sign-in**: students type their name, roll number, section and university (all required). There is no fixed
-  section list: "s-001", "S 001" and "S001" join the same section, and the dashboard's section filter lists the
-  sections students actually typed. The university shows under each name on the dashboard and in the CSV.
+- **Sign-in**: students type their name, roll number, section, university and contact number (all required). There
+  is no fixed section list: "s-001", "S 001" and "S001" join the same section, and the dashboard's section filter
+  lists the sections students actually typed. University shows under each name on the dashboard; university and
+  contact are in both CSV exports.
 - **Student feedback**: when a mission ends (time, tab switches, Final Boss or bonus round cleared, or Finish), a
-  six-step feedback opens by itself and must be sent before the report: university and contact number, enjoyment
-  faces, 5 throws of roses or tomatoes at a cartoon instructor, difficulty, confidence meter, what helped, technical
-  problems and one thing to improve. How far the student got is recorded by the app. The dashboard's **Student
-  feedback** panel shows averages, counts, comments and every response; **Download feedback CSV** exports them.
-  Asked once per attempt (a teacher Resume keeps it; Reset mission clears it).
+  five-step feedback opens by itself and must be sent before the report. It asks only about the practice: enjoyment
+  faces, a tomato for the toughest stage and a star for the favourite, difficulty, whether the clock was enough,
+  confidence, what helped, technical problems and one thing to improve. Who sent it (name, roll, section, university,
+  contact) and how far they got come from the sign-in and the app. The dashboard's **Student feedback** panel shows
+  averages, counts, comments and every response; **Download feedback CSV** exports them. Asked once per attempt
+  (a teacher Resume keeps it; Reset mission clears it).
 
 ## Deploy on Vercel
 

@@ -1173,47 +1173,33 @@ async function finishMission(){
 }
 /* ---------- end-of-mission feedback ----------
    Opens by itself when the mission ends (time, tab switches, Final Boss / bonus cleared, or Finish) and must be sent
-   before the report. Six short steps; a draft is kept in this browser so a reload does not lose answers. */
+   before the report. Five short steps about the practice only: name, roll number, section, university and contact
+   come from the sign-in. A draft is kept in this browser so a reload does not lose answers. */
 const needSurvey=()=>!!(ST&&ST.ended_at&&!ST.feedback_done);
-const THROWS=5;
 const ENJOY=[['😴','Not at all'],['😕','Not much'],['🙂','It was okay'],['😄','Liked it'],['🤩','Loved it']];
 const CONF=['Not confident','A little','Getting there','Confident','Very confident'];
 const DIFF=[['easy','🥱','Too easy'],['right','👌','Just right'],['hard','🥵','Too hard']];
+const PACE=[['spare','🏖️','Time to spare'],['enough','⏱️','Just enough'],['more','🏃','Needed more time']];
 const TECH=[['no','✅','No problems'],['small','⚠️','Yes, small ones'],['blocked','🧱','Yes, it blocked me']];
-const SAY={rose:['Aww, thank you!','That made my day 😊','I will keep teaching like this!','So kind!','A rose for me?'],
-  tomato:['Ouch! Noted.','Fair. I will do better.','Splat! Tell me what to fix 👇','I deserved that one.','Okay, okay!']};
-// fixed landing spots per throw, so the picture redraws the same way after Back / reload
-const HIT=[[-.09,-.05],[.1,.02],[-.02,.1],[.07,-.1],[-.11,.07]],PILE=[.36,.62,.47,.29,.7];
 let SV=null;
-const svKey=()=>'dicts-survey:'+(API.user?API.user.roll_no:'');
+const svKey=()=>'dicts-survey2:'+(API.user?API.user.roll_no:'');
 function svSave(){try{localStorage.setItem(svKey(),JSON.stringify(SV))}catch(e){}}
 function svLoad(){let d=null;try{d=JSON.parse(localStorage.getItem(svKey())||'null')}catch(e){}
-  SV=Object.assign({step:0,university:'',contact:'',enjoy:0,throws:[],instructor_note:'',difficulty:'',confidence:0,helped:[],tech:'',improve:''},d&&typeof d==='object'?d:{});
-  SV.step=Math.min(Math.max(0,SV.step|0),5);if(!Array.isArray(SV.throws))SV.throws=[];SV.throws=SV.throws.slice(0,THROWS);if(!Array.isArray(SV.helped))SV.helped=[]}
-const svUni=()=>String((API.user&&API.user.university)||SV.university||'').trim();
-const phoneOK=v=>/^(\+?91|0)?[6-9]\d{9}$/.test(String(v).replace(/[\s-]/g,''));
-const PROF=()=>`<svg class="prof" viewBox="0 0 220 230" aria-hidden="true">
-  <rect class="wb" x="6" y="10" width="208" height="112" rx="10"/>${M.ui.lab==='trip'?'<text class="wbt" x="20" y="40">trip["Teja"]</text><text class="wbt dim" x="20" y="62"># 1500</text>':'<text class="wbt" x="20" y="40">menu["tea"]</text><text class="wbt dim" x="20" y="62"># 12</text>'}
-  <g class="who"><path class="shirt" d="M46 232c0-48 28-74 64-74s64 26 64 74z"/><path class="collar" d="M95 160l15 18 15-18"/>
-    <rect class="skin" x="100" y="136" width="20" height="26" rx="8"/><circle class="skin" cx="110" cy="102" r="40"/>
-    <path class="hair" d="M69 100c-2-32 18-50 42-50 26 0 42 18 40 44-12-14-30-18-48-15-15 2-26 10-34 21z"/>
-    <g class="glasses"><circle cx="94" cy="104" r="11"/><circle cx="126" cy="104" r="11"/><path d="M105 104h10"/></g>
-    <circle class="eye" cx="94" cy="104" r="3.2"/><circle class="eye" cx="126" cy="104" r="3.2"/>
-    <path class="m m-neutral" d="M99 126h22"/><path class="m m-happy" d="M95 121q15 15 30 0"/>
-    <path class="m m-sad" d="M96 131q14-11 28 0"/><ellipse class="m m-ouch" cx="110" cy="127" rx="7" ry="9"/>
-    <ellipse class="blush" cx="82" cy="118" rx="7" ry="3.5"/><ellipse class="blush" cx="138" cy="118" rx="7" ry="3.5"/></g></svg>`;
+  SV=Object.assign({step:0,enjoy:0,toughest:'',favourite:'',aim:'tomato',difficulty:'',pace:'',confidence:0,helped:[],tech:'',improve:''},d&&typeof d==='object'?d:{});
+  SV.step=Math.min(Math.max(0,SV.step|0),4);if(!Array.isArray(SV.helped))SV.helped=[];
+  const ids=coreStages().map(l=>l.id);if(!ids.includes(SV.toughest))SV.toughest='';if(!ids.includes(SV.favourite))SV.favourite=''}
 const SPLAT='<svg viewBox="0 0 60 60" aria-hidden="true"><path d="M30 6c4 0 5 7 9 8s9-4 11 0-3 8-1 12 9 5 7 10-9 2-11 6 2 10-3 12-7-5-12-5-8 7-12 4 0-9-3-12-10-2-11-7 6-7 7-11-5-8-2-11 8 1 11-2 1-8 5-8z"/><circle cx="52" cy="48" r="3"/><circle cx="8" cy="20" r="2.5"/><circle cx="48" cy="8" r="2"/></svg>';
-function finalMood(){const r=SV.throws.filter(t=>t==='rose').length;return SV.throws.length<THROWS?'neutral':r>=4?'happy':r<=1?'sad':'neutral'}
-function finalSay(){const r=SV.throws.filter(t=>t==='rose').length;
-  return r===THROWS?'A full bouquet! Thank you! 💐':r===0?'Message received. I will work on it!':r>=3?'Thanks! Tell me what to make even better.':'Thanks for being honest. Tell me what to fix 👇'}
+const coreStages=()=>M.levels.filter(l=>!l.bonus);
+const stageTag=(l,i)=>l.id==='BOSS'?'Final Boss':l.id==='L0'?'Briefing':'Stage '+i;
+const stageName=id=>{const l=coreStages().find(x=>x.id===id);return l?l.name:''};
+/* one 3-option row of big cards, saved to SV[field] */
+function optsHTML(field,list,label){return `<div class="bigopts three" role="radiogroup" aria-label="${label}" data-f="${field}">${list.map(([k,e,l])=>`<button type="button" role="radio" class="bigopt${SV[field]===k?' on':''}" aria-checked="${SV[field]===k}" data-k="${k}"><span class="be">${e}</span><b>${l}</b></button>`).join('')}</div>`}
+function bindOpts(field){const bs=$$(`.bigopts[data-f="${field}"] .bigopt`);bs.forEach(b=>b.onclick=()=>{SV[field]=b.dataset.k;svSave();bs.forEach(x=>{const on=x===b;x.classList.toggle('on',on);x.setAttribute('aria-checked',on)});sfx.tap()})}
+function stageCardsHTML(){return coreStages().map((l,i)=>{const t=SV.toughest===l.id,f=SV.favourite===l.id;
+  return `<button type="button" class="stcard${t?' tough':''}${f?' fav':''}" data-l="${l.id}" aria-label="${esc(stageTag(l,i)+': '+l.name)}${t?', toughest':''}${f?', favourite':''}">
+    <small>${stageTag(l,i)}</small><b>${esc(l.name)}</b>${t?`<span class="stsplat">${SPLAT}</span>`:''}${f?'<span class="ststar" aria-hidden="true">⭐</span>':''}
+    <span class="sttags">${t?'<em class="t">🍅 Toughest</em>':''}${f?'<em class="f">⭐ Favourite</em>':''}</span></button>`}).join('')}
 const SV_STEPS=[
-  {need:'Type your university name and a 10-digit mobile number.',ok:()=>svUni().length>=2&&phoneOK(SV.contact),
-   html:()=>{const u=API.user||{};return `<h3 class="svq">First, who is sending this? 👋</h3>
-    <div class="svgrid"><label class="svf"><span>Your name</span><input value="${esc(u.name)}" readonly></label>
-    <label class="svf"><span>Roll number</span><input value="${esc(u.roll_no)}" readonly></label>
-    <label class="svf"><span>University name</span>${u.university?`<input value="${esc(u.university)}" readonly>`:`<input id="svUni" maxlength="120" autocomplete="organization" value="${esc(SV.university)}" placeholder="Your university">`}</label>
-    <label class="svf"><span>Contact no.</span><input id="svPhone" type="tel" inputmode="tel" maxlength="16" autocomplete="tel" value="${esc(SV.contact)}" placeholder="10-digit mobile number"></label></div>`},
-   bind:()=>{const ui=$('#svUni');if(ui)ui.oninput=e=>{SV.university=e.target.value;svSave()};$('#svPhone').oninput=e=>{SV.contact=e.target.value;svSave()};(ui&&!SV.university?ui:$('#svPhone')).focus()}},
   {need:'Tap a face.',ok:()=>SV.enjoy>0,
    html:()=>`<h3 class="svq">How much did you enjoy the practice?</h3>
     <div class="bigface" id="bigFace" aria-hidden="true">${SV.enjoy?ENJOY[SV.enjoy-1][0]:'🤔'}</div><p class="facelab" id="faceLab">${SV.enjoy?ENJOY[SV.enjoy-1][1]:'Tap a face'}</p>
@@ -1223,39 +1209,36 @@ const SV_STEPS=[
      $$('.face').forEach(x=>{const on=+x.dataset.v===v;x.classList.toggle('on',on);x.setAttribute('aria-checked',on)});
      const f=$('#bigFace');f.textContent=ENJOY[v-1][0];f.classList.remove('pop');void f.offsetWidth;f.classList.add('pop');$('#faceLab').textContent=ENJOY[v-1][1];
      tone(300+v*90,0,.12,'triangle',.06);if(v===5){const r=f.getBoundingClientRect();burst(r.left+r.width/2,r.top+r.height/2,50,1)}})},
-  {need:`Throw all ${THROWS} first: roses or tomatoes.`,ok:()=>SV.throws.length===THROWS,
-   html:()=>`<h3 class="svq">How did you like your instructor today?</h3>
-    <p class="svsub">You have <b>${THROWS} throws</b>. Throw a <b>rose 🌹</b> for every bit you liked, a <b>tomato 🍅</b> for every bit you did not. Be honest: your instructor wants to know.</p>
-    <div class="stage" id="stage" data-mood="${finalMood()}"><div class="bubble" id="bubble">${SV.throws.length===THROWS?finalSay():SV.throws.length?'Keep going…':'Go on, I can take it! 😅'}</div><div class="profbox" id="profbox">${PROF()}<div class="splats" id="splats"></div></div><div class="pile" id="pile"></div></div>
-    <div class="ammo" id="ammo"></div>
-    <div class="throwbar"><button class="btn throw rose" id="tRose" type="button"><span>🌹</span>Throw a rose</button><button class="btn throw tomato" id="tTom" type="button"><span>🍅</span>Throw a tomato</button></div>
-    <div class="throwfoot"><button class="linkbtn" id="tAgain" type="button">Start over</button></div>
-    <label class="svf"><span>Anything to tell your instructor? (optional)</span><textarea id="svNote" maxlength="300" rows="2" placeholder="A thank-you, or one thing to change">${esc(SV.instructor_note)}</textarea></label>`,
-   bind:bindThrows},
-  {need:'Pick the difficulty and your confidence.',ok:()=>!!SV.difficulty&&SV.confidence>0,
-   html:()=>`<h3 class="svq">The difficulty was…</h3>
-    <div class="bigopts three" role="radiogroup" aria-label="Difficulty">${DIFF.map(([k,e,l])=>`<button type="button" role="radio" class="bigopt${SV.difficulty===k?' on':''}" aria-checked="${SV.difficulty===k}" data-k="${k}"><span class="be">${e}</span><b>${l}</b></button>`).join('')}</div>
-    <h3 class="svq">How confident are you with ${esc(M.feedback.topic)} now?</h3>
+  {need:'Splat the toughest stage with a tomato and give your favourite a star.',ok:()=>!!SV.toughest&&!!SV.favourite,
+   html:()=>`<h3 class="svq">Which stage was the toughest? Which was your favourite?</h3>
+    <p class="svsub">Pick what to throw, then tap a stage. Splat the <b>toughest</b> with a tomato 🍅 and give your <b>favourite</b> a star ⭐. It can be the same stage.</p>
+    <div class="aim" role="radiogroup" aria-label="What to throw">
+      <button type="button" role="radio" class="aimbtn tomato${SV.aim==='tomato'?' on':''}" aria-checked="${SV.aim==='tomato'}" data-a="tomato"><span class="ae">🍅</span><span><b>Toughest stage</b><small id="aimT">${esc(stageName(SV.toughest))||'Not picked yet'}</small></span></button>
+      <button type="button" role="radio" class="aimbtn star${SV.aim==='star'?' on':''}" aria-checked="${SV.aim==='star'}" data-a="star"><span class="ae">⭐</span><span><b>Favourite stage</b><small id="aimF">${esc(stageName(SV.favourite))||'Not picked yet'}</small></span></button></div>
+    <div class="stgrid" id="stgrid">${stageCardsHTML()}</div>`,
+   bind:bindStageThrow},
+  {need:'Pick the difficulty and how the time was.',ok:()=>!!SV.difficulty&&!!SV.pace,
+   html:()=>`<h3 class="svq">The difficulty was…</h3>${optsHTML('difficulty',DIFF,'Difficulty')}
+    <h3 class="svq">How was the ${Math.round(ST.mission_seconds/60)}-minute clock?</h3>${optsHTML('pace',PACE,'Time')}`,
+   bind:()=>{bindOpts('difficulty');bindOpts('pace')}},
+  {need:'Tap a confidence bar and pick at least one thing that helped.',ok:()=>SV.confidence>0&&SV.helped.length>0,
+   html:()=>`<h3 class="svq">How confident are you with ${esc(M.feedback.topic)} now?</h3>
     <div class="meter" role="radiogroup" aria-label="Confidence, 1 to 5">${[1,2,3,4,5].map(v=>`<button type="button" role="radio" class="mbar${v<=SV.confidence?' on':''}" aria-checked="${v===SV.confidence}" aria-label="${v}: ${CONF[v-1]}" data-v="${v}" style="--h:${28+v*18}px;--c:var(--c${v})"><span>${v}</span></button>`).join('')}</div>
     <p class="facelab" id="confLab">${SV.confidence?CONF[SV.confidence-1]+' '+'💪'.repeat(Math.max(0,SV.confidence-2)):'Tap a bar'}</p>
-    <div class="scaleends"><span>Not confident</span><span>Very confident</span></div>`,
+    <div class="scaleends"><span>Not confident</span><span>Very confident</span></div>
+    <h3 class="svq">What helped you learn the most?</h3><p class="svsub">Pick as many as you like.</p>
+    <div class="chips">${M.feedback.helped.map(h=>{const on=SV.helped.includes(h.key);return `<button type="button" class="chip${on?' on':''}" aria-pressed="${on}" data-k="${h.key}"><span>${h.emoji}</span>${esc(h.label)}</button>`}).join('')}</div>`,
    bind:()=>{
-     $$('.bigopt').forEach(b=>b.onclick=()=>{SV.difficulty=b.dataset.k;svSave();$$('.bigopt').forEach(x=>{const on=x===b;x.classList.toggle('on',on);x.setAttribute('aria-checked',on)});sfx.tap()});
      $$('.mbar').forEach(b=>b.onclick=()=>{const v=+b.dataset.v;SV.confidence=v;svSave();
        $$('.mbar').forEach(x=>{const n=+x.dataset.v;x.classList.toggle('on',n<=v);x.setAttribute('aria-checked',n===v)});
-       $('#confLab').textContent=CONF[v-1]+' '+'💪'.repeat(Math.max(0,v-2));tone(260+v*110,0,.12,'triangle',.06)})}},
-  {need:'Pick at least one thing that helped.',ok:()=>SV.helped.length>0,
-   html:()=>`<h3 class="svq">What helped you learn the most?</h3><p class="svsub">Pick as many as you like.</p>
-    <div class="chips">${M.feedback.helped.map(h=>{const on=SV.helped.includes(h.key);return `<button type="button" class="chip${on?' on':''}" aria-pressed="${on}" data-k="${h.key}"><span>${h.emoji}</span>${esc(h.label)}</button>`}).join('')}</div>`,
-   bind:()=>$$('.chip').forEach(b=>b.onclick=()=>{const k=b.dataset.k,on=!SV.helped.includes(k);
-     SV.helped=on?[...SV.helped,k]:SV.helped.filter(x=>x!==k);svSave();b.classList.toggle('on',on);b.setAttribute('aria-pressed',on);
-     if(on){b.classList.remove('pop');void b.offsetWidth;b.classList.add('pop');tone(660,0,.08,'triangle',.05)}})},
+       $('#confLab').textContent=CONF[v-1]+' '+'💪'.repeat(Math.max(0,v-2));tone(260+v*110,0,.12,'triangle',.06)});
+     $$('.chip').forEach(b=>b.onclick=()=>{const k=b.dataset.k,on=!SV.helped.includes(k);
+       SV.helped=on?[...SV.helped,k]:SV.helped.filter(x=>x!==k);svSave();b.classList.toggle('on',on);b.setAttribute('aria-pressed',on);
+       if(on){b.classList.remove('pop');void b.offsetWidth;b.classList.add('pop');tone(660,0,.08,'triangle',.05)}})}},
   {need:'Tell us about technical problems.',ok:()=>!!SV.tech,
-   html:()=>`<h3 class="svq">Did you face any technical problems?</h3>
-    <div class="bigopts three" role="radiogroup" aria-label="Technical problems">${TECH.map(([k,e,l])=>`<button type="button" role="radio" class="bigopt${SV.tech===k?' on':''}" aria-checked="${SV.tech===k}" data-k="${k}"><span class="be">${e}</span><b>${l}</b></button>`).join('')}</div>
+   html:()=>`<h3 class="svq">Did you face any technical problems?</h3>${optsHTML('tech',TECH,'Technical problems')}
     <label class="svf"><span>One thing we should improve (optional)</span><textarea id="svImp" maxlength="600" rows="3" placeholder="What would make the next practice better?">${esc(SV.improve)}</textarea></label>`,
-   bind:()=>{$$('.bigopt').forEach(b=>b.onclick=()=>{SV.tech=b.dataset.k;svSave();$$('.bigopt').forEach(x=>{const on=x===b;x.classList.toggle('on',on);x.setAttribute('aria-checked',on)});sfx.tap()});
-     $('#svImp').oninput=e=>{SV.improve=e.target.value;svSave()}}},
+   bind:()=>{bindOpts('tech');$('#svImp').oninput=e=>{SV.improve=e.target.value;svSave()}}},
 ];
 function renderSurvey(){
   R=null;Q=null;stopQTimer();closeDrawer();if(guide.open)guide.close();
@@ -1282,51 +1265,39 @@ function renderSurvey(){
   window.scrollTo(0,0);mark('survey');
   if((reason==='time'||reason==='proctor')&&!resumeTimer)watchResume();
 }
-function bindThrows(){
-  const stage=$('#stage'),svg=$('#profbox'),bubble=$('#bubble');  // splats sit on the instructor's face at any screen size
-  const left=()=>THROWS-SV.throws.length;
-  function spot(k){const s=stage.getBoundingClientRect(),r=svg.getBoundingClientRect(),[dx,dy]=HIT[k%HIT.length];
-    return {x:r.left-s.left+r.width*(110/220+dx),y:r.top-s.top+r.height*(104/230+dy)}}
-  function land(kind,k,fresh){
-    if(kind==='tomato'){const [dx,dy]=HIT[k%HIT.length],el=document.createElement('span');el.className='splat'+(fresh?' new':'');el.innerHTML=SPLAT;
-      el.style.left=(110/220+dx)*100+'%';el.style.top=(104/230+dy)*100+'%';el.style.setProperty('--r',(k*67%360)+'deg');$('#splats').appendChild(el)}
-    else{const el=document.createElement('span');el.className='rosep'+(fresh?' new':'');el.textContent='🌹';
-      el.style.left=PILE[k%PILE.length]*100+'%';el.style.setProperty('--r',((k*37%50)-25)+'deg');$('#pile').appendChild(el)}
+/* Toughest / favourite stage: pick a tomato or a star, tap a stage card, and it flies there. */
+function bindStageThrow(){
+  const grid=$('#stgrid');
+  function aim(a){SV.aim=a;svSave();$$('.aimbtn').forEach(b=>{const on=b.dataset.a===a;b.classList.toggle('on',on);b.setAttribute('aria-checked',on)})}
+  function paint(id,kind){grid.innerHTML=stageCardsHTML();bindCards();
+    $('#aimT').textContent=stageName(SV.toughest)||'Not picked yet';$('#aimF').textContent=stageName(SV.favourite)||'Not picked yet';
+    const c=grid.querySelector(`.stcard[data-l="${id}"]`);if(!c)return;c.classList.add(kind==='tomato'?'hitnew':'starnew');
+    if(kind==='tomato'){tone(130,0,.22,'square',.06);tone(90,.05,.25,'sawtooth',.04)}
+    else{tone(880,0,.12,'sine',.06);tone(1175,.08,.16,'sine',.06);const r=c.getBoundingClientRect();burst(r.left+r.width/2,r.top+r.height/2,26,.8)}}
+  function land(kind,id){
+    if(!grid.isConnected)return;   // the learner moved on before this throw landed
+    if(kind==='tomato')SV.toughest=id;else SV.favourite=id;svSave();paint(id,kind);
+    if(kind==='tomato'&&!SV.favourite)aim('star');else if(kind==='star'&&!SV.toughest)aim('tomato');
   }
-  function ammo(){$('#ammo').innerHTML=`${Array.from({length:THROWS},(x,k)=>`<i class="${SV.throws[k]||''}">${SV.throws[k]==='rose'?'🌹':SV.throws[k]==='tomato'?'🍅':''}</i>`).join('')}<span>${left()?left()+' throw'+(left()>1?'s':'')+' left':'All thrown!'}</span>`;
-    $('#tRose').disabled=$('#tTom').disabled=!left()}
-  function redraw(){$('#splats').innerHTML='';$('#pile').innerHTML='';SV.throws.forEach((t,k)=>land(t,k,false));ammo()}
-  let moodT=null;
-  function mood(m,ms){stage.dataset.mood=m;clearTimeout(moodT);if(ms)moodT=setTimeout(()=>{stage.dataset.mood=finalMood()},ms)}
-  function say(t){bubble.textContent=t;bubble.classList.remove('pop');void bubble.offsetWidth;bubble.classList.add('pop')}
-  function hit(kind,k){
-    if(!stage.isConnected)return;   // the learner moved on before this throw landed
-    land(kind,k,true);
-    if(kind==='tomato'){svg.classList.remove('hitme');void svg.getBoundingClientRect();svg.classList.add('hitme');mood('ouch',700);tone(130,0,.22,'square',.06);tone(90,.05,.25,'sawtooth',.04)}
-    else{mood('happy',900);tone(880,0,.12,'sine',.06);tone(1175,.08,.16,'sine',.06);const r=svg.getBoundingClientRect();burst(r.left+r.width/2,r.top+r.height*.62,22,.7)}
-    say(SV.throws.length===THROWS?finalSay():SAY[kind][k%SAY[kind].length]);
-    if(SV.throws.length===THROWS)setTimeout(()=>{stage.dataset.mood=finalMood()},kind==='tomato'?720:920);
-  }
-  function fire(kind,btn){
-    if(!left())return;const k=SV.throws.length;SV.throws.push(kind);svSave();ammo();
-    if(reduce){hit(kind,k);return}
-    const s=stage.getBoundingClientRect(),b=btn.getBoundingClientRect(),to=kind==='tomato'?spot(k):{x:s.width*PILE[k%PILE.length],y:s.height-30};
-    const from={x:b.left-s.left+b.width/2,y:b.top-s.top},p=document.createElement('span');p.className='proj';p.textContent=kind==='rose'?'🌹':'🍅';stage.appendChild(p);
-    const midX=(from.x+to.x)/2,midY=Math.min(from.y,to.y)-120,spin=kind==='rose'?200:540;
-    p.animate([{transform:`translate(${from.x}px,${from.y}px) rotate(0) scale(.8)`},{transform:`translate(${midX}px,${midY}px) rotate(${spin/2}deg) scale(1.25)`},{transform:`translate(${to.x}px,${to.y}px) rotate(${spin}deg) scale(1)`}],
-      {duration:560,easing:'cubic-bezier(.3,.1,.4,1)'}).onfinish=()=>{p.remove();hit(kind,k)};
+  function fire(card){
+    const kind=SV.aim,id=card.dataset.l;
+    if(reduce)return land(kind,id);
+    const from=$(`.aimbtn[data-a="${kind}"] .ae`).getBoundingClientRect(),to=card.getBoundingClientRect();
+    const x0=from.left+from.width/2,y0=from.top+from.height/2,x1=to.left+to.width/2,y1=to.top+to.height/2;
+    const p=document.createElement('span');p.className='proj';p.textContent=kind==='star'?'⭐':'🍅';document.body.appendChild(p);
+    const spin=kind==='star'?360:540,midY=Math.min(y0,y1)-110;
+    p.animate([{transform:`translate(${x0}px,${y0}px) rotate(0) scale(.8)`},{transform:`translate(${(x0+x1)/2}px,${midY}px) rotate(${spin/2}deg) scale(1.3)`},{transform:`translate(${x1}px,${y1}px) rotate(${spin}deg) scale(1)`}],
+      {duration:520,easing:'cubic-bezier(.3,.1,.4,1)'}).onfinish=()=>{p.remove();land(kind,id)};
     sfx.tap();
   }
-  $('#tRose').onclick=e=>fire('rose',e.currentTarget);$('#tTom').onclick=e=>fire('tomato',e.currentTarget);
-  $('#tAgain').onclick=()=>{SV.throws=[];svSave();redraw();mood('neutral');say('Okay, from the top! 😅')};
-  $('#svNote').oninput=e=>{SV.instructor_note=e.target.value;svSave()};
-  requestAnimationFrame(redraw);
+  function bindCards(){$$('.stcard',grid).forEach(c=>c.onclick=()=>fire(c))}
+  $$('.aimbtn').forEach(b=>b.onclick=()=>{aim(b.dataset.a);sfx.tap()});
+  bindCards();
 }
 async function sendSurvey(){
   const b=$('#svNext');b.disabled=true;b.classList.add('busy');
-  const body={university:svUni(),contact:SV.contact.trim(),enjoy:SV.enjoy,confidence:SV.confidence,
-    roses:SV.throws.filter(t=>t==='rose').length,tomatoes:SV.throws.filter(t=>t==='tomato').length,instructor_note:SV.instructor_note.trim(),
-    difficulty:SV.difficulty,helped:SV.helped,tech:SV.tech,improve:SV.improve.trim()};
+  const body={enjoy:SV.enjoy,toughest:SV.toughest,favourite:SV.favourite,difficulty:SV.difficulty,pace:SV.pace,
+    confidence:SV.confidence,helped:SV.helped,tech:SV.tech,improve:SV.improve.trim()};
   try{const r=await api('POST','/feedback',body);adopt(r.state)}
   catch(e){b.disabled=false;b.classList.remove('busy');
     if(e&&e.message==='signed-out')return netError(e);
@@ -1407,14 +1378,16 @@ function renderLogin(msg){
       <label>Roll number<input id="lgRoll" autocomplete="off" maxlength="30" required></label>
       <label>Section<input id="lgSec" autocomplete="off" maxlength="40" placeholder="For example S-001" required></label>
       <label>University name<input id="lgUni" autocomplete="organization" maxlength="120" placeholder="Your university" required></label>
+      <label>Contact no.<input id="lgPhone" type="tel" inputmode="tel" autocomplete="tel" maxlength="16" placeholder="10-digit mobile number" required></label>
       ${CLASS_CODE?'<label>Class code<input id="lgCode" autocomplete="off" maxlength="40" required></label>':''}
       <p class="lgerr" id="lgErr" role="alert">${msg?esc(msg):''}</p>
       <div class="power-row"><button class="btn primary" type="submit">${ICON.play}Continue</button></div>
     </form></section>`;
-  $('#loginForm').onsubmit=async e=>{e.preventDefault();const n=$('#lgName').value.trim(),r=$('#lgRoll').value.trim(),s=$('#lgSec').value.trim(),uni=$('#lgUni').value.trim(),c=CLASS_CODE?$('#lgCode').value.trim():null;
-    if(!n||!r||!s||!uni||(CLASS_CODE&&!c)){$('#lgErr').textContent=!s?'Type your section, for example S-001.':!uni?'Type your university name.':'Fill in every field to join.';return}
+  $('#loginForm').onsubmit=async e=>{e.preventDefault();const n=$('#lgName').value.trim(),r=$('#lgRoll').value.trim(),s=$('#lgSec').value.trim(),uni=$('#lgUni').value.trim(),ph=$('#lgPhone').value.trim(),c=CLASS_CODE?$('#lgCode').value.trim():null;
+    if(!n||!r||!s||!uni||!ph||(CLASS_CODE&&!c)){$('#lgErr').textContent=!s?'Type your section, for example S-001.':!uni?'Type your university name.':!ph?'Type your 10-digit mobile number.':'Fill in every field to join.';return}
+    if(!/^(\+?91|0)?[6-9]\d{9}$/.test(ph.replace(/[\s-]/g,''))){$('#lgErr').textContent='Type a 10-digit mobile number.';return}
     const b=$('#loginForm button[type=submit]');b.disabled=true;$('#lgErr').textContent='';
-    try{await API.login(n,r,s,uni,c);ac();paintUser();await loadMission()}catch(err){$('#lgErr').textContent=err.message==='signed-out'?'Please sign in again.':err.message;b.disabled=false}};
+    try{await API.login(n,r,s,uni,ph,c);ac();paintUser();await loadMission()}catch(err){$('#lgErr').textContent=err.message==='signed-out'?'Please sign in again.':err.message;b.disabled=false}};
   paintUser();window.scrollTo(0,0);
 }
 function paintUser(){const c=$('#userChip'),u=API.user;c.hidden=!u;if(u){c.innerHTML=`<b>${esc(u.name)}</b><small>${esc(u.section)} · profile</small>`;c.setAttribute('aria-label','Open your profile')}}

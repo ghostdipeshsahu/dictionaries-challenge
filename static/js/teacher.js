@@ -85,22 +85,25 @@ function feedback(){
   if(!f.count){el.innerHTML=`<p class="empty">Feedback appears here as students finish. Each student fills it in when their mission ends, before they see the report.${f.pending?` ${f.pending} finished student${f.pending>1?'s have':' has'} not sent it yet.`:''}</p>`;return}
   const bars=(list,tot)=>list.map(x=>`<div class="trow2"><span>${esc(x.label)}</span><span class="tb"><i style="width:${tot?Math.round(x.count/tot*100):0}%;background:var(--blue)"></i></span><b>${x.count}</b></div>`).join('');
   const dist=(d,labels)=>`<div class="fbdist">${d.map((c,i)=>`<div><span class="fbcol"><i style="height:${Math.round(c/Math.max(1,...d)*100)}%"></i></span><b>${c}</b><small>${labels[i]}</small></div>`).join('')}</div>`;
-  const notes=f.responses.filter(r=>r.improve||r.instructor_note);
+  const notes=f.responses.filter(r=>r.improve),top=list=>list.reduce((a,x)=>x.count>a.count?x:a,{count:0});
   el.innerHTML=`<div class="fbtiles">
       <div class="tile"><b>${f.count}${f.ended?' / '+f.ended:''}</b><span>Responses${f.pending?` · ${f.pending} pending`:''}</span></div>
       <div class="tile"><b>${FACE[Math.max(0,Math.round(f.enjoy)-1)]} ${f.enjoy} / 5</b><span>Enjoyed it</span></div>
-      <div class="tile"><b>🌹 ${f.roses} <small>/ ${f.throws}</small></b><span>Instructor: roses · 🍅 ${f.tomatoes}</span></div>
+      <div class="tile"><b>🍅 ${esc(top(f.toughest).label||'–')}</b><span>Toughest stage · ${top(f.toughest).count} vote${top(f.toughest).count===1?'':'s'}</span></div>
       <div class="tile"><b>💪 ${f.confidence} / 5</b><span>Confidence now</span></div></div>
     <div class="fbgrid">
       <div><h3>How much they enjoyed it</h3>${dist(f.enjoy_dist,FACE)}</div>
       <div><h3>Confidence now</h3>${dist(f.confidence_dist,['1','2','3','4','5'])}</div>
+      <div><h3>🍅 Toughest stage</h3>${bars(f.toughest,f.count)}</div>
+      <div><h3>⭐ Favourite stage</h3>${bars(f.favourite,f.count)}</div>
       <div><h3>Difficulty</h3>${bars(f.difficulty,f.count)}</div>
+      <div><h3>Time${f.needed_more_time?` · ${f.needed_more_time} needed more`:''}</h3>${bars(f.pace,f.count)}</div>
       <div><h3>Technical problems</h3>${bars(f.tech,f.count)}</div>
-      <div class="wide"><h3>What helped them learn most</h3>${bars(f.helped,f.count)}</div>
+      <div><h3>What helped them learn most</h3>${bars(f.helped,f.count)}</div>
     </div>
-    ${notes.length?`<h3>What students said · ${notes.length}</h3><ul class="fbnotes">${notes.map(r=>`<li><span class="aname"><b>${esc(r.name)}</b><small>${esc(r.roll_no)} · ${esc(r.section)} · 🌹${r.roses} 🍅${r.tomatoes}</small></span><div>${r.improve?`<p><em>Improve:</em> ${esc(r.improve)}</p>`:''}${r.instructor_note?`<p><em>To the instructor:</em> ${esc(r.instructor_note)}</p>`:''}</div></li>`).join('')}</ul>`:''}
-    <details class="fball"${wasOpen?' open':''}><summary>All responses (${f.count})</summary><div class="tablewrap"><table><thead><tr><th>Name</th><th>Roll no</th><th>Section</th><th>University</th><th>Contact</th><th>Enjoyed</th><th>Instructor</th><th>Difficulty</th><th>Confidence</th><th>Helped most</th><th>Tech problems</th><th>Reached</th><th>Sent</th></tr></thead>
-      <tbody>${f.responses.map(r=>`<tr><td><b>${esc(r.name)}</b></td><td>${esc(r.roll_no)}</td><td>${esc(r.section)}</td><td>${esc(r.university)}</td><td>${esc(r.contact)}</td><td>${FACE[r.enjoy-1]} ${r.enjoy}</td><td>🌹${r.roses} 🍅${r.tomatoes}</td><td>${esc(r.difficulty_label)}</td><td>${r.confidence} / 5</td><td class="fbhelp">${r.helped.map(esc).join('<br>')}</td><td class="${r.tech==='blocked'?'m lo':r.tech==='small'?'m mid':''}">${esc(r.tech_label)}</td><td>${esc(r.reached)}<small>${esc(r.status_label)}</small></td><td>${esc((r.at||'').replace('T',' ').slice(11,16))}</td></tr>`).join('')}</tbody></table></div></details>`;
+    ${notes.length?`<h3>What to improve, in their words · ${notes.length}</h3><ul class="fbnotes">${notes.map(r=>`<li><span class="aname"><b>${esc(r.name)}</b><small>${esc(r.roll_no)} · ${esc(r.section)} · ${FACE[r.enjoy-1]} · 🍅 ${esc(r.toughest_label)}</small></span><div><p>${esc(r.improve)}</p></div></li>`).join('')}</ul>`:''}
+    <details class="fball"${wasOpen?' open':''}><summary>All responses (${f.count})</summary><div class="tablewrap"><table><thead><tr><th>Name</th><th>Roll no</th><th>Section</th><th>University</th><th>Contact</th><th>Enjoyed</th><th>Toughest</th><th>Favourite</th><th>Difficulty</th><th>Time</th><th>Confidence</th><th>Helped most</th><th>Tech problems</th><th>Reached</th><th>Sent</th></tr></thead>
+      <tbody>${f.responses.map(r=>`<tr><td><b>${esc(r.name)}</b></td><td>${esc(r.roll_no)}</td><td>${esc(r.section)}</td><td>${esc(r.university)}</td><td>${esc(r.contact)}</td><td>${FACE[r.enjoy-1]} ${r.enjoy}</td><td>${esc(r.toughest_label)}</td><td>${esc(r.favourite_label)}</td><td>${esc(r.difficulty_label)}</td><td>${esc(r.pace_label)}</td><td>${r.confidence} / 5</td><td class="fbhelp">${r.helped.map(esc).join('<br>')}</td><td class="${r.tech==='blocked'?'m lo':r.tech==='small'?'m mid':''}">${esc(r.tech_label)}</td><td>${esc(r.reached)}<small>${esc(r.status_label)}</small></td><td>${esc((r.at||'').replace('T',' ').slice(11,16))}</td></tr>`).join('')}</tbody></table></div></details>`;
 }
 function render(){
   const d=data;

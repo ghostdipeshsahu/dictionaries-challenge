@@ -643,8 +643,8 @@ def status_of(state):
 # ---------------------------------------------------------------------------------------------
 # end-of-mission feedback
 FEEDBACK_DIFFICULTY = {"easy": "Too easy", "right": "Just right", "hard": "Too hard"}
+FEEDBACK_PACE = {"spare": "Time to spare", "enough": "Just enough", "more": "Needed more time"}
 FEEDBACK_TECH = {"no": "No", "small": "Yes, small ones", "blocked": "Yes, it blocked me"}
-INSTRUCTOR_THROWS = 5   # every learner throws exactly 5: roses (liked it) or tomatoes (did not)
 
 
 def _scale(v, name):
@@ -654,39 +654,30 @@ def _scale(v, name):
 
 
 def feedback(state, rules, fb, now=None):
-    """Save the learner's feedback. Asked once, when the mission has ended; a repeat send is ignored."""
+    """Save the learner's feedback. Asked once, when the mission has ended; a repeat send is ignored.
+    Name, roll number, section, university and contact come from the sign-in, so they are not asked here."""
     now = now or time.time()
     if not state["ended_at"]:
         raise MissionError("Feedback opens when your mission ends.", 409)
     if state.get("feedback"):
         return {"state": public_state(state, rules, now), "already": True}
-    uni = " ".join(str(fb.get("university") or "").split())[:120]
-    if len(uni) < 2:
-        raise MissionError("Type your university name.", 422)
-    phone = re.sub(r"[\s-]", "", str(fb.get("contact") or ""))
-    m = re.fullmatch(r"(?:\+?91|0)?([6-9]\d{9})", phone)
-    if not m:
-        raise MissionError("Type a 10-digit mobile number.", 422)
-    roses, tomatoes = fb.get("roses"), fb.get("tomatoes")
-    if not all(isinstance(x, int) and not isinstance(x, bool) and x >= 0 for x in (roses, tomatoes)) \
-            or roses + tomatoes != INSTRUCTOR_THROWS:
-        raise MissionError(f"Throw all {INSTRUCTOR_THROWS} at your instructor first.", 422)
-    if fb.get("difficulty") not in FEEDBACK_DIFFICULTY:
-        raise MissionError("Choose how difficult it was.", 422)
-    if fb.get("tech") not in FEEDBACK_TECH:
-        raise MissionError("Tell us about technical problems.", 422)
+    stages = [l["id"] for l in C.LEVELS if not l.get("bonus")]
+    if fb.get("toughest") not in stages or fb.get("favourite") not in stages:
+        raise MissionError("Splat the toughest stage and star your favourite.", 422)
+    for key, labels, what in (("difficulty", FEEDBACK_DIFFICULTY, "how difficult it was"),
+                              ("pace", FEEDBACK_PACE, "how the time was"), ("tech", FEEDBACK_TECH, "about technical problems")):
+        if fb.get(key) not in labels:
+            raise MissionError(f"Tell us {what}.", 422)
     keys = [k for k, _, _ in C.FEEDBACK_HELPED]
     helped = [k for k in keys if k in (fb.get("helped") or [])]
     if not helped:
         raise MissionError("Pick at least one thing that helped you learn.", 422)
     done = sum(level_stats(state, l)["cleared"] for l in C.LEVELS if not l.get("bonus"))
     state["feedback"] = {
-        "university": uni, "contact": m.group(1),
         "enjoy": _scale(fb.get("enjoy"), "how much you enjoyed it"),
         "confidence": _scale(fb.get("confidence"), "your confidence"),
-        "roses": roses, "tomatoes": tomatoes,
-        "instructor_note": " ".join(str(fb.get("instructor_note") or "").split())[:300],
-        "difficulty": fb["difficulty"], "helped": helped, "tech": fb["tech"],
+        "toughest": fb["toughest"], "favourite": fb["favourite"],
+        "difficulty": fb["difficulty"], "pace": fb["pace"], "helped": helped, "tech": fb["tech"],
         "improve": str(fb.get("improve") or "").strip()[:600],
         # how far the learner got, recorded by the app (not asked)
         "reached": {"done": done, "total": C.TOTAL, "status": status_of(state),

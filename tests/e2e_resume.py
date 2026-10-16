@@ -50,6 +50,7 @@ try:
         page.locator("#lgRoll").fill(ROLL)
         page.locator("#lgSec").fill("S-001")
         page.locator("#lgUni").fill("Test University")
+        page.locator("#lgPhone").fill("9876543210")
         page.locator("#loginForm button[type=submit]").click()
         dismiss_tour(page)
         page.locator("#go").click()
@@ -99,8 +100,10 @@ try:
         left = page.locator("#qtime").inner_text()
         mm, ss = left.split(":")
         secs = int(mm) * 60 + int(ss)
-        # L0-2 has 30 s; a few were used before the tab switches, and the minutes spent ended are not counted
-        assert 10 < secs <= 27, f"L0-2 should keep its remaining seconds (about 25 of 30), shows {left}"
+        # About 14 s of L0-2's clock are really used (on the question, then waiting for the page to notice the resume);
+        # the time the mission spent ended is not counted, so it must not be back to full, nor have run out
+        full = C.QUESTIONS["L0-2"]["time"]
+        assert 3 < secs <= full - 5, f"L0-2 should keep its remaining seconds (some of {full}), shows {left}"
         assert page.locator("#xpNum").inner_text() != "0", "XP was kept"
         print(f"student back on the same question with {left} left and XP kept")
         # 4) idle: no step for 20 s -> the teacher sees it

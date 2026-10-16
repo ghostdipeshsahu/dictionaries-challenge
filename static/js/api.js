@@ -26,8 +26,8 @@ const API=(()=>{
       online=false;return {online:false,user:null};
     }
   }
-  async function login(name,roll_no,section,university,class_code){
-    const r=await call('POST','/login',{name,roll_no,section,university,class_code:class_code||null});
+  async function login(name,roll_no,section,university,contact,class_code){
+    const r=await call('POST','/login',{name,roll_no,section,university,contact,class_code:class_code||null});
     remember(r.token,r.student);online=true;return r;
   }
   async function logout(){try{await call('POST','/logout')}catch(e){}forget()}

@@ -54,6 +54,7 @@ try:
       page.locator("#lgRoll").fill(ROLL)
       page.locator("#lgSec").fill("S-001")
       page.locator("#lgUni").fill("Test University")
+      page.locator("#lgPhone").fill("9876543210")
       page.locator("#loginForm button[type=submit]").click()
       dismiss_tour(page)
       page.locator("#go").click()

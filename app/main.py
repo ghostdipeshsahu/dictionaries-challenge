@@ -9,6 +9,7 @@ import hmac
 import io
 import json
 import os
+import re
 import secrets
 import time
 from pathlib import Path
@@ -90,6 +91,7 @@ class LoginIn(BaseModel):
     roll_no: str
     section: str
     university: str = ""
+    contact: str = ""
     class_code: Optional[str] = None
 
 
@@ -114,13 +116,11 @@ class ProctorIn(BaseModel):
 
 
 class FeedbackIn(BaseModel):
-    university: str = Field(default="", max_length=200)
-    contact: str = Field(default="", max_length=30)
     enjoy: Optional[int] = None
-    roses: Optional[int] = None
-    tomatoes: Optional[int] = None
-    instructor_note: str = Field(default="", max_length=600)
+    toughest: str = Field(default="", max_length=12)
+    favourite: str = Field(default="", max_length=12)
     difficulty: str = Field(default="", max_length=20)
+    pace: str = Field(default="", max_length=20)
     confidence: Optional[int] = None
     helped: list[str] = Field(default_factory=list, max_length=20)
     tech: str = Field(default="", max_length=20)
@@ -174,17 +174,20 @@ def health():
 def login(body: LoginIn):
     name, roll, section = clean(body.name, 60), clean(body.roll_no, 30), clean(body.section, 40).upper()
     university = clean(body.university, 120)
-    if not name or not roll or not section or not university:
+    phone = re.fullmatch(r"(?:\+?91|0)?([6-9]\d{9})", re.sub(r"[\s-]", "", body.contact or ""))
+    if not name or not roll or not section or not university or not (body.contact or "").strip():
         raise HTTPException(422, "Fill in every field to join.")
     if not db.section_key(section):
         raise HTTPException(422, "Type your section, for example S-001.")
     if len(university) < 2:
         raise HTTPException(422, "Type your university name.")
+    if not phone:
+        raise HTTPException(422, "Type a 10-digit mobile number.")
     if CLASS_CODE and not hmac.compare_digest((body.class_code or "").strip().upper(), CLASS_CODE.upper()):
         raise HTTPException(403, "That class code is not right. Ask your teacher.")
     token = secrets.token_urlsafe(24)
     try:
-        return _login(name, roll, section, token, university)
+        return _login(name, roll, section, token, university, phone.group(1))
     except HTTPException:
         raise
     except Exception as e:  # the same roll number signing in twice at the same instant (unique key)
@@ -193,7 +196,7 @@ def login(body: LoginIn):
         raise
 
 
-def _login(name, roll, section, token, university):
+def _login(name, roll, section, token, university, contact):
     with db.tx():
         s = db.by_roll(roll)
         if s:
@@ -202,11 +205,11 @@ def _login(name, roll, section, token, university):
             if s["token"] and s["last_seen"] and time.time() - s["last_seen"] < DEVICE_LOCK:
                 raise HTTPException(409, "This roll number is signed in on another device. Sign out there, or ask your teacher to release it.")
             db.set_token(s["id"], token)
-            if not s.get("university"):  # signed up before the university field
-                db.set_university(s["id"], university)
+            if not s.get("university") or not s.get("contact"):  # signed up before these fields
+                db.fill_profile(s["id"], university, contact)
             s = db.by_id(s["id"])
         else:
-            sid = db.insert_student(name, roll, db.known_section(section) or section, token, E.new_state(), university)
+            sid = db.insert_student(name, roll, db.known_section(section) or section, token, E.new_state(), university, contact)
             s = db.by_id(sid)
     return {"token": token, "student": public_student(s)}
 
@@ -298,12 +301,7 @@ def finish(s=Depends(student)):
 
 @app.post("/api/dicts/feedback")
 def feedback(body: FeedbackIn, s=Depends(student)):
-    fb = body.model_dump()
-    fb["university"] = s.get("university") or fb["university"]
-    if not s.get("university") and len(clean(fb["university"], 120)) >= 2:  # signed up before the field existed
-        with db.tx():
-            db.set_university(s["id"], clean(fb["university"], 120))
-    return mutate(s, E.feedback, fb)
+    return mutate(s, E.feedback, body.model_dump())
 
 
 @app.post("/api/dicts/proctor")
@@ -392,7 +390,7 @@ def dashboard(section=None):
             activity = "offline" if not online else "idle" if idle_for >= IDLE_SECONDS else "active"
         rows.append({
             "id": x["id"], "name": x["name"], "roll_no": x["roll_no"], "section": x["section"],
-            "university": x.get("university") or "", "status": status, "status_label": E.STATUS_LABEL[status], "xp": ps["xp"],
+            "university": x.get("university") or "", "contact": x.get("contact") or "", "status": status, "status_label": E.STATUS_LABEL[status], "xp": ps["xp"],
             "done": ps["progress"]["done"], "total": C.TOTAL,
             "first_try": sum(1 for q in qv if q["solved"] and not q["wrong"]),
             "timed_out": sum(1 for q in qv if q["timed_out"]),
@@ -438,19 +436,23 @@ HELPED_LABEL = {k: f"{e} {t}" for k, e, t in C.FEEDBACK_HELPED}
 
 
 def feedback_summary(studs, rows):
-    """The class's end-of-mission feedback: averages, counts, and every response (newest first)."""
-    by_id = {r["id"]: r for r in rows}
+    """The class's end-of-mission feedback: averages, counts, and every response (newest first).
+    Who sent it (name, roll, section, university, contact) comes from the sign-in."""
+    stage_name = {l["id"]: l["name"] for l in C.LEVELS}
     resp = []
     for x in studs:
         f = x["state"].get("feedback")
-        if not f:
+        if not f or "pace" not in f:  # skip drafts of an older feedback form
             continue
         reached = f["reached"]
         resp.append({
             "id": x["id"], "name": x["name"], "roll_no": x["roll_no"], "section": x["section"],
-            "university": f["university"], "contact": f["contact"], "enjoy": f["enjoy"], "confidence": f["confidence"],
-            "roses": f["roses"], "tomatoes": f["tomatoes"], "instructor_note": f["instructor_note"],
+            "university": x.get("university") or "", "contact": x.get("contact") or "",
+            "enjoy": f["enjoy"], "confidence": f["confidence"],
+            "toughest": f["toughest"], "toughest_label": stage_name.get(f["toughest"], f["toughest"]),
+            "favourite": f["favourite"], "favourite_label": stage_name.get(f["favourite"], f["favourite"]),
             "difficulty": f["difficulty"], "difficulty_label": E.FEEDBACK_DIFFICULTY[f["difficulty"]],
+            "pace": f["pace"], "pace_label": E.FEEDBACK_PACE[f["pace"]],
             "tech": f["tech"], "tech_label": E.FEEDBACK_TECH[f["tech"]],
             "helped": [HELPED_LABEL.get(k, k) for k in f["helped"]], "improve": f["improve"],
             "reached": f"{reached['done']}/{reached['total']}" + (" + bonus" if reached.get("bonus") else ""),
@@ -464,14 +466,17 @@ def feedback_summary(studs, rows):
     for x in studs:
         for k in (x["state"].get("feedback") or {}).get("helped", []):
             helped[k] = helped.get(k, 0) + 1
+    core = {l["id"]: l["name"] for l in C.LEVELS if not l.get("bonus")}
     ended = sum(1 for r in rows if r["status"] in ("complete", "time", "proctor"))
     return {
         "count": n, "ended": ended, "pending": ended - n if ended > n else 0,
-        "enjoy": avg("enjoy"), "confidence": avg("confidence"), "roses": avg("roses"), "tomatoes": avg("tomatoes"),
-        "throws": E.INSTRUCTOR_THROWS,
+        "enjoy": avg("enjoy"), "confidence": avg("confidence"),
+        "needed_more_time": sum(r["pace"] == "more" for r in resp),
         "enjoy_dist": [sum(r["enjoy"] == i for r in resp) for i in range(1, 6)],
         "confidence_dist": [sum(r["confidence"] == i for r in resp) for i in range(1, 6)],
-        "difficulty": count("difficulty", E.FEEDBACK_DIFFICULTY), "tech": count("tech", E.FEEDBACK_TECH),
+        "toughest": count("toughest", core), "favourite": count("favourite", core),
+        "difficulty": count("difficulty", E.FEEDBACK_DIFFICULTY), "pace": count("pace", E.FEEDBACK_PACE),
+        "tech": count("tech", E.FEEDBACK_TECH),
         "helped": sorted(({"key": k, "label": HELPED_LABEL[k], "count": helped.get(k, 0)} for k in HELPED_LABEL),
                          key=lambda d: -d["count"]),
         "responses": resp,
@@ -514,13 +519,13 @@ def teacher_export(section: str = "", _t=Depends(teacher)):
     d = dashboard(section)
     buf = io.StringIO()
     w = csv.writer(buf)
-    w.writerow(["rank", "name", "roll_no", "section", "university", "status", "xp", "cleared", "total", "stars", "first_try", "timed_out",
+    w.writerow(["rank", "name", "roll_no", "section", "university", "contact", "status", "xp", "cleared", "total", "stars", "first_try", "timed_out",
                 "solutions_viewed", "time_used_min", "tab_switches", "copy_paste", "second_tab", "weakest_idea",
                 "current_stage", "current_question", "activity", "idle_minutes", "teacher_resumes", "last_seen"])
     for r in d["students"]:
         weak = min(r["concepts"].items(), key=lambda kv: kv[1]) if r["concepts"] else None
         cur = r["current"] or {}
-        w.writerow([r["rank"], r["name"], r["roll_no"], r["section"], r["university"], r["status_label"], r["xp"], r["done"], r["total"],
+        w.writerow([r["rank"], r["name"], r["roll_no"], r["section"], r["university"], r["contact"], r["status_label"], r["xp"], r["done"], r["total"],
                     r["stars"], r["first_try"], r["timed_out"], r["revealed"], r["used_minutes"], r["tab_switches"],
                     r["copy_paste"], r["multi_tab"],
                     f"{C.CONCEPTS.get(weak[0], weak[0])} ({round(weak[1] * 100)}%)" if weak else "",
@@ -535,12 +540,12 @@ def teacher_feedback_export(section: str = "", _t=Depends(teacher)):
     d = dashboard(section)
     buf = io.StringIO()
     w = csv.writer(buf)
-    w.writerow(["name", "roll_no", "section", "university", "contact", "enjoyed_1_to_5", "instructor_roses",
-                "instructor_tomatoes", "note_for_instructor", "difficulty", "confidence_1_to_5", "helped_most",
-                "technical_problems", "improve", "reached", "status", "sent_at"])
+    w.writerow(["name", "roll_no", "section", "university", "contact", "enjoyed_1_to_5", "toughest_stage",
+                "favourite_stage", "difficulty", "time", "confidence_1_to_5", "helped_most", "technical_problems",
+                "improve", "reached", "status", "sent_at"])
     for r in d["feedback"]["responses"]:
-        w.writerow([r["name"], r["roll_no"], r["section"], r["university"], r["contact"], r["enjoy"], r["roses"],
-                    r["tomatoes"], r["instructor_note"], r["difficulty_label"], r["confidence"], "; ".join(r["helped"]),
+        w.writerow([r["name"], r["roll_no"], r["section"], r["university"], r["contact"], r["enjoy"], r["toughest_label"],
+                    r["favourite_label"], r["difficulty_label"], r["pace_label"], r["confidence"], "; ".join(r["helped"]),
                     r["tech_label"], r["improve"], r["reached"], r["status_label"], r["at"] or ""])
     name = f"{C.UI['short'].lower().replace(' ', '-')}-feedback-{(section or 'all').lower().replace(' ', '-')}.csv"
     return Response("\ufeff" + buf.getvalue(), media_type="text/csv; charset=utf-8",

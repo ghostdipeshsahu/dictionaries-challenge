@@ -103,7 +103,7 @@ td .del.go.armed,.alist .del.go.armed{background:var(--gold);color:#1A1200;box-s
 .fbhead h2{margin:0}
 .panel.fb h3{margin:18px 0 10px;font:700 12px/1 var(--f-mono);letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
 .fbtiles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
-.fbtiles .tile b{font-size:24px}.fbtiles .tile b small{font-size:15px;color:var(--muted)}
+.fbtiles .tile b{font-size:22px;overflow-wrap:anywhere}.fbtiles .tile b small{font-size:15px;color:var(--muted)}
 .fbgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 28px}
 .fbgrid .wide{grid-column:1/-1}
 .fbgrid .trow2{grid-template-columns:minmax(150px,260px) minmax(0,1fr) 40px}
