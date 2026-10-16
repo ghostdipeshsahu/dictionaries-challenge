@@ -13,8 +13,6 @@ services:
         value: 3.11.9
       - key: TEACHER_PASSWORD
         sync: false
-      - key: SECTIONS
-        value: S-001,S-002,S-003,S-004
       - key: DB_PATH
         value: /var/data/dicts.db
       - key: MISSION_MINUTES

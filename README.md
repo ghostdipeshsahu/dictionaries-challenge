@@ -41,7 +41,6 @@ which is only for trying it on a laptop; always set your own).
 | Variable | Default | Meaning |
 |---|---|---|
 | `TEACHER_PASSWORD` | `change-me` | Teacher dashboard password (always set it) |
-| `SECTIONS` | `S-001,S-002,S-003,S-004` | Sections in the sign-in dropdown (same as Sets) |
 | `CLASS_CODE` | empty | If set, students must also type this code |
 | `MISSION_MINUTES` | `45` | Mission clock |
 | `MAX_TAB_SWITCHES` | `3` | The mission ends at this many tab switches (`0` = record only) |
@@ -62,6 +61,7 @@ python -m pytest -q tests                 # backend rules: login, timers, XP, co
 python tests/e2e_walkthrough.py http://localhost:8000 shots
 MISSION_MINUTES=1 DB_PATH=data/timers.db uvicorn app.main:app --port 8011   # separate server for the clock test
 python tests/e2e_timers.py http://localhost:8011 shots-timers
+python tests/e2e_feedback.py http://localhost:8011 shots-feedback               # same 1-minute server: the feedback
 IDLE_SECONDS=20 DB_PATH=data/scratch.db uvicorn app.main:app --port 8012           # separate server for resume + idle
 python tests/e2e_resume.py http://localhost:8012 shots-resume
 ```
@@ -77,6 +77,17 @@ The browser tests delete the students they create when they finish.
 - **Needs attention** panel at the top of the dashboard: students who are **idle** (page open, mission running, no
   step for `IDLE_SECONDS`), **offline** (mission running, page stopped responding) or whose mission **ended** (with
   the Resume button). The "Now on" column shows the same tags.
+- **Sign-in**: students type their name, roll number, section, university and contact number (all required). There
+  is no fixed section list: "s-001", "S 001" and "S001" join the same section, and the dashboard's section filter
+  lists the sections students actually typed. University shows under each name on the dashboard; university and
+  contact are in both CSV exports.
+- **Student feedback**: when a mission ends (time, tab switches, Final Boss or bonus round cleared, or Finish), a
+  five-step feedback opens by itself and must be sent before the report. It asks only about the practice: enjoyment
+  faces, a tomato for the toughest stage and a star for the favourite, difficulty, whether the clock was enough,
+  confidence, what helped, technical problems and one thing to improve. Who sent it (name, roll, section, university,
+  contact) and how far they got come from the sign-in and the app. The dashboard's **Student feedback** panel shows
+  averages, counts, comments and every response; **Download feedback CSV** exports them. Asked once per attempt
+  (a teacher Resume keeps it; Reset mission clears it).
 
 ## Deploy on Vercel
 
@@ -86,7 +97,7 @@ For Session 30, import the same repo as a **second** Vercel project, add `MISSIO
 1. Import the GitHub repo in Vercel (FastAPI is detected from `app/main.py`; `vercel.json` sets the Mumbai region).
 2. **Storage → Create Database → Neon (Postgres)** and connect it to the project. This sets `DATABASE_URL`.
    Without it, the dashboard shows a red warning: Vercel's disk is temporary and progress would be lost.
-3. Set `TEACHER_PASSWORD` (and `SECTIONS` if needed) under Settings → Environment Variables, then redeploy.
+3. Set `TEACHER_PASSWORD` under Settings → Environment Variables, then redeploy.
 
 On Vercel the teacher dashboard refreshes every 5 seconds (each request may reach a different short-lived server,
 so the push stream is turned off). Python for the coding challenges loads from the jsDelivr CDN.
