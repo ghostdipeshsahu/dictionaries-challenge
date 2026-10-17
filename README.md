@@ -94,7 +94,11 @@ The browser tests delete the students they create when they finish.
 For Session 30, import the same repo as a **second** Vercel project, add `MISSION=s30`, and give it its own Neon database.
 
 
-1. Import the GitHub repo in Vercel (FastAPI is detected from `app/main.py`; `vercel.json` sets the Mumbai region).
+1. Import the GitHub repo in Vercel (FastAPI is detected from `app/main.py`). `vercel.json` runs the app in
+   Washington (`iad1`), next to Neon's default region `us-east-1`: every request makes several database round trips,
+   so the app must sit next to the database (Mumbai + Virginia took about 1.4 s per click; check with
+   `/api/health?db=1`, which reports `db_region` and `round_trip_ms`). If the database is elsewhere, pick the
+   Vercel region nearest to it.
 2. **Storage → Create Database → Neon (Postgres)** and connect it to the project. This sets `DATABASE_URL`.
    Without it, the dashboard shows a red warning: Vercel's disk is temporary and progress would be lost.
 3. Set `TEACHER_PASSWORD` under Settings → Environment Variables, then redeploy.
