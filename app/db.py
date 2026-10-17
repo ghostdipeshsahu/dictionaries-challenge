@@ -99,6 +99,28 @@ def _create_pg_schema():
                 raise
 
 
+def diag():
+    """Timing check for /api/health?db=1: was this thread's connection reused, how long a connect and a round trip
+    take, and the database region (from the host name). No credentials or data."""
+    import os as _os
+    import re as _re
+    if not PG:
+        return {"db": "sqlite"}
+    reused = getattr(_local, "conn", None) is not None and not _local.conn.closed
+    t0 = time.perf_counter()
+    c = _pg()
+    t1 = time.perf_counter()
+    trips = []
+    for _ in range(3):
+        t = time.perf_counter()
+        c.execute("SELECT 1").fetchone()
+        trips.append(round((time.perf_counter() - t) * 1000))
+    m = _re.search(r"@[^/?]*?\.([a-z]{2}-[a-z]+-\d)\.", _pg_url or "")
+    return {"db": "postgres", "conn_reused": reused, "connect_ms": round((t1 - t0) * 1000), "round_trip_ms": trips,
+            "db_region": m.group(1) if m else "unknown", "pooled": "-pooler" in (_pg_url or ""),
+            "pid": _os.getpid(), "thread": __import__("threading").current_thread().name}
+
+
 def _run(sql, args=(), fetch=None):
     """Run one statement. fetch: None, 'one' or 'all'. Postgres retries once on a dropped connection."""
     if not PG:

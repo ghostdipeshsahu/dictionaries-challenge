@@ -165,9 +165,12 @@ def clean(text, n):
 
 # ---------- shared ----------
 @app.get("/api/health")
-def health():
-    return {"ok": True, "app": "dictionaries", "class_code_required": bool(CLASS_CODE), "build": BUILD,
+def health(db_check: int = Query(0, alias="db")):
+    body = {"ok": True, "app": "dictionaries", "class_code_required": bool(CLASS_CODE), "build": BUILD,
             "storage": STORAGE, "mission": C.MISSION, "title": C.UI["title"], "short": C.UI["short"]}
+    if db_check:
+        body["db"] = db.diag()   # timings only, to find where request time goes
+    return body
 
 
 @app.post("/api/login")
