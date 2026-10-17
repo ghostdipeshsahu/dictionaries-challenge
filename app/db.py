@@ -119,18 +119,24 @@ def _run(sql, args=(), fetch=None):
 
 @contextmanager
 def tx():
-    """A transaction (Postgres) / the process lock (SQLite). Nest freely."""
-    with LOCK:
-        if not PG or getattr(_local, "in_tx", False):
+    """A transaction (Postgres) / the process lock (SQLite). Nest freely.
+
+    Postgres needs no process lock: each thread has its own connection, and by_id(lock=True) locks the student's
+    row, so requests for different students run side by side (a process-wide lock queued a whole class)."""
+    if not PG:
+        with LOCK:
             yield
-            return
-        c = _pg()
-        _local.in_tx = True
-        try:
-            with c.transaction():
-                yield
-        finally:
-            _local.in_tx = False
+        return
+    if getattr(_local, "in_tx", False):
+        yield
+        return
+    c = _pg()
+    _local.in_tx = True
+    try:
+        with c.transaction():
+            yield
+    finally:
+        _local.in_tx = False
 
 
 def bump():
