@@ -209,12 +209,8 @@ for q in Q.values():
     starter_pass = all((lambda r: r[1] is None and same_output(r[0], t["expected"]))(run(ch["starter"], t["stdin"])) for t in ch["tests"])
     ok(not starter_pass or check_rules(q, ch["starter"]), f"{q['id']} starter already passes")
 # the starters fail the way their statements say
-ok(run(Q["L5-2"]["challenge"]["starter"], "4\nTeja 1500\nKiran 0\nRavi 800\nSai 0")[1] == "RuntimeError", "L5-2 starter RuntimeError")
-ok(run(Q["L5-2"]["challenge"]["starter"], "3\nTeja 1500\nRavi 800\nKiran 0")[1] == "RuntimeError", "L5-2 starter also fails when the 0 is last")
 r = run(Q["L5-4"]["challenge"]["starter"], "1\nTeja 1500")
 ok(r[1] == "TypeError" and "takes 0 positional arguments but 1 was given" in r[2], f"L5-4 starter {r[1]}: {r[2]}")
-r = run(Q["B-4"]["challenge"]["starter"], "1\nTeja C")
-ok(r[1] == "TypeError" and "unexpected keyword argument 'student'" in r[2], f"B-4 starter {r[1]}: {r[2]}")
 ok(shown(Q["L5-1"]["challenge"]["starter"], "Kiran 500").split("\n")[0].endswith("'Kiran': 500}"), "L5-1 starter shows the = trap")
 
 # ---------- deck numbers ----------
@@ -234,8 +230,14 @@ for q in Q.values():
 ok({q["level"] for q in Q.values()} == LEVELS_OK, "every cognitive level used")
 ok({q["concept"] for q in Q.values()} == set(C.CONCEPTS), f"unused concepts {set(C.CONCEPTS) - {q['concept'] for q in Q.values()}}")
 ok({q["type"] for q in Q.values()} == set(C.TYPE_LABEL), f"unused types {set(C.TYPE_LABEL) - {q['type'] for q in Q.values()}}")
-ok(sum(q["type"] == "coding" for q in Q.values()) == 5, "five coding challenges")
-ok(sum(q["time"] for q in Q.values()) <= 40 * 60, f"worst case {sum(q['time'] for q in Q.values())/60:.1f} min must leave room inside 45")
+ok(sum(q["type"] == "coding" for q in Q.values()) == 3, "three coding challenges")
+# Timers are sized per question (base + per line of code, with a floor); the 45-minute clock is the hard stop.
+ok(C.MISSION_MINUTES == 45, "45-minute mission")
+for q in Q.values():
+    ok(q["time"] == C.timer(q) and q["time"] >= C.FLOOR.get(q["type"], 0), f"{q['id']} timer {q['time']} s")
+ok(all(q["time"] == 360 for q in Q.values() if q["type"] == "coding"), "coding gets 6 minutes")
+worst = sum(q["time"] for q in Q.values())
+ok(45 * 60 <= worst <= 52 * 60, f"every timer used in full is {worst / 60:.1f} min: the clock, not the timers, ends a slow mission")
 
 print(f"\n{N[0]} checks, {len(FAILS)} failed")
 sys.exit(1 if FAILS else 0)

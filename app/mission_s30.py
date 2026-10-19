@@ -41,10 +41,21 @@ TYPE_LABEL = {
     "land": "Where does it land?",
 }
 
+MISSION_MINUTES = 45  # the clock ends the mission here and the feedback opens (MISSION_MINUTES in the environment overrides it)
+
 XP = {"mcq": 10, "tf": 10, "predict": 15, "msq": 15, "ar": 15, "fill": 15, "numeric": 15,
       "match": 20, "order": 20, "categorize": 20, "debug": 20, "land": 25, "coding": 40}
-TIME = {"mcq": 30, "tf": 25, "predict": 45, "msq": 50, "ar": 45, "fill": 50, "numeric": 45,
-        "match": 60, "order": 60, "categorize": 60, "debug": 60, "land": 75, "coding": 180}
+# Seconds per question. The Session 29 class ran out of time on 17 of 30 questions (coding solved by 4% in 3 minutes),
+# so questions with code get time for every line to trace: base + per line, never less than the floor.
+TIME = {"mcq": 40, "tf": 25, "predict": 30, "msq": 70, "ar": 60, "fill": 40, "numeric": 30,
+        "match": 60, "order": 75, "categorize": 75, "debug": 45, "land": 60, "coding": 360}
+PER_LINE = {"predict": 10, "numeric": 10, "fill": 10, "debug": 10, "match": 8, "land": 10}
+FLOOR = {"predict": 45, "numeric": 45, "fill": 50, "debug": 60, "land": 90}
+
+
+def timer(q):
+    lines = sum(1 for line in (q.get("code") or "").splitlines() if line.strip())
+    return max(FLOOR.get(q["type"], 0), TIME[q["type"]] + PER_LINE.get(q["type"], 0) * lines)
 
 AR_OPTIONS = [
     "Both A and R are true, and R explains A",
@@ -167,7 +178,7 @@ LEVELS = [
         "walk": [{"line": 1, "say": "**paid will collect every name=value argument into a dictionary."},
                  {"line": 4, "say": "Each name becomes a key, each value its value.", "shows": "{'Teja': 1500, 'Ravi': 800}"},
                  {"line": 9, "say": "** opens the dictionary: each key goes to the parameter with its name, whatever the order.", "shows": "Teja C"}],
-        "main": ["L4-1", "L4-2", "L4-3", "L4-4", "L4-6", "L4-7"],
+        "main": ["L4-1", "L4-2", "L4-4", "L4-6", "L4-7"],
     },
     {
         "id": "L5", "name": "Fix Divya's App", "difficulty": "Hard",
@@ -184,7 +195,7 @@ LEVELS = [
                  {"line": 3, "say": "Walk the copy: it never changes."},
                  {"line": 5, "say": "Delete from the real sheet. Kiran and Sai go."},
                  {"line": 6, "say": "Only the payers are left.", "shows": "{'Teja': 1500, 'Ravi': 800}"}],
-        "main": ["L5-1", "L5-2", "L5-4"],
+        "main": ["L5-1", "L5-4"],
     },
     {
         "id": "BOSS", "name": "Settle the Trip", "difficulty": "Boss",
@@ -203,7 +214,7 @@ LEVELS = [
                  {"line": 10, "say": "\"Kiran\" and \"Sai\" go into names; **trip opens trip into name=value arguments for paid."},
                  {"line": 8, "say": "Kiran is a key in paid: 500. Sai is not: get() gives None.", "shows": "Kiran 500\nSai None"},
                  {"line": 11, "say": "The backup still has 3 rows and Kiran's 0.", "shows": "3 0"}],
-        "main": ["B-1", "B-3", "B-4", "B-5", "B-6", "B-7"],
+        "main": ["B-1", "B-3", "B-5", "B-6", "B-7"],
     },
 ]
 
@@ -213,7 +224,7 @@ Q = []
 
 def add(**q):
     q.setdefault("xp", XP[q["type"]])
-    q.setdefault("time", TIME[q["type"]])
+    q.setdefault("time", timer(q))
     Q.append(q)
 
 
@@ -410,16 +421,6 @@ add(id="L4-2", stage="L4", type="predict", level="Read", concept="kwargs_use",
     explain="<code>paid</code> is a real dictionary: <code>items()</code> loops over name and amount, and <code>\"Ravi\" in paid</code> checks the keys: True.",
     trap="Thinking paid is a tuple of values, so <code>items()</code> fails.")
 
-add(id="L4-3", stage="L4", type="land", level="Read", concept="landing",
-    title="Where does each argument of this call land?",
-    code="def student_info(*args, **kwargs):\n    print(kwargs)\n\nstudent_info('Math', 'Science', 'Rahul', age='15')",
-    boxes=["*args", "**kwargs"],
-    args=["'Math'", "'Science'", "'Rahul'", "age='15'"],
-    mapping=[0, 0, 0, 1],
-    prints="{'age': '15'}",
-    hints=["Values with no name go to *args. name=value goes to **kwargs."],
-    explain="The three plain values join the tuple <code>args</code>. <code>age='15'</code> has a name, so it goes into the dictionary <code>kwargs</code>: it prints <code>{'age': '15'}</code>.")
-
 add(id="L4-4", stage="L4", type="predict", level="Read", concept="dstar_call",
     title="The room card is a dictionary, written block first. What does this print?",
     code='def room(name, block):\n    print(name, block)\n\ndata = {"block": "C", "name": "Teja"}\nroom(**data)',
@@ -474,26 +475,6 @@ add(id="L5-1", stage="L5", type="coding", level="Debug", concept="copy",
     explain="<code>backup = trip</code> only gave the sheet a second name. <code>backup = trip.copy()</code> makes a second dictionary, so the change on line 4 leaves it as it was.",
     trap="Copying after the change keeps nothing old.")
 
-add(id="L5-2", stage="L5", type="coding", level="Debug", concept="loop_delete",
-    challenge={
-        "title": "Remove the Unpaid",
-        "statement": "Read the sheet, remove everyone who paid 0, and print what is left. The starter stops with <code>RuntimeError</code>. Fix it so it works for any sheet.",
-        "input_fmt": "First line: N. Then N lines, each a name and a whole-number amount.",
-        "output_fmt": "The sheet after removing every 0, printed with print(trip).",
-        "starter": 'n = int(input())\ntrip = {}\nfor i in range(n):\n    name, amount = input().split()\n    trip[name] = int(amount)\nfor name in trip.keys():\n    if trip[name] == 0:\n        del trip[name]\nprint(trip)\n',
-        "tests": [
-            {"stdin": "4\nTeja 1500\nKiran 0\nRavi 800\nSai 0", "expected": "{'Teja': 1500, 'Ravi': 800}"},
-            {"stdin": "3\nTeja 0\nRavi 0\nKiran 0", "expected": "{}"},
-            {"stdin": "2\nTeja 1500\nRavi 800", "expected": "{'Teja': 1500, 'Ravi': 800}", "hidden": True, "note": "nobody to remove"},
-            {"stdin": "3\nTeja 1500\nRavi 800\nKiran 0", "expected": "{'Teja': 1500, 'Ravi': 800}", "hidden": True, "note": "the unpaid one is last"},
-            {"stdin": "0", "expected": "{}", "hidden": True, "note": "an empty sheet"},
-        ],
-    },
-    solution='n = int(input())\ntrip = {}\nfor i in range(n):\n    name, amount = input().split()\n    trip[name] = int(amount)\nbackup = trip.copy()\nfor name in backup.keys():\n    if trip[name] == 0:\n        del trip[name]\nprint(trip)\n',
-    hints=["Python stops because the loop walks the same dictionary it deletes from.", "Loop over a copy; delete from the real sheet."],
-    explain="Make <code>backup = trip.copy()</code> and loop over <code>backup.keys()</code>. The copy never changes while you delete from <code>trip</code>.",
-    trap="Deleting inside a loop over the same dictionary.")
-
 add(id="L5-4", stage="L5", type="coding", level="Extend", concept="dstar_call",
     challenge={
         "title": "The Trip Total",
@@ -537,26 +518,6 @@ add(id="B-3", stage="BOSS", type="land", level="Read", concept="landing",
     hints=["A plain value and a name=value can both mention Teja. Where does each kind go?"],
     explain="The plain <code>\"Teja\"</code> joins the tuple names; both name=value arguments go into the dictionary paid. Teja is a key in paid, so it prints <code>Teja 1500</code>.",
     trap="Thinking the plain \"Teja\" and Teja=1500 clash.")
-
-add(id="B-4", stage="BOSS", type="coding", level="Debug", concept="dstar_call",
-    challenge={
-        "title": "Room Cards",
-        "statement": "Each line is a student and their hostel block. The program builds a room card dictionary for each and calls room(**card), but it stops with <code>TypeError</code>. Fix it so every room card prints.",
-        "input_fmt": "First line: N. Then N lines, each a name and a block.",
-        "output_fmt": "One line per student: the name and the block.",
-        "starter": 'def room(name, block):\n    print(name, block)\n\nn = int(input())\nfor i in range(n):\n    student, block = input().split()\n    card = {"student": student, "block": block}\n    room(**card)\n',
-        "tests": [
-            {"stdin": "1\nTeja C", "expected": "Teja C"},
-            {"stdin": "2\nRavi A\nKiran B", "expected": "Ravi A\nKiran B"},
-            {"stdin": "3\nSai C\nDivya A\nAnu B", "expected": "Sai C\nDivya A\nAnu B", "hidden": True, "note": "three cards"},
-            {"stdin": "0", "expected": "", "hidden": True, "note": "no students"},
-        ],
-    },
-    rules=[{"require": r"room\s*\(\s*\*\*\s*\w+\s*\)", "msg": "Keep calling room with the card opened by **."}],
-    solution='def room(name, block):\n    print(name, block)\n\nn = int(input())\nfor i in range(n):\n    student, block = input().split()\n    card = {"name": student, "block": block}\n    room(**card)\n',
-    hints=["** turns each key into name=value. What names does room() expect?"],
-    explain="The key <code>\"student\"</code> becomes <code>student=...</code>, and room() has no parameter by that name. Use the key <code>\"name\"</code>.",
-    trap="Changing the call to room(student, block) works, but the task is to make the card match.")
 
 add(id="B-5", stage="BOSS", type="coding", level="Optimize", concept="args_tuple",
     challenge={
@@ -651,7 +612,7 @@ UI = {
 }
 
 assert len(QUESTIONS) == len(Q), "duplicate question id"
-assert TOTAL == len(Q) == 31, TOTAL
+assert TOTAL == len(Q) == 28, TOTAL
 for lvl in LEVELS:
     for qid in lvl["main"]:
         assert QUESTIONS[qid]["stage"] == lvl["id"], qid
