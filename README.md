@@ -9,6 +9,9 @@ and the live dashboard are different. See `PARITY.md` for the item-by-item check
 - Teacher dashboard: `/teacher`
 - API docs: `/docs`
 
+**Deploying for a class: see [`DEPLOY.md`](DEPLOY.md)** (one Vercel project and one database per session, branches
+`session-29` and `session-30`, checks, load test).
+
 ## Two missions, one codebase
 
 | `MISSION` | Session | Story | Visual question | Lab |
