@@ -388,7 +388,7 @@ def main():
         expect(tpage.locator("#rows")).to_contain_text("Completed", timeout=10000)
         row = tpage.locator("#rows tr", has_text="Walk Through")
         expect(row).to_contain_text(f"{C.TOTAL}/{C.TOTAL}")
-        expect(row.locator("td").nth(11)).to_have_text("1")  # one tab switch recorded ("Now on" is column 5)
+        expect(row.locator("td").nth(12)).to_have_text("1")  # one tab switch recorded ("Now on" is column 5, "Correct" 7)
         shot(tpage, "teacher-final")
         with tpage.expect_download() as dl:
             tpage.locator("#export").click()

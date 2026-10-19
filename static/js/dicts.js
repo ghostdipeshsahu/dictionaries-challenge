@@ -640,10 +640,10 @@ function padCategorize(q){
 }
 function padDebug(q){
   const pad=$('#pad');Q.line=null;Q.err=null;
-  pad.innerHTML=`<p class="qhelp">Tap the line that must be fixed, then choose what goes wrong.</p>
+  pad.innerHTML=`<p class="qhelp">Tap the line in the code that the question asks for, then choose what goes wrong. Tap another line to change your pick.</p>
     <div class="target" id="lpick"><small>Faulty line</small>Tap a line in the code</div>
     <div><span class="multi-note muted">What happens?</span><div class="seg2 wide errseg" role="radiogroup" aria-label="Error type">${q.errors.map((e,k)=>`<button type="button" role="radio" aria-checked="false" aria-pressed="false" data-k="${k}">${esc(e)}</button>`).join('')}</div></div>`;
-  const upd=()=>{$('#lpick').innerHTML=`<small>Faulty line</small>${Q.line?'Line '+Q.line:'Tap a line in the code'}`;canCheck(Q.line&&Q.err!==null)};
+  const upd=()=>{$('#lpick').innerHTML=`<small>Faulty line</small>${Q.line?'Line '+Q.line+' <span class="muted small">· tap another line to change</span>':'Tap a line in the code'}`;canCheck(Q.line&&Q.err!==null)};
   $$('.ln.tappable',Q.panel).forEach(l=>{const pickLine=()=>{if(Q.done)return;Q.reset();Q.line=+l.dataset.n;$$('.ln.tappable',Q.panel).forEach(x=>{x.classList.toggle('picked',x===l);x.setAttribute('aria-pressed',x===l)});sfx.tap();upd()};
     l.onclick=pickLine;l.onkeydown=e=>{if(e.key===' '||e.key==='Enter'){e.preventDefault();e.stopPropagation();pickLine()}}});
   $$('.errseg button',pad).forEach(b=>b.onclick=()=>{if(Q.done)return;Q.reset();Q.err=+b.dataset.k;$$('.errseg button',pad).forEach(x=>{x.setAttribute('aria-pressed',x===b);x.setAttribute('aria-checked',x===b)});sfx.tap();upd()});

@@ -69,7 +69,7 @@ changed (content text, labels, Board, Dict Lab, field guide, exact output check)
 - [x] Password login, section filter, Refresh, Export CSV, Sign out, Student view link — E2E (login, CSV), API (section filter)
 - [x] Tiles: Students, Started, Online now, Completed, Average time used, Average cleared, Answer accuracy, Integrity flags (red) — E2E screenshot
 - [x] "How far the class got", "Hardest ideas first", "Question types, hardest first" — E2E screenshot
-- [x] Search, sortable columns #, Name + online dot, Roll no, Section, Status, Cleared, First try, Timed out, Solutions viewed, Time used, Tab switches, Copy/paste, Weakest idea, Last seen, Actions — E2E (values), sorting — SAME
+- [x] Search, sortable columns #, Name + online dot, Roll no, Section, Status, Got through (was Cleared), Correct (added after the Session 29 class), First try, Timed out, Solutions viewed, Time used, Tab switches, Copy/paste, Weakest idea, Last seen, Actions — E2E (values), sorting — SAME
 - [x] Release login / Reset mission / Remove, each with a second tap — API; double-tap UI — SAME (kept armed across live refreshes for 8 s)
 - [~] Live: server push on every change (SSE), automatic 5 s polling if the push drops; green "Live" dot — E2E (student appears, progresses and completes without a reload)
 - [~] Extra column "Now on": stage + question the student is on — E2E, API; also in the CSV

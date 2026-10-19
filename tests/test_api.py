@@ -455,7 +455,7 @@ def test_landing_no_box_and_reveal_gives_the_printed_line(client):
     start(client, h)
     for lid in ("L0", "L1", "L2", "L3"):
         clear_stage(client, h, lid)
-    for qid in ("L4-1", "L4-2", "L4-3", "L4-4"):
+    for qid in ("L4-1", "L4-2", "L4-4"):
         solve(client, h, qid)
     nobox = len(C.QUESTIONS["L4-6"]["boxes"])
     ans(client, h, "L4-6", [0, 0])
@@ -887,3 +887,30 @@ def test_feedback_survives_a_resume_and_reset_clears_it(client, clock):
     assert st["ended_at"] is None and st["feedback_done"] is True   # not asked a second time
     assert client.post(f"/api/teacher/dicts/{sid}/reset", headers=t).status_code == 200
     assert client.get("/api/dicts/mission", headers=h).json()["state"]["feedback_done"] is False
+
+
+def test_section_spellings_are_one_section(client):
+    """The Session 29 class typed both "S-01" and "S-001": that is one section on the dashboard and the leaderboard."""
+    body = {"university": "NIAT", "contact": "9876543210"}
+    for i, sec in enumerate(["S-01", "S-01", "S-001", "s 1"]):
+        assert client.post("/api/login", json=dict(body, name=f"Stu {i}", roll_no=f"SEC{i}", section=sec)).status_code == 200
+    t = teacher(client)
+    d = client.get("/api/teacher/dicts", headers=t).json()
+    assert d["sections"] == ["S-01"]                                  # the spelling most students typed
+    assert {s["section"] for s in d["students"]} == {"S-01"}
+    assert len(client.get("/api/teacher/dicts?section=S-001", headers=t).json()["students"]) == 4
+
+
+def test_correct_leaves_out_timed_out_questions(client, clock):
+    h = login(client)
+    start(client, h)
+    solve(client, h, "L0-1")
+    client.post("/api/dicts/open", json={"qid": "L0-2"}, headers=h)
+    clock.t += C.QUESTIONS["L0-2"]["time"] + 1
+    client.post("/api/dicts/expire", json={"qid": "L0-2"}, headers=h)
+    t = teacher(client)
+    row = client.get("/api/teacher/dicts", headers=t).json()["students"][0]
+    assert row["done"] == 2 and row["correct"] == 1 and row["timed_out"] == 1
+    lines = client.get("/api/teacher/dicts/export.csv", headers=t).text.lstrip("\ufeff").splitlines()
+    head, first = lines[0].split(","), lines[1].split(",")
+    assert first[head.index("got_through")] == "2" and first[head.index("correct")] == "1"

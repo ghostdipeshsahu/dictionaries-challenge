@@ -8,6 +8,7 @@ on Postgres that is SELECT ... FOR UPDATE, so two servers can never interleave c
 """
 import json
 import os
+import re
 import sqlite3
 import threading
 import time
@@ -195,29 +196,37 @@ def by_id(sid, lock=False):
 
 
 def all_students(section=None):
+    """Every student, or one section's (matched by section_key, so every spelling of the section is included)."""
+    studs = [row_to_student(r) for r in _run("SELECT * FROM students ORDER BY id", (), "all")]
     if section:
-        rows = _run("SELECT * FROM students WHERE section=? ORDER BY id", (section,), "all")
-    else:
-        rows = _run("SELECT * FROM students ORDER BY id", (), "all")
-    return [row_to_student(r) for r in rows]
+        key = section_key(section)
+        studs = [s for s in studs if section_key(s["section"]) == key]
+    return studs
 
 
 def section_key(section):
-    """Sections are typed by the students: "s-001", "S 001" and "S001" are the same section."""
-    return "".join(ch for ch in str(section).upper() if ch.isalnum())
+    """Sections are typed by the students: "s-001", "S 001", "S001" and "S-01" are the same section."""
+    key = "".join(ch for ch in str(section).upper() if ch.isalnum())
+    return re.sub(r"\d+", lambda m: str(int(m.group())), key)
+
+
+def section_names():
+    """section_key -> the spelling most students in that section typed."""
+    best = {}
+    for r in _run("SELECT section, COUNT(*) AS n FROM students GROUP BY section", (), "all"):
+        k = section_key(r["section"])
+        if k not in best or r["n"] > best[k][1]:
+            best[k] = (r["section"], r["n"])
+    return {k: v[0] for k, v in best.items()}
 
 
 def known_section(section):
     """The spelling already in use for this section (so one section is not split by how it was typed), else None."""
-    key = section_key(section)
-    for r in _run("SELECT DISTINCT section FROM students", (), "all"):
-        if section_key(r["section"]) == key:
-            return r["section"]
-    return None
+    return section_names().get(section_key(section))
 
 
 def sections():
-    return sorted({r["section"] for r in _run("SELECT DISTINCT section FROM students", (), "all")}, key=str.casefold)
+    return sorted(section_names().values(), key=str.casefold)
 
 
 def insert_student(name, roll, section, token, state, university="", contact=""):

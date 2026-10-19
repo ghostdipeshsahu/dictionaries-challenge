@@ -67,7 +67,7 @@ function tiles(){
   const o=data.overview,started=data.students.filter(s=>s.status!=='not started');
   const avgMin=started.length?Math.round(started.reduce((a,s)=>a+s.used_minutes,0)/started.length):0;
   $('#tiles').innerHTML=[[o.students,'Students'],[o.started,'Started'],[o.online,'Online now'],[o.completed,'Completed'],[avgMin+' min','Average time used'],
-    [o.avg_done+' / '+data.total_questions,'Average cleared'],[pct(o.accuracy),'Answer accuracy'],[o.flagged,'Integrity flags']].map(([b,s],i)=>`<div class="tile${i===7&&o.flagged?' warn':''}"><b>${b}</b><span>${s}</span></div>`).join('');
+    [o.avg_correct+' / '+data.total_questions,'Average correct'],[o.avg_timed_out,'Average timed out'],[o.flagged,'Integrity flags']].map(([b,s],i)=>`<div class="tile${i===7&&o.flagged?' warn':''}"><b>${b}</b><span>${s}</span></div>`).join('');
 }
 function panels(){
   const d=data,max=Math.max(1,d.overview.students),col=a=>a<.5?'var(--bad)':a<.75?'var(--gold)':'var(--good)';
@@ -119,9 +119,9 @@ function render(){
     <div class="panel"><h2>Question types, hardest first</h2><div class="typegrid" id="pTypes"></div></div>
     <div class="panel fb" id="fbPanel"><div class="fbhead"><h2>Student feedback <span class="acount" id="fbCount"></span></h2><button class="nbtn" id="fbExport" type="button">Download feedback CSV</button></div><div id="pFb"></div></div>
     <div class="panel"><h2>Students</h2>
-      <div class="tools"><input id="find" type="search" placeholder="Search by name, roll number or university" value="${esc(filter)}"><span class="hint2"><b>Resume</b>: continue an ended mission from exactly where it stopped. Release login: lets a student sign in on another device. Reset mission: erases everything and starts again from zero.</span></div>
+      <div class="tools"><input id="find" type="search" placeholder="Search by name, roll number or university" value="${esc(filter)}"><span class="hint2"><b>Got through</b> also counts questions the timer ran out on or whose solution was viewed; <b>Correct</b> counts only answers the student got right. <b>Resume</b>: continue an ended mission from exactly where it stopped. Release login: lets a student sign in on another device. Reset mission: erases everything and starts again from zero.</span></div>
       <div class="tablewrap"><table><thead><tr>
-        ${[['rank','#'],['name','Name'],['roll_no','Roll no'],['section','Section'],['status','Status'],['current','Now on'],['done','Cleared'],['first_try','First try'],['timed_out','Timed out'],['revealed','Solutions viewed'],['used_minutes','Time used'],['tab_switches','Tab switches'],['copy_paste','Copy/paste'],['weak','Weakest idea'],['last_seen','Last seen']]
+        ${[['rank','#'],['name','Name'],['roll_no','Roll no'],['section','Section'],['status','Status'],['current','Now on'],['done','Got through'],['correct','Correct'],['first_try','First try'],['timed_out','Timed out'],['revealed','Solutions viewed'],['used_minutes','Time used'],['tab_switches','Tab switches'],['copy_paste','Copy/paste'],['weak','Weakest idea'],['last_seen','Last seen']]
           .map(([k,l])=>`<th data-k="${k}"${sortKey===k?` aria-sort="${sortDir>0?'ascending':'descending'}"`:''}>${l}</th>`).join('')}<th>Actions</th>
       </tr></thead><tbody id="rows"></tbody></table></div>
     </div></section>`;
@@ -139,7 +139,7 @@ function rows(){
     .sort((a,b)=>{const x=val(a,sortKey),y=val(b,sortKey);return (typeof x==='string'?x.localeCompare(y):x-y)*sortDir});
   $('#rows').innerHTML=list.map(s=>{const w=weakest(s);
     return `<tr><td>${s.rank}</td><td><b>${esc(s.name)}</b>${s.online?' <span class="dot" title="Signed in right now"></span>':''}${s.university?`<small class="uni">${esc(s.university)}</small>`:''}</td><td>${esc(s.roll_no)}</td><td>${esc(s.section)}</td>
-    <td class="m ${STATUS_CLS[s.status]||''}">${esc(s.status_label)}${s.feedback_sent?'<small class="fbsent">feedback sent</small>':''}</td><td class="curcell">${s.current?`<b>${esc(s.current.stage)}${actTag(s)}</b><small title="${esc(s.current.title)}">Q${s.current.n}/${s.current.of} · ${esc(s.current.title)}${s.current.cleared?' (done)':''}</small>`:actTag(s)||'–'}</td><td>${s.done}/${s.total}</td><td>${s.first_try}</td><td>${s.timed_out}</td><td>${s.revealed}</td><td>${s.used_minutes} min</td>
+    <td class="m ${STATUS_CLS[s.status]||''}">${esc(s.status_label)}${s.feedback_sent?'<small class="fbsent">feedback sent</small>':''}</td><td class="curcell">${s.current?`<b>${esc(s.current.stage)}${actTag(s)}</b><small title="${esc(s.current.title)}">Q${s.current.n}/${s.current.of} · ${esc(s.current.title)}${s.current.cleared?' (done)':''}</small>`:actTag(s)||'–'}</td><td>${s.done}/${s.total}</td><td><b>${s.correct}</b>/${s.total}</td><td>${s.first_try}</td><td>${s.timed_out}</td><td>${s.revealed}</td><td>${s.used_minutes} min</td>
     <td class="${s.tab_switches?(max&&s.tab_switches>=max?'m lo':'m mid'):''}">${s.tab_switches}</td><td class="${s.copy_paste?'m mid':''}">${s.copy_paste}</td>
     <td>${w?esc(w[0])+' · '+Math.round(w[1]*100)+'%':'–'}</td><td>${esc((s.last_seen||'').replace('T',' ').slice(0,16))}</td>
     <td class="acts">${s.can_resume?`<button class="del go" data-a="resume" data-id="${s.id}" type="button">Resume</button>`:''}<button class="del" data-a="release" data-id="${s.id}" type="button"${s.online?'':' disabled'}>Release login</button><button class="del" data-a="reset" data-id="${s.id}" type="button">Reset mission</button><button class="del" data-a="remove" data-id="${s.id}" type="button">Remove</button></td></tr>`}).join('')

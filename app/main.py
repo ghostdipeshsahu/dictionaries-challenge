@@ -361,7 +361,8 @@ def dashboard(section=None):
     now = time.time()
     with db.tx():
         studs = db.all_students(section or None)
-        all_sections = db.sections()
+        names = db.section_names()
+    all_sections = sorted(names.values(), key=str.casefold)
     rows = []
     stage_cleared = {l["id"]: 0 for l in C.LEVELS}
     concept_tot, type_tot = {}, {}
@@ -392,9 +393,12 @@ def dashboard(section=None):
             idle_for = int(now - (st.get("last_action") or st["started_at"]))
             activity = "offline" if not online else "idle" if idle_for >= IDLE_SECONDS else "active"
         rows.append({
-            "id": x["id"], "name": x["name"], "roll_no": x["roll_no"], "section": x["section"],
+            "id": x["id"], "name": x["name"], "roll_no": x["roll_no"],
+            "section": names.get(db.section_key(x["section"]), x["section"]),
             "university": x.get("university") or "", "contact": x.get("contact") or "", "status": status, "status_label": E.STATUS_LABEL[status], "xp": ps["xp"],
             "done": ps["progress"]["done"], "total": C.TOTAL,
+            # "done" counts a question the timer ran out on, or whose solution was viewed; "correct" does not
+            "correct": sum(1 for qid in CORE if st["q"].get(qid, {}).get("solved")),
             "first_try": sum(1 for q in qv if q["solved"] and not q["wrong"]),
             "timed_out": sum(1 for q in qv if q["timed_out"]),
             "revealed": sum(1 for q in qv if q["revealed"]),
@@ -416,6 +420,8 @@ def dashboard(section=None):
         "students": len(rows), "started": len(started), "online": sum(r["online"] for r in rows),
         "completed": sum(r["status"] == "complete" for r in rows),
         "avg_done": round(sum(r["done"] for r in started) / len(started), 1) if started else 0,
+        "avg_correct": round(sum(r["correct"] for r in started) / len(started), 1) if started else 0,
+        "avg_timed_out": round(sum(r["timed_out"] for r in started) / len(started), 1) if started else 0,
         "accuracy": (correct / answers) if answers else None, "answers": answers,
         "flagged": sum(1 for r in rows if r["tab_switches"] or r["copy_paste"] or r["multi_tab"] or r["devtools"]),
         "attention": sum(1 for r in rows if r["activity"] in ("idle", "offline") or r["can_resume"]),
@@ -436,6 +442,7 @@ def dashboard(section=None):
 
 
 HELPED_LABEL = {k: f"{e} {t}" for k, e, t in C.FEEDBACK_HELPED}
+CORE = [qid for lvl in C.LEVELS if not lvl.get("bonus") for qid in lvl["main"]]
 
 
 def feedback_summary(studs, rows):
@@ -522,7 +529,7 @@ def teacher_export(section: str = "", _t=Depends(teacher)):
     d = dashboard(section)
     buf = io.StringIO()
     w = csv.writer(buf)
-    w.writerow(["rank", "name", "roll_no", "section", "university", "contact", "status", "xp", "cleared", "total", "stars", "first_try", "timed_out",
+    w.writerow(["rank", "name", "roll_no", "section", "university", "contact", "status", "xp", "got_through", "correct", "total", "stars", "first_try", "timed_out",
                 "solutions_viewed", "time_used_min", "tab_switches", "copy_paste", "second_tab", "weakest_idea",
                 "current_stage", "current_question", "activity", "idle_minutes", "teacher_resumes", "last_seen",
                 # the end-of-mission feedback (blank until the student sends it)
@@ -533,7 +540,7 @@ def teacher_export(section: str = "", _t=Depends(teacher)):
         f = fb.get(r["id"])
         weak = min(r["concepts"].items(), key=lambda kv: kv[1]) if r["concepts"] else None
         cur = r["current"] or {}
-        w.writerow([r["rank"], r["name"], r["roll_no"], r["section"], r["university"], r["contact"], r["status_label"], r["xp"], r["done"], r["total"],
+        w.writerow([r["rank"], r["name"], r["roll_no"], r["section"], r["university"], r["contact"], r["status_label"], r["xp"], r["done"], r["correct"], r["total"],
                     r["stars"], r["first_try"], r["timed_out"], r["revealed"], r["used_minutes"], r["tab_switches"],
                     r["copy_paste"], r["multi_tab"],
                     f"{C.CONCEPTS.get(weak[0], weak[0])} ({round(weak[1] * 100)}%)" if weak else "",

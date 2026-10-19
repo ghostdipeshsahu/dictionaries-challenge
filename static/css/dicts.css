@@ -542,3 +542,8 @@ body.dicts-app input,body.dicts-app textarea{-webkit-user-select:text;user-selec
   .aim{grid-template-columns:1fr}.stgrid{grid-template-columns:1fr 1fr}
 }
 @media (prefers-reduced-motion:reduce){.bigface.pop,.svcard.nope,.thx,.aimbtn.on .ae,.stcard.hitnew,.stcard.hitnew .stsplat,.stcard.starnew .ststar{animation:none}}
+
+/* "How to answer": the one line under each interactive question, made easy to spot (the Session 29 class missed it) */
+.qhelp{display:block;margin:0;padding:8px 12px;border-radius:12px;color:var(--ink);font:500 14.5px/1.45 var(--f-body);
+  background:color-mix(in srgb,var(--cyan) 9%,var(--surface));border:1px solid color-mix(in srgb,var(--cyan) 32%,var(--line))}
+.qhelp::before{content:"How to answer";display:block;margin-bottom:2px;font:700 10.5px var(--f-mono);letter-spacing:.1em;text-transform:uppercase;color:var(--blue)}

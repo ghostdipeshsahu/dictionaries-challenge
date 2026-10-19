@@ -66,7 +66,7 @@ try:
         page.locator("#drawer.open #cont").click()            # L0-1 solved, now on L0-2
         expect(page.locator("#qtitle")).to_contain_text("True or false")
         pass_coach(page, {"mcq"}, "tf")                       # first True/False: its timer starts after Got it
-        time.sleep(4)                                         # spend a few seconds on the question
+        time.sleep(1)                                         # a moment on the question (its 25 s clock is tight for this test)
 
         # 1) three tab switches end the mission
         for i in range(3):
