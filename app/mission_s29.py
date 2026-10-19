@@ -46,9 +46,18 @@ TYPE_LABEL = {
 # XP and countdown (seconds) by type. A question may override either.
 XP = {"mcq": 10, "tf": 10, "predict": 15, "msq": 15, "ar": 15, "fill": 15, "numeric": 15,
       "match": 20, "order": 20, "categorize": 20, "debug": 20, "board": 25, "coding": 40}
-TIME = {"mcq": 30, "tf": 25, "predict": 45, "msq": 50, "ar": 45, "fill": 50, "numeric": 45,
-        "match": 60, "order": 60, "categorize": 60, "debug": 60, "board": 75, "coding": 180}
-MISSION_MINUTES = 40  # this mission's clock (MISSION_MINUTES in the environment still overrides it)
+# Seconds per question. The first class ran out of time on 17 of 30 questions (coding solved by 4% in 3 minutes),
+# so questions with code get time for every line to trace: base + per line, never less than the floor.
+TIME = {"mcq": 40, "tf": 25, "predict": 30, "msq": 70, "ar": 60, "fill": 40, "numeric": 30,
+        "match": 60, "order": 75, "categorize": 75, "debug": 45, "board": 120, "coding": 360}
+PER_LINE = {"predict": 10, "numeric": 10, "fill": 10, "debug": 10, "match": 8}
+FLOOR = {"predict": 45, "numeric": 45, "fill": 50, "debug": 60}
+MISSION_MINUTES = 45  # the clock ends the mission here and the feedback opens (MISSION_MINUTES in the environment overrides it)
+
+
+def timer(q):
+    lines = sum(1 for line in (q.get("code") or "").splitlines() if line.strip())
+    return max(FLOOR.get(q["type"], 0), TIME[q["type"]] + PER_LINE.get(q["type"], 0) * lines)
 
 AR_OPTIONS = [
     "Both A and R are true, and R explains A",
@@ -97,7 +106,7 @@ LEVELS = [
             "<code>len(menu)</code> counts <b>pairs</b>, not keys plus values.",
         ],
         "demo": 'menu = {}\nprint(type(menu))\nmenu = {"tea": 12, "samosa": 15}\nprint(menu["samosa"])\nprint(len(menu))',
-        "main": ["L1-1", "L1-2", "L1-3", "L1-4"],
+        "main": ["L1-1", "L1-2", "L1-3"],
     },
     {
         "id": "L2", "name": "Board Builder", "difficulty": "Easy+",
@@ -119,7 +128,7 @@ LEVELS = [
             "<code>for name in menu:</code> gives the keys. <code>for name, price in menu.items():</code> gives both.",
         ],
         "demo": 'menu = {"tea": 12, "coffee": 15, "samosa": 15}\nprint(menu.get("dosa"))\nprint("dosa" in menu, 15 in menu)\nprint(list(menu.values()))\nfor name, price in menu.items():\n    print(name, price)',
-        "main": ["L3-1", "L3-3", "L3-4", "L3-6", "L3-7", "L3-8"],
+        "main": ["L3-1", "L3-4", "L3-6", "L3-7", "L3-8"],
     },
     {
         "id": "L4", "name": "Logic Lab", "difficulty": "Hard",
@@ -130,7 +139,7 @@ LEVELS = [
             "Dictionaries keep <b>insertion order</b>. Deleting a key and adding it again puts it at the end.",
         ],
         "demo": 'menu = {"tea": 12, "coffee": 15}\nview = menu.keys()\nphoto = list(menu.keys())\nmenu["samosa"] = 15\nprint(view)\nprint(photo)\nprint(dict([("tea", 12), ("bun", 10)]))',
-        "main": ["L4-1", "L4-3", "L4-4", "L4-5", "L4-6", "L4-7"],
+        "main": ["L4-1", "L4-3", "L4-4", "L4-6", "L4-7"],
     },
     {
         "id": "L5", "name": "Code Breaker", "difficulty": "Hard",
@@ -170,7 +179,7 @@ Q = []
 
 def add(**q):
     q.setdefault("xp", XP[q["type"]])
-    q.setdefault("time", TIME[q["type"]])
+    q.setdefault("time", timer(q))
     Q.append(q)
 
 
@@ -225,14 +234,6 @@ add(id="L1-3", stage="L1", type="predict", level="Read", concept="access",
          3: "<code>menu[key]</code> gives the <b>value</b>, not the key."},
     hints=["Find the name tag inside the brackets, then read the price next to it."],
     explain='<code>menu["samosa"]</code> finds the key <code>"samosa"</code> and gives its value, 15.')
-
-add(id="L1-4", stage="L1", type="match", level="Read", concept="access",
-    title='menu = {"tea": 12, "coffee": 15}. Match each expression to what it gives.',
-    left=['menu["tea"]', "len(menu)", '"tea" in menu', "type(menu)"],
-    right=["True", "<class 'dict'>", "12", "2"],
-    mapping=[2, 3, 0, 1],
-    hints=["len counts pairs. in asks a yes/no question about the keys."],
-    explain='<code>menu["tea"]</code> gives 12, <code>len(menu)</code> counts 2 pairs, <code>"tea" in menu</code> is True and <code>type(menu)</code> is <code>&lt;class \'dict\'&gt;</code>.')
 
 # ---------- L2 · Board Builder ----------
 add(id="L2-1", stage="L2", type="predict", level="Read", concept="unique_keys",
@@ -307,18 +308,6 @@ add(id="L3-1", stage="L3", type="predict", level="Read", concept="keyerror_get",
     explain="<code>[ ]</code> with a missing key raises <code>KeyError: 'dosa'</code> and the program stops.",
     trap="Mixing up <code>[ ]</code> (error) with <code>get()</code> (None).")
 
-add(id="L3-3", stage="L3", type="predict", level="Read", concept="membership",
-    title="What does this print?",
-    code='menu = {"tea": 12, "samosa": 15}\nprint(15 in menu)',
-    options=["True", "False", "!KeyError: 15", "15"],
-    answer=1,
-    why={0: "15 is a <b>value</b>. <code>in</code> looks at the keys only.",
-         2: "<code>in</code> never raises KeyError. It answers True or False.",
-         3: "<code>in</code> gives True or False, never the item."},
-    hints=["in reads the left column of the board only: the names."],
-    explain="<code>in</code> checks the keys. The keys are tea and samosa, so <code>15 in menu</code> is False.",
-    trap="Thinking <code>in</code> also searches the prices.")
-
 add(id="L3-4", stage="L3", type="ar", level="Read", concept="access",
     title="Read the assertion and the reason.",
     assertion='menu = {"tea": 12, "coffee": 15, "samosa": 15}. print(menu[2]) raises KeyError: 2.',
@@ -388,14 +377,6 @@ add(id="L4-4", stage="L4", type="debug", level="Debug", concept="hashable_keys",
     hints=["Keys must never change. Can a list change?"],
     explain='Line 3 uses a list as a key. Lists can change, so they cannot be keys: <code>TypeError: unhashable type: \'list\'</code>. A tuple works: <code>menu[("tea", "samosa")] = combo</code>.',
     trap="Line 2 is fine: both keys exist.")
-
-add(id="L4-5", stage="L4", type="numeric", level="Read", concept="add_change",
-    title="Trace the board. What number does this print?",
-    code='menu = {"tea": 12, "coffee": 15}\nmenu["samosa"] = 15\nmenu["tea"] = 14\ndel menu["coffee"]\nmenu["Tea"] = 16\ntotal = 0\nfor price in menu.values():\n    total = total + price\nprint(total)',
-    value=45,
-    hints=["Write the board down after every line.", "Tea and tea are different keys."],
-    explain="After the changes the board is <code>{'tea': 14, 'samosa': 15, 'Tea': 16}</code>. 14 + 15 + 16 = 45.",
-    trap="Treating <code>\"Tea\"</code> as an update to tea gives 29.")
 
 add(id="L4-6", stage="L4", type="msq", level="Read", concept="compare_types",
     title="Which are true for a dictionary, but not for a list?",
@@ -644,7 +625,7 @@ LEVEL_BY_ID = {lvl["id"]: lvl for lvl in LEVELS}
 TOTAL = sum(len(lvl["main"]) for lvl in LEVELS if not lvl.get("bonus"))  # the bonus round is optional
 
 assert len(QUESTIONS) == len(Q), "duplicate question id"
-assert TOTAL == 30 and len(Q) == 35, (TOTAL, len(Q))
+assert TOTAL == 27 and len(Q) == 32, (TOTAL, len(Q))
 for lvl in LEVELS:
     for qid in lvl["main"]:
         assert QUESTIONS[qid]["stage"] == lvl["id"], qid

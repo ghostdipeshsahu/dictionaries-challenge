@@ -95,9 +95,6 @@ for q in Q.values():
             ok(0 <= k < len(q["options"]) and k != q.get("answer"), f"{q['id']} why key {k} invalid")
 
 # ---------- numeric ----------
-ok(shown(Q["L4-5"]["code"]) == str(Q["L4-5"]["value"]), "L4-5 numeric")
-_, _, _, _, env = run(Q["L4-5"]["code"])
-ok(env["menu"] == {"tea": 14, "samosa": 15, "Tea": 16}, "L4-5 explain board")
 ok("{'tea': 12, 'coffee': 18, 'samosa': 15, 'chai': 12, 'dosa': 20}" == shown(C.BOSS_SCENARIO), "BOSS scenario print")
 
 # ---------- true / false ----------
@@ -122,7 +119,7 @@ for item, k in zip(cat["items"], cat["mapping"]):
     ok(got == cat["categories"][k], f"L4-3 {item} -> {got} ({em}), keyed {cat['categories'][k]}")
 
 # ---------- match ----------
-for qid, setup in (("L1-4", 'menu = {"tea": 12, "coffee": 15}'), ("L3-6", 'menu = {"coffee": 15, "samosa": 15}')):
+for qid, setup in (("L3-6", 'menu = {"coffee": 15, "samosa": 15}'),):
     q = Q[qid]
     for i, expr in enumerate(q["left"]):
         r, et = run_expr(expr, setup)
@@ -218,8 +215,13 @@ ok(set(q["type"] for q in Q.values()) == set(C.TYPE_LABEL), "every question type
 CORE = [q for l in C.LEVELS if not l.get("bonus") for q in l["main"]]
 BONUS = [q for l in C.LEVELS if l.get("bonus") for q in l["main"]]
 worst = sum(Q[q]["time"] for q in CORE)
-ok(worst <= (C.MISSION_MINUTES - 7) * 60, f"worst case {worst / 60:.1f} min must leave time for briefings")
-ok(180 <= sum(Q[q]["time"] for q in BONUS) <= 300, "the bonus round lasts 3 to 5 minutes")
+# Timers are sized per question (base + per line of code, with a floor); the 45-minute clock is the hard stop.
+ok(C.MISSION_MINUTES == 45, "45-minute mission")
+for q in Q.values():
+    ok(q["time"] == C.timer(q) and q["time"] >= C.FLOOR.get(q["type"], 0), f"{q['id']} timer {q['time']} s")
+ok(all(q["time"] == 360 for q in Q.values() if q["type"] == "coding"), "coding gets 6 minutes")
+ok(45 * 60 <= worst <= 50 * 60, f"every timer used in full is {worst / 60:.1f} min: the clock, not the timers, ends a slow mission")
+ok(180 <= sum(Q[q]["time"] for q in BONUS) <= 360, "the bonus round lasts 3 to 6 minutes")
 ok(len(CORE) == C.TOTAL, "the bonus round is not counted in the required total")
 
 # ---------- bonus round ----------
