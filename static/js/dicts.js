@@ -70,7 +70,7 @@ const HOWTO={
 };
 const howtoHTML=t=>`<details class="howto"><summary>${ICON.bulb}Your task</summary><ol>${(HOWTO[t]||HOWTO.mcq).steps.map(x=>`<li>${x}</li>`).join('')}</ol></details>`;
 /* What a learner has already been shown, per mission and roll number (stored in this browser only). */
-const seenKey=k=>`dicts-${(M&&M.ui&&M.ui.id)||'x'}-${(API.user&&API.user.roll_no)||'anon'}-${k}`;
+const seenKey=k=>API.key(`${(M&&M.ui&&M.ui.id)||'x'}-${(API.user&&API.user.roll_no)||'anon'}-${k}`);
 function seen(k){try{return JSON.parse(localStorage.getItem(seenKey(k))||'false')}catch(e){return false}}
 function markSeen(k,v){try{localStorage.setItem(seenKey(k),JSON.stringify(v===undefined?true:v))}catch(e){}}
 const mins=sec=>{const s=Math.max(0,Math.ceil(sec));return Math.floor(s/60)+':'+String(s%60).padStart(2,'0')};
@@ -306,7 +306,7 @@ document.addEventListener('keydown',e=>{
 
 // One tab at a time: a newly opened tab asks whether the mission is already open elsewhere.
 const TAB_ID=Math.random().toString(36).slice(2);let dupTab=false,bc=null;
-try{bc=new BroadcastChannel('dicts-mission');bc.onmessage=e=>{const d=e.data||{};if(d.id===TAB_ID)return;if(d.t==='hello')bc.postMessage({t:'here',id:TAB_ID});else if(d.t==='here')dupTab=true};bc.postMessage({t:'hello',id:TAB_ID})}catch(e){}
+try{bc=new BroadcastChannel(API.key('mission'));bc.onmessage=e=>{const d=e.data||{};if(d.id===TAB_ID)return;if(d.t==='hello')bc.postMessage({t:'here',id:TAB_ID});else if(d.t==='here')dupTab=true};bc.postMessage({t:'hello',id:TAB_ID})}catch(e){}
 
 /* ---------- navigation: back buttons + the browser's own Back button ---------- */
 let popping=false;
@@ -931,7 +931,7 @@ const contLabel=()=>'Continue';
 
 /* ---------- coding challenge ---------- */
 function renderCoding(q){
-  const ch=q.challenge,st=qs(q.id);let draft=null;try{draft=localStorage.getItem('dicts-draft-'+q.id)}catch(e){}
+  const ch=q.challenge,st=qs(q.id);let draft=null;try{draft=localStorage.getItem(API.key('draft-'+q.id))}catch(e){}
   Q={q,done:false,busy:false,revealed:false,hint:!!st.hint,wrong:st.wrong||0,reset(){},mark(){},solve(){}};
   const samples=ch.tests.filter(t=>!t.hidden),hidden=ch.tests.filter(t=>t.hidden).length;
   view.innerHTML=`${qtopHTML(q)}
@@ -957,7 +957,7 @@ function renderCoding(q){
   </section>`;
   const ta=$('#editor'),gut=$('#gutter');
   ta.value=draft||ch.starter;
-  const sync=()=>{const n=ta.value.split('\n').length;gut.textContent=Array.from({length:n},(_,i)=>i+1).join('\n');gut.scrollTop=ta.scrollTop;try{localStorage.setItem('dicts-draft-'+q.id,ta.value)}catch(e){}};
+  const sync=()=>{const n=ta.value.split('\n').length;gut.textContent=Array.from({length:n},(_,i)=>i+1).join('\n');gut.scrollTop=ta.scrollTop;try{localStorage.setItem(API.key('draft-'+q.id),ta.value)}catch(e){}};
   ta.oninput=sync;ta.onscroll=()=>{gut.scrollTop=ta.scrollTop};sync();
   ta.onkeydown=e=>{
     if(e.key==='Tab'&&!e.shiftKey){e.preventDefault();ta.setRangeText('    ',ta.selectionStart,ta.selectionEnd,'end');sync()}
@@ -1124,9 +1124,38 @@ function Board(root,opts){
   py('menu',fmtDict(self.rows));paint();
   return self;
 }
+/* ---------- Python Lab: free play in real Python, for missions without a visual lab (UI lab: "py") ---------- */
+function renderPyLab(){
+  R=null;Q=null;stopQTimer();closeDrawer();
+  const tips=M.ui.lab_tips||[];let code=M.ui.lab_starter||'';try{code=localStorage.getItem(API.key('lab-code'))??code}catch(e){}
+  view.innerHTML=`<section class="lab enter">${backBar('Back to mission map','quit')}<h2 class="labtitle">${esc(M.ui.lab_name)} <small>free play</small></h2>
+    <div class="labgrid"><div class="code editor"><div class="code-bar"><span class="dots"><i></i><i></i><i></i></span><span>lab.py</span><span class="pystate">${PYR.ready?'real Python':'Python loads on the first run'}</span></div>
+      <div class="ed"><pre class="gutter" id="plGut" aria-hidden="true"></pre><textarea id="plCode" spellcheck="false" autocapitalize="off" autocomplete="off" wrap="off" aria-label="Lab code. Tab indents, Control+Enter runs."></textarea></div>
+      <div class="plbar"><button class="btn primary" id="plRun" type="button">${ICON.play}Run</button><button class="btn ghost" id="plReset" type="button">Start again</button>
+        <label class="plin"><span>Input for input(), one line each</span><textarea id="plIn" rows="2" spellcheck="false"></textarea></label></div>
+      <div class="console"><div class="con-head"><span>Output</span><span class="con-state" id="plState"></span></div><pre class="con-out" id="plOut"><span class="con-note">Press Run to see what Python prints.</span></pre></div></div>
+    <div class="card"><h4>Experiments to try</h4>${tips.length?`<ol class="exp">${tips.map(t=>`<li>${t}</li>`).join('')}</ol>`:'<p class="muted">Change the code, press Run, and check your guess.</p>'}
+      <p class="muted small">The Lab is free play: nothing here is graded. The mission clock keeps running.</p></div></div></section>`;
+  const ta=$('#plCode'),gut=$('#plGut');ta.value=code;
+  const sync=()=>{gut.textContent=Array.from({length:ta.value.split('\n').length},(_,i)=>i+1).join('\n');gut.scrollTop=ta.scrollTop;try{localStorage.setItem(API.key('lab-code'),ta.value)}catch(e){}};
+  const run=async()=>{const b=$('#plRun');b.disabled=true;$('#plState').textContent=PYR.ready?'running':'loading Python…';
+    const r=await PYR.run(ta.value,$('#plIn').value);if(!$('#plOut'))return;
+    $('#plState').textContent='real Python';$('#plOut').innerHTML=consoleHTML(r);b.disabled=false};
+  ta.oninput=sync;ta.onscroll=()=>{gut.scrollTop=ta.scrollTop};sync();
+  ta.onkeydown=e=>{
+    if(e.key==='Tab'&&!e.shiftKey){e.preventDefault();ta.setRangeText('    ',ta.selectionStart,ta.selectionEnd,'end');sync()}
+    else if(e.key==='Enter'&&(e.ctrlKey||e.metaKey)){e.preventDefault();run()}
+    else if(e.key==='Enter'){const st=ta.selectionStart,line=ta.value.slice(0,st).split('\n').pop(),ind=line.match(/^ */)[0]+(/:\s*$/.test(line)?'    ':'');e.preventDefault();ta.setRangeText('\n'+ind,st,ta.selectionEnd,'end');sync()}
+    e.stopPropagation();
+  };
+  $('#plRun').onclick=run;
+  $('#plReset').onclick=()=>{ta.value=M.ui.lab_starter||'';sync();$('#plOut').innerHTML='<span class="con-note">Press Run to see what Python prints.</span>'};
+  $('#quit').onclick=renderMap;window.scrollTo(0,0);mark('lab');preloadPython();
+}
 function renderLab(){
   if(needSurvey())return renderSurvey();
   if(M.ui.lab==='trip')return renderTripLab();
+  if(M.ui.lab==='py')return renderPyLab();
   R=null;Q=null;stopQTimer();closeDrawer();
   view.innerHTML=`<section class="lab enter">${backBar('Back to mission map','quit')}<h2 class="labtitle">Dict Lab <small>free play</small></h2>
     <div class="labgrid"><div>${boardHTML('lab')}</div>
@@ -1182,7 +1211,7 @@ const DIFF=[['easy','🥱','Too easy'],['right','👌','Just right'],['hard','�
 const PACE=[['spare','🏖️','Time to spare'],['enough','⏱️','Just enough'],['more','🏃','Needed more time']];
 const TECH=[['no','✅','No problems'],['small','⚠️','Yes, small ones'],['blocked','🧱','Yes, it blocked me']];
 let SV=null;
-const svKey=()=>'dicts-survey2:'+(API.user?API.user.roll_no:'');
+const svKey=()=>API.key('survey2:'+(API.user?API.user.roll_no:''));
 function svSave(){try{localStorage.setItem(svKey(),JSON.stringify(SV))}catch(e){}}
 function svLoad(){let d=null;try{d=JSON.parse(localStorage.getItem(svKey())||'null')}catch(e){}
   SV=Object.assign({step:0,enjoy:0,toughest:'',favourite:'',aim:'tomato',difficulty:'',pace:'',confidence:0,helped:[],tech:'',improve:''},d&&typeof d==='object'?d:{});

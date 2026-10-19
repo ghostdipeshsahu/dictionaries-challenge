@@ -41,6 +41,7 @@ TYPE_LABEL = {
     "land": "Where does it land?",
 }
 
+SLUG = "working-with-dictionaries"  # this mission's URL: /working-with-dictionaries/ (and /working-with-dictionaries/teacher)
 MISSION_MINUTES = 45  # the clock ends the mission here and the feedback opens (MISSION_MINUTES in the environment overrides it)
 
 XP = {"mcq": 10, "tf": 10, "predict": 15, "msq": 15, "ar": 15, "fill": 15, "numeric": 15,

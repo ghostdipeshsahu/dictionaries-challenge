@@ -3,6 +3,8 @@
 const $=(s,r=document)=>r.querySelector(s),$$=(s,r=document)=>[...r.querySelectorAll(s)];
 const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const pct=v=>v==null?'–':Math.round(v*100)+'%';
+/* The session this page belongs to: /<mission>/... (no prefix: the server's default session). */
+const BASE=(()=>{const seg=location.pathname.split('/').filter(Boolean)[0]||'';return seg&&seg!=='teacher'&&seg!=='index.html'?'/'+seg:''})();
 const view=$('#tview'),KEY='dicts-teacher-token';
 let CONCEPTS={pairs:'Key-value pairs',creation:'Creating a dictionary',empty:'Empty {} and dict()',unique_keys:'Unique keys',access:'menu[key] takes a key',
   keyerror_get:'KeyError vs get()',membership:'in checks keys',add_change:'Add or change a key',case:'Keys are case-sensitive',delete_len:'del and len()',
@@ -15,7 +17,7 @@ let BUILD=null,token=null,section='',data=null,sortKey='rank',sortDir=1,filter='
 try{token=localStorage.getItem(KEY)}catch(e){}
 
 async function api(path,opts){
-  const res=await fetch('/api'+path,Object.assign({headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'}},opts||{}));
+  const res=await fetch(BASE+'/api'+path,Object.assign({headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'}},opts||{}));
   if(res.status===401||res.status===403){signOut();throw new Error('Signed out')}
   if(!res.ok)throw new Error('Request failed ('+res.status+')');
   return res.status===204?null:res;
@@ -26,9 +28,9 @@ function renderLogin(msg){
   view.innerHTML=`<form class="tlogin" id="tl"><h1>Teacher dashboard</h1><p>Every student's progress, score, time and integrity flags for the Dictionaries mission.</p>
     <input type="password" id="pw" placeholder="Teacher password" autocomplete="current-password" required>
     <p class="err" id="err" role="alert">${esc(msg||'')}</p><button class="btn primary" type="submit">Sign in</button>
-    <a class="linkback" href="/">Back to the student mission</a></form>`;
+    <a class="linkback" href="${BASE}/">Back to the student mission</a></form>`;
   $('#tl').onsubmit=async e=>{e.preventDefault();$('#err').textContent='';
-    const r=await fetch('/api/teacher/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:$('#pw').value})});
+    const r=await fetch(BASE+'/api/teacher/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:$('#pw').value})});
     if(!r.ok){$('#err').textContent='That password is not right.';return}
     token=(await r.json()).token;try{localStorage.setItem(KEY,token)}catch(e){}load()};
   setTimeout(()=>$('#pw').focus(),50);
@@ -40,6 +42,7 @@ async function load(quiet){
   try{data=await api('/teacher/dicts'+(section?'?section='+encodeURIComponent(section):'')).then(r=>r.json())}catch(e){return}
   if(checkBuild(data))return;
   missionLabels(data);
+  missionPicker(data);
   const sel=$('#secSel');sel.innerHTML='<option value="">All sections</option>'+data.sections.map(s=>`<option${s===section?' selected':''}>${esc(s)}</option>`).join('');
   if(quiet&&$('#rows')){tiles();panels();attention();rows();stamp();return}
   render();
@@ -51,7 +54,7 @@ function startPoll(){if(!poll){poll=setInterval(()=>{if(!document.hidden)load(tr
 function startLive(){
   stopLive();
   if(!('EventSource' in window)||(data&&data.push===false))return startPoll();  // push is off on some hosts (Vercel)
-  es=new EventSource('/api/teacher/dicts/stream?token='+encodeURIComponent(token)+(section?'&section='+encodeURIComponent(section):''));
+  es=new EventSource(BASE+'/api/teacher/dicts/stream?token='+encodeURIComponent(token)+(section?'&section='+encodeURIComponent(section):''));
   es.onopen=()=>{clearInterval(poll);poll=null;setLive('live')};
   es.onmessage=e=>{let d;try{d=JSON.parse(e.data)}catch(err){return}if(checkBuild(d))return;missionLabels(d);clearInterval(poll);poll=null;data=d;setLive('live');if(!$('#rows'))render();else{tiles();panels();attention();rows();stamp()}};
   es.onerror=()=>startPoll();
@@ -177,6 +180,14 @@ function attention(){
 }
 
 $('#secSel').onchange=e=>{section=e.target.value;stopLive();load()};
+$$('a[data-home]').forEach(a=>a.href=BASE+'/');
+/* One server can run several sessions; each has its own students and dashboard at /<session>/teacher. */
+function missionPicker(d){
+  const box=$('#misSel');if(!box||!d.missions||d.missions.length<2){if(box)box.closest('label').hidden=true;return}
+  box.closest('label').hidden=false;
+  box.innerHTML=d.missions.map(m=>`<option value="${esc(m.slug)}"${m.key===d.mission?' selected':''}>${esc(m.short)}</option>`).join('');
+  box.onchange=()=>{location.href='/'+box.value+'/teacher'};
+}
 $('#refresh').onclick=()=>load(true);
 $('#signout').onclick=signOut;
 document.addEventListener('click',async e=>{

@@ -30,9 +30,23 @@ STATIC = ROOT / "static"
 CLASS_CODE = os.environ.get("CLASS_CODE", "").strip()
 # Set TEACHER_PASSWORD in the environment. The fallback is for a laptop demo only.
 TEACHER_PASSWORD = os.environ.get("TEACHER_PASSWORD") or "change-me"
-RULES = E.Rules(mission_minutes=float(os.environ.get("MISSION_MINUTES") or getattr(C, "MISSION_MINUTES", 45)),
-                max_tab_switches=int(os.environ.get("MAX_TAB_SWITCHES", "3")),
-                reveal_after=int(os.environ.get("REVEAL_AFTER", "2")))
+def _rules(key):
+    return E.Rules(mission_minutes=float(os.environ.get("MISSION_MINUTES") or getattr(C.module(key), "MISSION_MINUTES", 45)),
+                   max_tab_switches=int(os.environ.get("MAX_TAB_SWITCHES", "3")),
+                   reveal_after=int(os.environ.get("REVEAL_AFTER", "2")))
+
+
+_RULES = {k: _rules(k) for k in C.KEYS}
+
+
+class _CurrentRules:
+    """RULES.<name> reads the current mission's rules (each mission has its own clock)."""
+
+    def __getattr__(self, name):
+        return getattr(_RULES[C.MISSION], name)
+
+
+RULES = _CurrentRules()
 ONLINE_WINDOW = 75        # seconds since the last heartbeat that still counts as "signed in right now"
 IDLE_SECONDS = int(os.environ.get("IDLE_SECONDS", "120"))  # page open, mission running, but no step for this long
 DEVICE_LOCK = 75          # a roll number signed in elsewhere within this window cannot sign in again
@@ -63,18 +77,45 @@ class NoCacheStatic(StaticFiles):
         return resp
 
 
-app = FastAPI(title=C.UI["title"], version="1.1.0")
+app = FastAPI(title="Python Challenge missions", version="1.2.0")
+
+
+class MissionPrefix:
+    """/<mission>/... runs the same routes for that mission: /s30/teacher, /s30/api/dicts/mission, ...
+    The prefix is the mission key or its SLUG. Without a prefix the server's default mission (MISSION) is used."""
+
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] in ("http", "websocket"):
+            path = scope["path"]
+            first = path.split("/", 2)[1] if path.startswith("/") and len(path) > 1 else ""
+            key = C.resolve(first)
+            if key:
+                rest = path[len(first) + 1:] or "/"
+                scope = dict(scope, path=rest, raw_path=rest.encode())
+                token = C.use(key)
+                try:
+                    await self.app(scope, receive, send)
+                finally:
+                    C.reset(token)
+                return
+        await self.app(scope, receive, send)
+
+
+app.add_middleware(MissionPrefix)
 DATABASE_URL = os.environ.get("DATABASE_URL") or os.environ.get("POSTGRES_URL") or ""
 if DATABASE_URL.startswith(("postgres://", "postgresql://")):
     STORAGE = "postgres"
-    db.connect(DATABASE_URL)
+    db.connect(DATABASE_URL, C.DEFAULT)
 elif os.environ.get("VERCEL"):
     # Vercel's disk is temporary: anything written here disappears. Run, but warn loudly on the dashboard.
     STORAGE = "temporary"
-    db.connect(os.environ.get("DB_PATH", "/tmp/dicts.db"))
+    db.connect(os.environ.get("DB_PATH", "/tmp/dicts.db"), C.DEFAULT)
 else:
     STORAGE = "sqlite"
-    db.connect(os.environ.get("DB_PATH", str(ROOT / "data" / "dicts.db")))
+    db.connect(os.environ.get("DB_PATH", str(ROOT / "data" / "dicts.db")), C.DEFAULT)
 # On Vercel each request may land on a different short-lived server, so a long-lived push stream cannot see
 # every change. The dashboard then polls every 5 seconds instead (it does this by itself when push is False).
 LIVE_PUSH = not os.environ.get("VERCEL")
@@ -141,7 +182,7 @@ def bearer(authorization: Optional[str]):
 def student(authorization: Optional[str] = Header(default=None)):
     with db.tx():
         s = db.by_token(bearer(authorization))
-    if not s:
+    if not s or s["mission"] != C.MISSION:  # a sign-in for another session does not open this one
         raise HTTPException(401, "Sign in to continue.")
     return s
 
@@ -152,6 +193,11 @@ def teacher(authorization: Optional[str] = Header(default=None)):
     if not ok:
         raise HTTPException(401, "Teacher sign-in needed.")
     return True
+
+
+def mine(s):
+    """The student exists and belongs to the current mission."""
+    return bool(s) and s["mission"] == C.MISSION
 
 
 def public_student(s):
@@ -167,7 +213,8 @@ def clean(text, n):
 @app.get("/api/health")
 def health(db_check: int = Query(0, alias="db")):
     body = {"ok": True, "app": "dictionaries", "class_code_required": bool(CLASS_CODE), "build": BUILD,
-            "storage": STORAGE, "mission": C.MISSION, "title": C.UI["title"], "short": C.UI["short"]}
+            "storage": STORAGE, "mission": C.MISSION, "slug": C.slug(), "title": C.UI["title"], "short": C.UI["short"],
+            "missions": C.catalog()}
     if db_check:
         body["db"] = db.diag()   # timings only, to find where request time goes
     return body
@@ -201,7 +248,7 @@ def login(body: LoginIn):
 
 def _login(name, roll, section, token, university, contact):
     with db.tx():
-        s = db.by_roll(roll)
+        s = db.by_roll(C.MISSION, roll)
         if s:
             if s["name"].casefold() != name.casefold() or db.section_key(s["section"]) != db.section_key(section):
                 raise HTTPException(409, "This roll number is already used by another student. Check it, or ask your teacher.")
@@ -212,7 +259,8 @@ def _login(name, roll, section, token, university, contact):
                 db.fill_profile(s["id"], university, contact)
             s = db.by_id(s["id"])
         else:
-            sid = db.insert_student(name, roll, db.known_section(section) or section, token, E.new_state(), university, contact)
+            sid = db.insert_student(C.MISSION, name, roll, db.known_section(C.MISSION, section) or section, token,
+                                    E.new_state(), university, contact)
             s = db.by_id(sid)
     return {"token": token, "student": public_student(s)}
 
@@ -330,7 +378,7 @@ def rank_key(st, now):
 def leaderboard(s=Depends(student)):
     now = time.time()
     with db.tx():
-        mates = [x for x in db.all_students(s["section"]) if x["state"]["started_at"] or x["id"] == s["id"]]
+        mates = [x for x in db.all_students(C.MISSION, s["section"]) if x["state"]["started_at"] or x["id"] == s["id"]]
     for x in mates:
         E.tick(x["state"], RULES, now)
     mates.sort(key=lambda x: rank_key(x, now))
@@ -360,10 +408,11 @@ def teacher_login(body: TeacherLoginIn):
 def dashboard(section=None):
     now = time.time()
     with db.tx():
-        studs = db.all_students(section or None)
-        names = db.section_names()
+        studs = db.all_students(C.MISSION, section or None)
+        names = db.section_names(C.MISSION)
     all_sections = sorted(names.values(), key=str.casefold)
     rows = []
+    core = core_ids()
     stage_cleared = {l["id"]: 0 for l in C.LEVELS}
     concept_tot, type_tot = {}, {}
     answers = correct = 0
@@ -398,7 +447,7 @@ def dashboard(section=None):
             "university": x.get("university") or "", "contact": x.get("contact") or "", "status": status, "status_label": E.STATUS_LABEL[status], "xp": ps["xp"],
             "done": ps["progress"]["done"], "total": C.TOTAL,
             # "done" counts a question the timer ran out on, or whose solution was viewed; "correct" does not
-            "correct": sum(1 for qid in CORE if st["q"].get(qid, {}).get("solved")),
+            "correct": sum(1 for qid in core if st["q"].get(qid, {}).get("solved")),
             "first_try": sum(1 for q in qv if q["solved"] and not q["wrong"]),
             "timed_out": sum(1 for q in qv if q["timed_out"]),
             "revealed": sum(1 for q in qv if q["revealed"]),
@@ -430,8 +479,8 @@ def dashboard(section=None):
     acc = lambda t: sorted(({"key": k, "accuracy": c / n, "answers": n} for k, (c, n) in t.items()), key=lambda d: d["accuracy"])
     return {
         "section": section or "", "sections": all_sections, "total_questions": C.TOTAL, "max_tab_switches": RULES.max_tab_switches,
-        "mission_minutes": round(RULES.mission_seconds / 60), "mission": C.MISSION, "title": C.UI["title"], "short": C.UI["short"],
-        "concept_labels": C.CONCEPTS, "type_labels": C.TYPE_LABEL, "idle_minutes": round(IDLE_SECONDS / 60, 1),
+        "mission_minutes": round(RULES.mission_seconds / 60), "mission": C.MISSION, "slug": C.slug(), "missions": C.catalog(),
+        "title": C.UI["title"], "short": C.UI["short"], "concept_labels": C.CONCEPTS, "type_labels": C.TYPE_LABEL, "idle_minutes": round(IDLE_SECONDS / 60, 1),
         "overview": overview,
         "stages": [{"id": l["id"], "name": l["name"], "cleared": stage_cleared[l["id"]], "total": len(l["main"])} for l in C.LEVELS],
         "concepts": [{"concept": d["key"], "accuracy": d["accuracy"], "answers": d["answers"]} for d in acc(concept_tot)],
@@ -441,14 +490,19 @@ def dashboard(section=None):
     }
 
 
-HELPED_LABEL = {k: f"{e} {t}" for k, e, t in C.FEEDBACK_HELPED}
-CORE = [qid for lvl in C.LEVELS if not lvl.get("bonus") for qid in lvl["main"]]
+def helped_labels():
+    return {k: f"{e} {t}" for k, e, t in C.FEEDBACK_HELPED}
+
+
+def core_ids():
+    return [qid for lvl in C.LEVELS if not lvl.get("bonus") for qid in lvl["main"]]
 
 
 def feedback_summary(studs, rows):
     """The class's end-of-mission feedback: averages, counts, and every response (newest first).
     Who sent it (name, roll, section, university, contact) comes from the sign-in."""
     stage_name = {l["id"]: l["name"] for l in C.LEVELS}
+    labels = helped_labels()
     resp = []
     for x in studs:
         f = x["state"].get("feedback")
@@ -464,7 +518,7 @@ def feedback_summary(studs, rows):
             "difficulty": f["difficulty"], "difficulty_label": E.FEEDBACK_DIFFICULTY[f["difficulty"]],
             "pace": f["pace"], "pace_label": E.FEEDBACK_PACE[f["pace"]],
             "tech": f["tech"], "tech_label": E.FEEDBACK_TECH[f["tech"]],
-            "helped": [HELPED_LABEL.get(k, k) for k in f["helped"]], "improve": f["improve"],
+            "helped": [labels.get(k, k) for k in f["helped"]], "improve": f["improve"],
             "reached": f"{reached['done']}/{reached['total']}" + (" + bonus" if reached.get("bonus") else ""),
             "status_label": E.STATUS_LABEL.get(reached["status"], reached["status"]), "at": E.iso(f["at"]),
         })
@@ -487,7 +541,7 @@ def feedback_summary(studs, rows):
         "toughest": count("toughest", core), "favourite": count("favourite", core),
         "difficulty": count("difficulty", E.FEEDBACK_DIFFICULTY), "pace": count("pace", E.FEEDBACK_PACE),
         "tech": count("tech", E.FEEDBACK_TECH),
-        "helped": sorted(({"key": k, "label": HELPED_LABEL[k], "count": helped.get(k, 0)} for k in HELPED_LABEL),
+        "helped": sorted(({"key": k, "label": labels[k], "count": helped.get(k, 0)} for k in labels),
                          key=lambda d: -d["count"]),
         "responses": resp,
     }
@@ -574,7 +628,7 @@ def teacher_feedback_export(section: str = "", _t=Depends(teacher)):
 @app.post("/api/teacher/dicts/{student_id}/reset")
 def teacher_reset(student_id: int, _t=Depends(teacher)):
     with db.tx():
-        if not db.by_id(student_id):
+        if not mine(db.by_id(student_id)):
             raise HTTPException(404, "No such student.")
         db.reset_state(student_id, E.new_state())
     return {"ok": True}
@@ -585,7 +639,7 @@ def teacher_resume(student_id: int, _t=Depends(teacher)):
     """Reopen a mission that ended on tab switches or time, from where the student stopped."""
     with db.tx():
         cur = db.by_id(student_id, lock=True)
-        if not cur:
+        if not mine(cur):
             raise HTTPException(404, "No such student.")
         st = cur["state"]
         E.tick(st, RULES)
@@ -597,7 +651,7 @@ def teacher_resume(student_id: int, _t=Depends(teacher)):
 @app.post("/api/teacher/students/{student_id}/release")
 def teacher_release(student_id: int, _t=Depends(teacher)):
     with db.tx():
-        if not db.by_id(student_id):
+        if not mine(db.by_id(student_id)):
             raise HTTPException(404, "No such student.")
         db.set_token(student_id, None, seen=False)
     return {"ok": True}
@@ -606,7 +660,7 @@ def teacher_release(student_id: int, _t=Depends(teacher)):
 @app.delete("/api/teacher/students/{student_id}")
 def teacher_delete(student_id: int, _t=Depends(teacher)):
     with db.tx():
-        if not db.by_id(student_id):
+        if not mine(db.by_id(student_id)):
             raise HTTPException(404, "No such student.")
         db.delete_student(student_id)
     return {"ok": True}

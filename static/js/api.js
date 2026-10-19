@@ -1,13 +1,17 @@
 /* Dictionaries · backend client: sign-in, sign-out and authenticated JSON calls. */
+/* The session this page belongs to: /<mission>/... (no prefix: the server's default session). */
+const BASE=(()=>{const seg=location.pathname.split('/').filter(Boolean)[0]||'';return seg&&seg!=='teacher'&&seg!=='index.html'?'/'+seg:''})();
 const API=(()=>{
-  const TOKEN_KEY='dicts-token',USER_KEY='dicts-user';
+  // browser storage is per session, so a sign-in, drafts and the feedback draft of one session never leak into another
+  const NS='dicts'+(BASE?'-'+BASE.slice(1):''),key=k=>NS+'-'+k;
+  const TOKEN_KEY=key('token'),USER_KEY=key('user');
   let token=null,user=null,online=false;
   try{token=localStorage.getItem(TOKEN_KEY);user=JSON.parse(localStorage.getItem(USER_KEY)||'null')}catch(e){}
 
   async function call(method,path,body,opts){
     const headers={'Content-Type':'application/json'};
     if(token)headers.Authorization='Bearer '+token;
-    const res=await fetch('/api'+path,Object.assign({method,headers,body:body?JSON.stringify(body):undefined},opts||{}));
+    const res=await fetch(BASE+'/api'+path,Object.assign({method,headers,body:body?JSON.stringify(body):undefined},opts||{}));
     if(res.status===401){forget();throw new Error('signed-out')}
     if(!res.ok){let msg='Request failed ('+res.status+')';try{const j=await res.json();if(j.detail)msg=typeof j.detail==='string'?j.detail:JSON.stringify(j.detail)}catch(e){}throw new Error(msg)}
     return res.status===204?null:res.json();
@@ -32,5 +36,5 @@ const API=(()=>{
   }
   async function logout(){try{await call('POST','/logout')}catch(e){}forget()}
 
-  return {boot,login,logout,call,get user(){return user},get online(){return online},get signedIn(){return !!token}};
+  return {boot,login,logout,call,key,base:BASE,get user(){return user},get online(){return online},get signedIn(){return !!token}};
 })();
