@@ -41,6 +41,7 @@ TYPE_LABEL = {
     "land": "Where does it land?",
 }
 
+ORDER = 30  # where this session sits in the course (session pickers list them in this order)
 SLUG = "working-with-dictionaries"  # this mission's URL: /working-with-dictionaries/ (and /working-with-dictionaries/teacher)
 MISSION_MINUTES = 45  # the clock ends the mission here and the feedback opens (MISSION_MINUTES in the environment overrides it)
 

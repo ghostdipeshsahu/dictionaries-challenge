@@ -52,6 +52,7 @@ TIME = {"mcq": 40, "tf": 25, "predict": 30, "msq": 70, "ar": 60, "fill": 40, "nu
         "match": 60, "order": 75, "categorize": 75, "debug": 45, "board": 120, "coding": 360}
 PER_LINE = {"predict": 10, "numeric": 10, "fill": 10, "debug": 10, "match": 8}
 FLOOR = {"predict": 45, "numeric": 45, "fill": 50, "debug": 60}
+ORDER = 29  # where this session sits in the course (session pickers list them in this order)
 SLUG = "dictionaries"  # this mission's URL: /dictionaries/ (and /dictionaries/teacher)
 MISSION_MINUTES = 45  # the clock ends the mission here and the feedback opens (MISSION_MINUTES in the environment overrides it)
 

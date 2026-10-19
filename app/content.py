@@ -17,6 +17,7 @@ _found = sorted(p.stem[len("mission_"):] for p in Path(__file__).parent.glob("mi
 _only = [m.strip().lower() for m in os.environ.get("MISSIONS", "").split(",") if m.strip()]   # limit what this server offers
 KEYS = [k for k in _found if (not _only or k in _only or k == DEFAULT)]
 _mods = {k: importlib.import_module(f".mission_{k}", __package__) for k in KEYS}   # a broken file fails at start
+KEYS.sort(key=lambda k: (getattr(_mods[k], "ORDER", 99), k))   # course order
 if DEFAULT not in _mods:
     raise RuntimeError(f"MISSION={DEFAULT} has no app/mission_{DEFAULT}.py")
 # URL names: the key itself, and the mission's SLUG (e.g. "working-with-lists")

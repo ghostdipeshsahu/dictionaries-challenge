@@ -1,86 +1,89 @@
-# Deploy guide: two sessions on Vercel
+# Deploy guide: every session on one Vercel project
 
-This one repository runs two classroom practices. Each one is deployed as its **own Vercel project** with its
-**own database**, so the two classes never share data and one class can never slow the other's database.
+One deployment runs **all** the practice sessions. Each session has its own link, its own teacher dashboard and
+its own students; they share one database, where every record is tagged with its session, so data never mixes.
+A student can attend several sessions with the same roll number.
 
-| Session | Topic | Branch to deploy | `MISSION` | Clock | Questions |
-|---|---|---|---|---|---|
-| Session 29 | Dictionaries (canteen board) | `session-29` | `s29` | 45 min | 27 + optional bonus round |
-| Session 30 | Working with Dictionaries (Ooty trip sheet) | `session-30` | `s30` | 45 min | 28 |
+| Session | Student link | Teacher dashboard |
+|---|---|---|
+| Working with Lists | `/working-with-lists` | `/working-with-lists/teacher` |
+| Built-in Functions | `/built-in-functions` | `/built-in-functions/teacher` |
+| List Methods | `/list-methods` | `/list-methods/teacher` |
+| Session 29 · Dictionaries | `/dictionaries` | `/dictionaries/teacher` |
+| Session 30 · Working with Dictionaries | `/working-with-dictionaries` | `/working-with-dictionaries/teacher` |
 
-Each site has a student page (`/`) and a teacher dashboard (`/teacher`). When a student's mission ends (time,
-3 tab switches, or finishing), a short feedback form opens; then their report. The teacher dashboard shows every
-student live and exports one CSV with progress and feedback.
+The site root (`/` and `/teacher`) runs the default session (`MISSION`, Session 29 unless set). Every dashboard
+has a **Session** picker to jump to another session's dashboard. When a student's mission ends (45-minute clock,
+3 tab switches, or finishing), a short feedback form opens, then their report; **Export CSV** on the dashboard gives
+progress and feedback in one file.
 
 ## What you need
 
-- Access to this GitHub repository.
+- Access to this GitHub repository (branch `main`).
 - A Vercel account (Pro is right for company classes; Hobby is for personal, non-commercial use).
-- About 10 minutes per session.
+- About 10 minutes, once.
 
-## Steps (do them once for Session 29, then again for Session 30)
+## Steps
 
-1. **Create the project.** Vercel → **Add New → Project** → import this repository.
-   Name it so you can tell them apart, e.g. `dictionaries-s29` and `dictionaries-s30`.
+1. **Create the project.** Vercel → **Add New → Project** → import this repository (branch `main`).
    Framework: leave as detected (FastAPI, from `app/main.py`). Root directory: the repository root.
-2. **Environment variables** (on the import screen, or Settings → Environment Variables, for Production):
-   - `MISSION` = `s29` (or `s30`)
-   - `TEACHER_PASSWORD` = a password only the teachers know. Use a different one per project if you like.
-   - Optional: `CLASS_CODE` (students must also type it), `MAX_TAB_SWITCHES` (default 3), `IDLE_SECONDS` (default 120).
+2. **Environment variables** (Production):
+   - `TEACHER_PASSWORD` = a password only the teachers know (one password for every session's dashboard).
+   - Optional: `MISSION` (the session at the site root; default `s29`), `MISSIONS` (limit which sessions are offered,
+     e.g. `s29,s30`), `CLASS_CODE` (students must also type it), `MAX_TAB_SWITCHES` (default 3), `IDLE_SECONDS` (default 120).
 3. **Deploy.**
-4. **Production branch.** Settings → Git → **Production Branch** = `session-29` (or `session-30`) → Save.
-   Then a change pushed for one session never redeploys the other.
-5. **Database (required).** Project → **Storage → Create Database → Neon (Postgres)**.
-   - Create a **new** database for each project (never share one between the two sessions: a student who
-     attends both would be refused, and the data would mix).
-   - Region: **US East (N. Virginia) `us-east-1`**. The app runs in Vercel's Washington region (`iad1`, set in
-     `vercel.json`) and talks to the database several times per click, so the two must be close.
-     If you pick another database region, change `"regions"` in `vercel.json` to the Vercel region next to it.
-   - Connect it to this project for all environments. This sets `DATABASE_URL` automatically.
-   Without a database the site still opens, but progress is kept in temporary memory and **will be lost**
-   (the teacher dashboard shows a red warning).
-6. **Redeploy** (Deployments → the latest → Redeploy), so the new database setting is used.
+4. **Database (required).** Project → **Storage → Create Database → Neon (Postgres)**, region
+   **US East (N. Virginia) `us-east-1`**, connected to this project for all environments (this sets `DATABASE_URL`).
+   The app runs in Vercel's Washington region (`iad1`, set in `vercel.json`) and talks to the database several times per
+   click, so the two must be close. If you pick another database region, change `"regions"` in `vercel.json` to the
+   Vercel region next to it. Without a database the site still opens, but progress is kept in temporary memory and
+   **will be lost** (the teacher dashboard shows a red warning).
+5. **Redeploy** (Deployments → the latest → Redeploy), so the database setting is used.
 
-## Check it before giving the link to students
+A database that was already used by an older one-session version is upgraded automatically on start: its students
+belong to the `MISSION` that deployment ran.
+
+## Check it before giving the links to students
 
 Open `https://<your-project>.vercel.app/api/health?db=1`. You should see:
 
 - `"storage": "postgres"`: data is saved in the database (not `"temporary"`).
-- `"mission": "s29"` (or `"s30"`): the right session.
+- `"missions"`: every session listed with its `slug` (the link name).
 - `"db_region": "us-east-1"` and `"round_trip_ms"` of a few milliseconds: fast clicks. Hundreds of milliseconds
-  means the app and database are far apart (see step 5).
+  means the app and database are far apart (see step 4).
 
-Then open `/teacher`, sign in with `TEACHER_PASSWORD`, and check the dashboard loads.
+Then open a session's `/teacher` link, sign in with `TEACHER_PASSWORD`, and check the dashboard loads.
 
 ## Load test (recommended before a big class)
 
-Simulates a class: students sign in over ~10 seconds, play with 1 to 3 seconds per step, half finish and half end
-early, everyone sends feedback, and a teacher dashboard refreshes every 5 seconds. It then checks that every answer
-and feedback is on the dashboard and in the CSV, and **deletes all its test students** (section `LOADTEST`).
+Simulates a class on one session: students sign in over ~10 seconds, play with 1 to 3 seconds per step, half finish
+and half end early, everyone sends feedback, and a teacher dashboard refreshes every 5 seconds. It then checks that
+every answer and feedback is on the dashboard and in the CSV, and **deletes all its test students** (section `LOADTEST`).
 
 ```bash
 pip install httpx
-LOADTEST_TEACHER_PW=<teacher password> python scripts/load_test.py https://<your-project>.vercel.app 70
+LOADTEST_TEACHER_PW=<teacher password> python scripts/load_test.py https://<your-project>.vercel.app/list-methods 70
 ```
 
-Run it when no real class is using the site. To test two sessions at once, run it for both sites at the same time.
-Measured on the first deployment: 30 students at once, 0 errors, about 0.25 s per click, all answers and feedback saved.
+To test several classes at once, run it for several session links at the same time. Run it when no real class is
+using the site.
 
 ## On class day
 
-- Students open the site, type name, roll number, section, university and contact number, and start.
-- Teachers watch `/teacher`: live progress, who needs attention, and **Resume** for a mission that ended early.
-- After class press **Export CSV** (progress and feedback in one file). Download it after every class as a backup.
+- Give each section its session's link. Students type name, roll number, section, university and contact number, and start.
+- Teachers watch that session's `/teacher`: live progress, who needs attention, and **Resume** for a mission that ended early.
+- After class press **Export CSV**. Download it after every class as a backup.
 - **Reset mission** erases a student's attempt; **Remove** deletes the student. Use them only on purpose.
 - Data stays in the database until someone resets or removes it, or deletes the database.
 
-## Updating later
+## Adding or changing a session
 
-Changes for one session go to its branch (`session-29` or `session-30`); Vercel redeploys only that project.
-Content is checked in real Python before release:
+A session is one file, `app/mission_<key>.py` (with `SLUG` for its link), plus its content checker
+`tests/verify_<key>.py`. Push to `main` and Vercel redeploys. Content is checked in real Python before release:
 
 ```bash
-python tests/verify_content.py                 # Session 29
-MISSION=s30 python tests/verify_s30.py         # Session 30
-python -m pytest -q tests                      # backend (add MISSION=s30 for Session 30)
+python tests/verify_content.py                       # Session 29
+MISSION=s30 python tests/verify_s30.py               # Session 30
+MISSION=<key> python tests/verify_<key>.py           # the other sessions
+python -m pytest -q tests                            # backend (MISSION=<key> to run it for another session)
 ```

@@ -24,6 +24,8 @@ const ICON={
   board:'<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 7.5h9l3 4.5-3 4.5h-9z"/><circle cx="6" cy="12" r="1.2" fill="currentColor" stroke="none"/><rect x="16.5" y="7.5" width="5" height="9" rx="1.5" fill="currentColor" stroke="none"/></svg>',
   trophy:'<svg viewBox="0 0 24 24" width="26" height="26" fill="currentColor" aria-hidden="true"><path d="M7 3h10v2h3v3a4 4 0 0 1-4 4h-.3A5 5 0 0 1 13 14.9V18h3v3H8v-3h3v-3.1A5 5 0 0 1 8.3 12H8a4 4 0 0 1-4-4V5h3zm-1 4v1a2 2 0 0 0 1 1.7V7zm11 0v2.7A2 2 0 0 0 18 8V7z"/></svg>'
 };
+// a badge without its own icon (a mission's new badge) shows a star
+const BADGE_STAR='<path d="m12 2.5 2.9 6 6.6.8-4.9 4.6 1.3 6.6L12 17.3l-5.9 3.2 1.3-6.6L2.5 9.3l6.6-.8z"/>';
 const BADGE_ICON={
   'board-explorer':'<path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm3.5 6.5-2 5-5 2 2-5z"/>',
   'duplicate-detective':'<path d="M8 3h10a2 2 0 0 1 2 2v10h-2V5H8zM4 7h10a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2zm1.6 4.2 1.4-1.4 2 2 2-2 1.4 1.4-2 2 2 2-1.4 1.4-2-2-2 2-1.4-1.4 2-2z"/>',
@@ -143,7 +145,7 @@ setInterval(tickClock,500);
 
 /* ---------- python syntax highlight + code panel ---------- */
 function hl(t,blank){
-  const re=/(#.*$)|("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*')|\b(for|in|if|else|elif|not|and|or|is|del|True|False|None)\b|\b(print|set|dict|len|input|type|map|int|str|list|tuple|range|sorted)\b(?=\s*\()|\.([a-z][a-z_]*)(?=\s*\()|\b(\d+(?:\.\d+)?)\b|(___)|([|&^\-=<>+*%]+)/g;
+  const re=/(#.*$)|("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*')|\b(for|in|if|else|elif|not|and|or|is|del|def|return|while|True|False|None)\b|\b(print|set|dict|len|input|type|map|int|str|list|tuple|range|sorted|id|min|max|sum|enumerate|all|any|reversed|abs)\b(?=\s*\()|\.([a-z][a-z_]*)(?=\s*\()|\b(\d+(?:\.\d+)?)\b|(___)|([|&^\-=<>+*%]+)/g;
   let out='',last=0,m;
   while((m=re.exec(t))){
     out+=esc(t.slice(last,m.index));
@@ -343,7 +345,7 @@ async function loadLeaderboard(slot){
 
 /* ---------- mission map ---------- */
 function starsHTML(n,cls){return `<span class="${cls||'stars'}" aria-label="${n} of 3 stars">${[0,1,2].map(i=>`<span class="${i<n?'on':''}">${ICON.star}</span>`).join('')}</span>`}
-function badgeHTML(id,earned,small){const b=M.badges[id];return `<div class="badge${earned?' got':''}${small?' sm':''}" title="${esc(b.name)}: ${esc(b.desc)}"><span class="bico"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">${BADGE_ICON[id]||''}</svg></span><span><b>${esc(b.name)}</b><small>${esc(b.desc)}</small></span></div>`}
+function badgeHTML(id,earned,small){const b=M.badges[id];return `<div class="badge${earned?' got':''}${small?' sm':''}" title="${esc(b.name)}: ${esc(b.desc)}"><span class="bico"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">${BADGE_ICON[id]||BADGE_STAR}</svg></span><span><b>${esc(b.name)}</b><small>${esc(b.desc)}</small></span></div>`}
 function nextLevel(){return M.levels.find(l=>lvState(l.id).unlocked&&!lvState(l.id).done)}
 function renderMap(){
   if(needSurvey())return renderSurvey();
