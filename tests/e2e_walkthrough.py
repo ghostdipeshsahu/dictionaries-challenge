@@ -241,7 +241,7 @@ def main():
             shot(page, "dict-lab")
             page.locator("#quit").click()
             log("dict lab experiments behave like Python")
-        else:
+        elif C.UI.get("lab") == "trip":
             # ---- trip lab (free play): Sheets, then Calls in real Python
             page.locator("#labBtn").click()
             expect(page.locator(".labtitle")).to_contain_text(C.UI["lab_name"])
@@ -268,6 +268,18 @@ def main():
             shot(page, "trip-lab-calls")
             page.locator("#quit").click()
             log("trip lab: names, copies and argument landing behave like Python")
+        else:
+            # ---- Python Lab (free play): the mission's starter loads, and real Python runs with input()
+            page.locator("#labBtn").click()
+            expect(page.locator(".labtitle")).to_contain_text(C.UI["lab_name"])
+            expect(page.locator("#plCode")).to_have_value(C.UI.get("lab_starter", ""))
+            page.locator("#plCode").fill("name = input()\nprint(name * 2)")
+            page.locator("#plIn").fill("ab")
+            page.locator("#plRun").click()
+            expect(page.locator("#plOut")).to_have_text("abab", timeout=120000)
+            shot(page, "python-lab")
+            page.locator("#quit").click()
+            log("python lab runs real Python")
 
         # ---- field guide
         page.locator("#guideBtn").click()
