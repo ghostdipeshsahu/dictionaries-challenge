@@ -134,11 +134,6 @@ for qid in ("L2-7",):
     _, et, em, line, _ = run(q["code"])
     ok(line == q["line"], f"{qid} stops on line {line}, keyed {q['line']}")
     ok(q["errors"][q["error"]] == f"{et}: {em}", f"{qid} error {et}: {em!r} vs {q['errors'][q['error']]!r}")
-q = Q["B-7"]
-_, et, em, line, _ = run(q["code"])
-ok(f"{et}: {em}" == q["errors"][q["error"]], f"B-7 error {et}: {em}")
-ok(q["code"].split("\n")[q["line"] - 1].strip() == "backup = trip", "B-7 keyed line is the one to change")
-ok(shown(q["code"].replace("backup = trip", "backup = trip.copy()")) == "{'Teja': 1500, 'Ravi': 800}", "B-7 fix works")
 
 
 # ---------- where does it land: my landing rules agree with Python's own argument binding ----------
@@ -211,7 +206,6 @@ for q in Q.values():
 # the starters fail the way their statements say
 r = run(Q["L5-4"]["challenge"]["starter"], "1\nTeja 1500")
 ok(r[1] == "TypeError" and "takes 0 positional arguments but 1 was given" in r[2], f"L5-4 starter {r[1]}: {r[2]}")
-ok(shown(Q["L5-1"]["challenge"]["starter"], "Kiran 500").split("\n")[0].endswith("'Kiran': 500}"), "L5-1 starter shows the = trap")
 
 # ---------- deck numbers ----------
 ok(shown(f'trip = {C.TRIP}\nb = trip\nb["Kiran"] = 500\nprint(trip["Kiran"])') == "500", "deck example 1")
@@ -230,14 +224,14 @@ for q in Q.values():
 ok({q["level"] for q in Q.values()} == LEVELS_OK, "every cognitive level used")
 ok({q["concept"] for q in Q.values()} == set(C.CONCEPTS), f"unused concepts {set(C.CONCEPTS) - {q['concept'] for q in Q.values()}}")
 ok({q["type"] for q in Q.values()} == set(C.TYPE_LABEL), f"unused types {set(C.TYPE_LABEL) - {q['type'] for q in Q.values()}}")
-ok(sum(q["type"] == "coding" for q in Q.values()) == 3, "three coding challenges")
+ok(sum(q["type"] == "coding" for q in Q.values()) == 2, "two coding challenges")
 # Timers are sized per question (base + per line of code, with a floor); the 45-minute clock is the hard stop.
 ok(C.MISSION_MINUTES == 45, "45-minute mission")
 for q in Q.values():
     ok(q["time"] == C.timer(q) and q["time"] >= C.FLOOR.get(q["type"], 0), f"{q['id']} timer {q['time']} s")
 ok(all(q["time"] == 360 for q in Q.values() if q["type"] == "coding"), "coding gets 6 minutes")
 worst = sum(q["time"] for q in Q.values())
-ok(45 * 60 <= worst <= 52 * 60, f"every timer used in full is {worst / 60:.1f} min: the clock, not the timers, ends a slow mission")
+ok(worst <= 38 * 60, f"every timer used in full is {worst / 60:.1f} min: it fits the 45-minute clock, with time to read each stage")
 
 print(f"\n{N[0]} checks, {len(FAILS)} failed")
 sys.exit(1 if FAILS else 0)

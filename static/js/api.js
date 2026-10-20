@@ -19,14 +19,16 @@ const API=(()=>{
   function remember(t,u){token=t;user=u;try{localStorage.setItem(TOKEN_KEY,t);localStorage.setItem(USER_KEY,JSON.stringify(u))}catch(e){}}
   function forget(){token=null;user=null;try{localStorage.removeItem(TOKEN_KEY);localStorage.removeItem(USER_KEY)}catch(e){}}
 
-  /* Called once at start-up. Resolves to {online, user, needsLogin, classCode}. */
+  /* Called once at start-up. Resolves to {online, user, needsLogin, classCode, title, short}. */
   async function boot(){
+    let brand={};
     try{const ctl=new AbortController(),t=setTimeout(()=>ctl.abort(),5000);
       const h=await call('GET','/health',null,{signal:ctl.signal});clearTimeout(t);online=true;
-      if(!token)return {online,needsLogin:true,classCode:h.class_code_required};
-      const me=await call('GET','/me');user=me.student;return {online,user,classCode:h.class_code_required};
+      brand={title:h.title,short:h.short};
+      if(!token)return {online,needsLogin:true,classCode:h.class_code_required,...brand};
+      const me=await call('GET','/me');user=me.student;return {online,user,classCode:h.class_code_required,...brand};
     }catch(e){
-      if(e.message==='signed-out')return {online:true,needsLogin:true};
+      if(e.message==='signed-out')return {online:true,needsLogin:true,...brand};
       online=false;return {online:false,user:null};
     }
   }

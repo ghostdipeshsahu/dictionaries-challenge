@@ -25,10 +25,14 @@ async function api(path,opts){
 function signOut(){token=null;stopLive();try{localStorage.removeItem(KEY)}catch(e){}$('#tbar').hidden=true;renderLogin()}
 
 function renderLogin(msg){
-  view.innerHTML=`<form class="tlogin" id="tl"><h1>Teacher dashboard</h1><p>Every student's progress, score, time and integrity flags for the Dictionaries mission.</p>
+  view.innerHTML=`<form class="tlogin" id="tl"><h1>Teacher dashboard</h1><p>Every student's progress, score, time and integrity flags for the <span id="tlMission">this session's</span> mission.</p>
     <input type="password" id="pw" placeholder="Teacher password" autocomplete="current-password" required>
     <p class="err" id="err" role="alert">${esc(msg||'')}</p><button class="btn primary" type="submit">Sign in</button>
     <a class="linkback" href="${BASE}/">Back to the student mission</a></form>`;
+  // Name the session before sign-in: the page HTML is shared by every session.
+  fetch(BASE+'/api/health').then(r=>r.json()).then(h=>{if(!h.short)return;
+    const b=$('.brand span');if(b)b.textContent=h.short+' · Teacher';document.title=h.short+' · Teacher';
+    const m=$('#tlMission');if(m)m.textContent=h.short;}).catch(()=>{});
   $('#tl').onsubmit=async e=>{e.preventDefault();$('#err').textContent='';
     const r=await fetch(BASE+'/api/teacher/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:$('#pw').value})});
     if(!r.ok){$('#err').textContent='That password is not right.';return}
@@ -172,7 +176,7 @@ function attention(){
   $('#attnCount').textContent=list.length?list.length:'';
   $('#attnPanel').classList.toggle('hot',list.length>0);
   const where=s=>s.current?`${esc(s.current.stage)} · Q${s.current.n}/${s.current.of}`:'not on a question';
-  const why=s=>s.can_resume?(s.status==='proctor'?`Mission ended: left the tab ${s.tab_switches_now} times`:'Mission ended: time ran out')
+  const why=s=>s.can_resume?(s.status==='proctor'?`Paused: left the tab ${s.tab_switches_now} times. Press Resume`:'Mission ended: time ran out')
     :s.activity==='offline'?'Offline: the page stopped responding':`Not moving for ${ago(s.idle_seconds)}`;
   $('#pAttn').innerHTML=list.length?`<ul class="alist">${list.map(s=>`<li class="${s.can_resume?'end':s.activity}"><span class="aname"><b>${esc(s.name)}</b><small>${esc(s.roll_no)} · ${esc(s.section)}</small></span><span class="awhy">${why(s)}<small>${where(s)}${s.resumes?` · resumed ${s.resumes}×`:''}</small></span>${s.can_resume?`<button class="del go" data-a="resume" data-id="${s.id}" type="button">Resume</button>`:'<span></span>'}</li>`).join('')}</ul>`
     :`<p class="empty">Everyone is moving. Students show up here when they are idle for ${data.idle_minutes} min, go offline, or their mission ends.</p>`;

@@ -75,7 +75,7 @@ for lvl in C.LEVELS:
     nlines = len(lvl["demo"].split("\n"))
     ok(all(1 <= w["line"] <= nlines and lvl["demo"].split("\n")[w["line"] - 1].strip() for w in lvl["walk"]), f"{lvl['id']} walk points at a blank or missing line")
     ok(bool(lvl.get("learn")), f"{lvl['id']} needs learning goals")
-    ok(bool(lvl.get("job")) and bool(lvl.get("intel_title")) and len(lvl["intel"]) >= 3, f"{lvl['id']} needs a job, an intel title and intel")
+    ok(bool(lvl.get("job")) and bool(lvl.get("intel_title")) and 1 <= len(lvl["intel"]) <= 3, f"{lvl['id']} needs a job, an intel title and intel")
 ok(shown(C.UI["lab_starter"]) == "0 51 104\n[51, 34, 12, 7, 0]\nFalse True\n1 Teja\n2 Ravi\n3 Kiran", f"lab starter prints {shown(C.UI['lab_starter'])!r}")
 
 # ---------- predict: the keyed option is Python's output, no distractor equals it ----------
@@ -159,9 +159,6 @@ for i, expr in enumerate(q["left"]):
 ok(sorted(q["mapping"]) == list(range(len(q["right"]))) and q["code"] == q["setup"], "L2-2 mapping one-to-one, code shown = code checked")
 
 # ---------- msq ----------
-q = Q["L2-4"]
-truth = [shown("print(" + o + ")") == "True" for o in q["options"]]
-ok([i for i, t in enumerate(truth) if t] == q["answers"], f"L2-4 truth {truth}")
 q = Q["B-2"]
 ok(shown(q["code"]) == "[4, 16, 1, 9, 25]", f"B-2 the program as given prints {shown(q['code'])!r}")
 for i, opt in enumerate(q["options"]):
@@ -219,8 +216,6 @@ for q in Q.values():
     for k in ("title", "statement", "input_fmt", "output_fmt", "starter", "tests"):
         ok(bool(ch.get(k)), f"{q['id']} challenge needs {k}")
 # the starters fail the way their statements say
-r = run(Q["L5-1"]["challenge"]["starter"], "C0d1n8")
-ok(r[1] == "TypeError" and "unsupported operand type(s) for +: 'int' and 'str'" in r[2] and r[3] == 6, f"L5-1 starter {r[1]}: {r[2]} on line {r[3]}")
 ok(shown(Q["L5-2"]["challenge"]["starter"], "Teja Ravi\n34 0") == "Teja\nRavi", "L5-2 starter prints only the names")
 ok(check_rules(Q["L5-2"], Q["L5-2"]["challenge"]["starter"]), "L5-2 starter has no enumerate")
 ok(check_rules(Q["L5-2"], 'names = input().split()\nruns = input().split()\nfor i in range(len(names)):\n    print(i + 1, names[i], runs[i])\n'),
@@ -246,9 +241,6 @@ ok(shown('print(max(3,5,4))\nprint(max([1,-2,4,2]))') == "5\n4", "deck: max")
 ok(shown('print(sum([1,-2,4,2]))') == "5", "deck: sum")
 ok(shown('list_a = [3, 5, 2, 1, 4, 6]\nlist_x = sorted(list_a)\nprint(list_x)\nprint(list_a)') == "[1, 2, 3, 4, 5, 6]\n[3, 5, 2, 1, 4, 6]", "deck: sorted returns a new list")
 ok(shown('list_a = [3, 5, 2, 1, 4, 6]\nprint(sorted(list_a, reverse=True))') == "[6, 5, 4, 3, 2, 1]", "deck: sorted reverse")
-for s, want in (("C0d1n8", "9\n0\n8"), ("Pr08ra3mi2g", "13\n0\n8"), ("1np4t-0u7p4t", "16\n0\n7")):
-    ok(shown(Q["L5-1"]["solution"], s) == want, f"deck: Extract Digits {s}")
-    ok(any(t["stdin"] == s and t["expected"] == want for t in Q["L5-1"]["challenge"]["tests"]), f"deck example {s} is a test")
 ok(shown('list_a = [2, 4, 1, 3, 5]\nlist_x = []\nfor item in list_a:\n    list_x += [item*item]\nprint(list_x)') == "[4, 16, 1, 9, 25]", "deck: the daily challenge's mistake")
 # teacher's takeaways beyond the deck
 _, _, _, _, env = run('list_a = [1, 2]\nlist_b = list(list_a)\nlist_c = list_a\nlist_a += [3]')
@@ -301,9 +293,9 @@ ok({q["level"] for q in Q.values()} == LEVELS_OK, "every cognitive level used")
 ok({q["concept"] for q in Q.values()} == set(C.CONCEPTS), f"unused concepts {set(C.CONCEPTS) - {q['concept'] for q in Q.values()}}")
 ok({q["type"] for q in Q.values()} == set(C.TYPE_LABEL), f"unused types {set(C.TYPE_LABEL) - {q['type'] for q in Q.values()}}")
 ok(not {"land", "board"} & set(C.TYPE_LABEL), "no land or board questions")
-ok(sum(q["type"] == "coding" for q in Q.values()) == 3, "three coding challenges")
+ok(sum(q["type"] == "coding" for q in Q.values()) == 2, "two coding challenges")
 ok({q["stage"] for q in Q.values() if q["type"] == "coding"} == {"L5", "BOSS"}, "coding sits in L5 and the Boss")
-ok(C.TOTAL == 28 == len(Q), f"28 questions, got {C.TOTAL}")
+ok(C.TOTAL == 25 == len(Q), f"25 questions, got {C.TOTAL}")
 ok([l["id"] for l in C.LEVELS] == ["L0", "L1", "L2", "L3", "L4", "L5", "BOSS"] and not any(l.get("bonus") for l in C.LEVELS), "7 stages, no bonus round")
 ok(C.LEVELS[0]["main"][:2] == ["L0-1", "L0-2"] and C.LEVELS[1]["main"][0] == "L1-1", "first questions where the generic tests expect them")
 ok(sum(len(C.LEVEL_BY_ID[x]["main"]) for x in ("L0", "L1")) >= 5, "L0 + L1 give a 5-answer combo")
@@ -322,7 +314,7 @@ for q in Q.values():
     ok(q["time"] == C.timer(q) and q["time"] >= C.FLOOR.get(q["type"], 0), f"{q['id']} timer {q['time']} s")
 ok(all(q["time"] == 360 for q in Q.values() if q["type"] == "coding"), "coding gets 6 minutes")
 worst = sum(q["time"] for q in Q.values())
-ok(45 * 60 <= worst <= 52 * 60, f"every timer used in full is {worst / 60:.1f} min: the clock, not the timers, ends a slow mission")
+ok(worst <= 38 * 60, f"every timer used in full is {worst / 60:.1f} min: it fits the 45-minute clock, with time to read each stage")
 
 print(f"\n{N[0]} checks, {len(FAILS)} failed")
 sys.exit(1 if FAILS else 0)

@@ -152,16 +152,10 @@ m = env["menu"]
 truth = [len(m) == 2, ("puff" in m) is False, m.get("puff") is None, False, (20 in m.values()) is True]
 _, et, _, _, _ = run('menu = {"tea": 12, "maggi": 30}\nmenu["puff"]')
 ok(et == "KeyError", "L2-5 option D really raises")
-ok([i for i, t in enumerate(truth) if t] == Q["L2-5"]["answers"], f"L2-5 truth {truth}")
 ok(shown('print({"b": 1, "a": 2, "c": 3})') == "{'b': 1, 'a': 2, 'c': 3}", "L4-6 insertion order holds")
 ok(shown('menu = {"tea": 12}\nprint(menu[0])') == "!KeyError: 0", "L4-6 menu[0] is a key lookup")
 
 # ---------- debug missions ----------
-for qid, stdin in (("L3-7", ""), ("L4-4", "")):
-    q = Q[qid]
-    _, et, em, line, _ = run(q["code"], stdin)
-    ok(line == q["line"], f"{qid} stops on line {line}, keyed {q['line']}")
-    ok(q["errors"][q["error"]].startswith(et) and (em in q["errors"][q["error"]] or et == "KeyError"), f"{qid} error {et}: {em} vs {q['errors'][q['error']]}")
 q = Q["B-6"]
 out, et, _, _, env = run(q["code"], "tea dosa samosa")
 ok(et is None and out.strip() == "27" and env["menu"].get("dosa") == 0 and list(env["menu"])[-1] == "dosa", "B-6 AI code: right total, dosa added at 0")
@@ -197,7 +191,6 @@ for q in Q.values():
     # the starter in the Python spec must run (or fail) without a syntax error
     ok("SyntaxError" != (run(ch["starter"], ch["tests"][0]["stdin"])[1]), f"{q['id']} starter has a syntax error")
 
-ok(run(Q["L5-1"]["challenge"]["starter"].replace("# add up", "for item in order:\n    total = total + menu[item]\n# add up"), "tea dosa")[1] == "KeyError", "Task 1 crash with dosa")
 # deck numbers
 ok(shown(f'menu = {C.MENU}\nprint(menu["tea"] + menu["maggi"])') == "42", "deck bill 42")
 ok(shown('names = ["tea", "coffee", "samosa", "puff", "maggi"]\nprices = [12, 15, 15, 20, 30]\nnames.remove("puff")\nprint(prices[names.index("tea")] + prices[names.index("maggi")])') == "32", "deck bill 32")
@@ -220,7 +213,7 @@ ok(C.MISSION_MINUTES == 45, "45-minute mission")
 for q in Q.values():
     ok(q["time"] == C.timer(q) and q["time"] >= C.FLOOR.get(q["type"], 0), f"{q['id']} timer {q['time']} s")
 ok(all(q["time"] == 360 for q in Q.values() if q["type"] == "coding"), "coding gets 6 minutes")
-ok(45 * 60 <= worst <= 50 * 60, f"every timer used in full is {worst / 60:.1f} min: the clock, not the timers, ends a slow mission")
+ok(worst <= 38 * 60, f"every timer used in full is {worst / 60:.1f} min: it fits the 45-minute clock, with time to read each stage")
 ok(180 <= sum(Q[q]["time"] for q in BONUS) <= 360, "the bonus round lasts 3 to 6 minutes")
 ok(len(CORE) == C.TOTAL, "the bonus round is not counted in the required total")
 

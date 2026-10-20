@@ -113,32 +113,29 @@ LEVELS = [
     {
         "id": "L2", "name": "Board Builder", "difficulty": "Easy+",
         "intel": [
-            "Keys are <b>unique</b>. Write a key twice and there is no error: the <b>last value wins</b> and the key keeps its <b>first position</b>. Values can repeat.",
+            'Keys are unique and case-sensitive: <code>"Tea"</code> and <code>"tea"</code> are two rows. Write a key twice and there is no error: the last value wins, in the first position.',
             "<code>menu[key] = value</code> is one line with two jobs: a <b>new</b> key adds a row at the end, an <b>existing</b> key changes its value in place.",
-            "Keys are <b>case-sensitive</b>: <code>\"Tea\"</code> and <code>\"tea\"</code> are two different rows.",
             "<code>del menu[key]</code> removes the whole pair. A missing key raises <code>KeyError</code>.",
         ],
         "demo": 'menu = {"tea": 12, "coffee": 15, "tea": 14}\nprint(menu)\nmenu["bun"] = 10\nmenu["coffee"] = 18\nmenu["Tea"] = 16\ndel menu["bun"]\nprint(menu)\nprint(len(menu))',
-        "main": ["L2-1", "L2-2", "L2-3", "L2-5", "L2-6", "L2-7"],
+        "main": ["L2-1", "L2-2", "L2-3", "L2-6", "L2-7"],
     },
     {
         "id": "L3", "name": "Lookup Arena", "difficulty": "Medium",
         "intel": [
             "A missing key with <code>[ ]</code> raises <code>KeyError</code> and the program <b>stops</b>. <code>get()</code> returns <code>None</code> and the program <b>continues</b>.",
             "<code>in</code> checks the <b>keys</b> only, never the values: <code>15 in menu</code> is <code>False</code>.",
-            "<code>keys()</code>, <code>values()</code> and <code>items()</code> follow the order the pairs were added. <code>values()</code> keeps repeats.",
-            "<code>for name in menu:</code> gives the keys. <code>for name, price in menu.items():</code> gives both.",
+            "<code>keys()</code>, <code>values()</code> and <code>items()</code> follow the order pairs were added. <code>for name in menu:</code> gives the keys; <code>for name, price in menu.items():</code> gives both.",
         ],
         "demo": 'menu = {"tea": 12, "coffee": 15, "samosa": 15}\nprint(menu.get("dosa"))\nprint("dosa" in menu, 15 in menu)\nprint(list(menu.values()))\nfor name, price in menu.items():\n    print(name, price)',
-        "main": ["L3-1", "L3-4", "L3-6", "L3-7", "L3-8"],
+        "main": ["L3-1", "L3-4", "L3-6", "L3-8"],
     },
     {
         "id": "L4", "name": "Logic Lab", "difficulty": "Hard",
         "intel": [
-            "<code>menu.keys()</code> is a <b>live view</b>: it shows every later change. <code>list(menu.keys())</code> is a <b>fixed copy</b> taken at that moment.",
+            "<code>menu.keys()</code> is a live view of the keys, in insertion order (a key deleted and added again goes to the end). <code>list(menu.keys())</code> is a fixed copy.",
             "<code>dict(pairs)</code> builds a board from a list of <b>two-item</b> pairs. A flat list, or an element with three items, raises <code>ValueError</code>.",
             "Keys must be <b>immutable</b>: a tuple works, a list raises <code>TypeError: unhashable type: 'list'</code>. Values can be anything.",
-            "Dictionaries keep <b>insertion order</b>. Deleting a key and adding it again puts it at the end.",
         ],
         "demo": 'menu = {"tea": 12, "coffee": 15}\nview = menu.keys()\nphoto = list(menu.keys())\nmenu["samosa"] = 15\nprint(view)\nprint(photo)\nprint(dict([("tea", 12), ("bun", 10)]))',
         "main": ["L4-1", "L4-3", "L4-4", "L4-6", "L4-7"],
@@ -147,11 +144,10 @@ LEVELS = [
         "id": "L5", "name": "Code Breaker", "difficulty": "Hard",
         "intel": [
             "Each challenge reads input, uses a dictionary and prints. Sample tests show the format; <b>hidden tests</b> check the edge cases.",
-            "Guard a lookup with <code>if item in menu:</code> so a missing item is skipped instead of crashing.",
             "Output is checked <b>exactly</b>. Dictionaries keep insertion order, so the order you print in matters.",
         ],
         "demo": f'menu = {MENU}\norder = "tea dosa samosa".split()\ntotal = 0\nfor item in order:\n    if item in menu:\n        total = total + menu[item]\nprint(total)',
-        "main": ["L5-1", "L5-2"],
+        "main": ["L5-2"],
     },
     {
         "id": "BOSS", "name": "Final Boss", "difficulty": "Boss",
@@ -272,15 +268,6 @@ add(id="L2-3", stage="L2", type="predict", level="Read", concept="case",
     explain='Keys are case-sensitive. <code>"Tea"</code> is a new key, so the board has 3 rows.',
     trap='Thinking <code>menu["Tea"] = 16</code> updates tea.')
 
-add(id="L2-5", stage="L2", type="msq", level="Read", concept="delete_len",
-    title='menu = {"tea": 12, "puff": 20, "maggi": 30}, then del menu["puff"]. Which are now true?',
-    options=["len(menu) is 2", '"puff" in menu is False', 'menu.get("puff") gives None',
-             'menu["puff"] gives 0', "20 in menu.values() is True"],
-    answers=[0, 1, 2],
-    hints=["del wipes the whole row: the name tag and its price card."],
-    explain='After <code>del</code> the puff pair is gone: 2 rows remain, <code>"puff" in menu</code> is False, and <code>get</code> gives None. <code>menu["puff"]</code> would raise <code>KeyError</code>, and 20 left with puff.',
-    trap="Thinking a deleted key reads as 0. It is gone; [ ] raises KeyError.")
-
 add(id="L2-6", stage="L2", type="board", level="Implement", concept="delete_len",
     title="Today's changes.",
     start=[["tea", 12], ["puff", 20], ["maggi", 30]],
@@ -330,15 +317,6 @@ add(id="L3-6", stage="L3", type="match", level="Read", concept="views_methods",
     hints=["values() keeps repeats. items() gives (key, value) pairs."],
     explain="<code>keys()</code> gives the names, <code>values()</code> the prices (repeats kept: <code>[15, 15]</code>), <code>items()</code> the pairs, and <code>len</code> counts 2 pairs.",
     trap="Expecting <code>values()</code> to drop the repeated 15, like a set.")
-
-add(id="L3-7", stage="L3", type="debug", level="Debug", concept="keyerror_get",
-    title="Ravi's bill crashes. Tap the line that must be fixed, then choose what goes wrong.",
-    code=f'menu = {MENU}\norder = ["tea", "dosa"]\ntotal = 0\nfor item in order:\n    total = total + menu[item]\nprint(total)',
-    errors=["KeyError: 'dosa'", "TypeError", "It prints 12", "IndexError"],
-    line=5, error=0, focus=5,
-    hints=["Which item in the order is not on the board, and which line looks it up?"],
-    explain="Line 5 reads <code>menu[item]</code> with <code>item = \"dosa\"</code>, which is not a key, so Python raises <code>KeyError: 'dosa'</code>. Guard it with <code>if item in menu:</code>.",
-    trap="Blaming line 2. A list may hold any names; the crash is the lookup.")
 
 add(id="L3-8", stage="L3", type="fill", level="Implement", concept="views_methods",
     title="Fill the gaps so the program prints every item that costs 15 or less: tea, coffee, samosa.",
@@ -404,26 +382,6 @@ add(id="L4-7", stage="L4", type="predict", level="Read", concept="looping",
     trap="Expecting tea to return to its old first position.")
 
 # ---------- L5 · Code Breaker ----------
-add(id="L5-1", stage="L5", type="coding", level="Implement", concept="membership",
-    challenge={
-        "title": "Canteen Bill",
-        "statement": "Ravi hands in an order. Total the bill using the board. Items that are <b>not on the board</b> (like dosa) are skipped: they cost nothing and must not crash the program.",
-        "input_fmt": "One line of item names separated by spaces. It may be empty.",
-        "output_fmt": "One number: the total.",
-        "starter": f'menu = {MENU}\norder = input().split()\ntotal = 0\n# add up the price of every item that is on the board\n\nprint(total)\n',
-        "tests": [
-            {"stdin": "puff tea tea coffee", "expected": "59"},
-            {"stdin": "tea dosa samosa", "expected": "27"},
-            {"stdin": "dosa burger", "expected": "0", "hidden": True, "note": "nothing on the board"},
-            {"stdin": "Tea tea", "expected": "12", "hidden": True, "note": "Tea with a capital T"},
-            {"stdin": "", "expected": "0", "hidden": True, "note": "empty order"},
-        ],
-    },
-    solution=f'menu = {MENU}\norder = input().split()\ntotal = 0\nfor item in order:\n    if item in menu:\n        total = total + menu[item]\nprint(total)\n',
-    hints=["Loop over the order and add menu[item] to total.", "Put if item in menu: in front of the lookup so missing items are skipped."],
-    explain="Loop over the order, check <code>if item in menu:</code>, and add <code>menu[item]</code>. Tea is counted twice in the first sample because it was ordered twice.",
-    trap="<code>\"Tea\"</code> is not a key, so it is skipped.")
-
 add(id="L5-2", stage="L5", type="coding", level="Extend", concept="looping",
     challenge={
         "title": "Exam-Week Budget",
@@ -627,7 +585,7 @@ LEVEL_BY_ID = {lvl["id"]: lvl for lvl in LEVELS}
 TOTAL = sum(len(lvl["main"]) for lvl in LEVELS if not lvl.get("bonus"))  # the bonus round is optional
 
 assert len(QUESTIONS) == len(Q), "duplicate question id"
-assert TOTAL == 27 and len(Q) == 32, (TOTAL, len(Q))
+assert TOTAL == 24 and len(Q) == 29, (TOTAL, len(Q))
 for lvl in LEVELS:
     for qid in lvl["main"]:
         assert QUESTIONS[qid]["stage"] == lvl["id"], qid

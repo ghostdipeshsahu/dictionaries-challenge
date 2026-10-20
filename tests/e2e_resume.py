@@ -68,16 +68,21 @@ try:
         pass_coach(page, {"mcq"}, "tf")                       # first True/False: its timer starts after Got it
         time.sleep(1)                                         # a moment on the question (its 25 s clock is tight for this test)
 
-        # 1) three tab switches end the mission
+        # 1) three tab switches pause the mission: ask the instructor to resume, no feedback form
         for i in range(3):
             leave_tab(page)
             if i < 2:
                 expect(page.locator("#modal")).to_contain_text("You left the mission tab", timeout=10000)
                 page.locator("#okBack").click()
         expect(page.locator(".endbanner.proctor")).to_be_visible(timeout=15000)
-        expect(page.locator(".survey #svNext")).to_be_visible()   # the feedback opens; the page still watches for a resume
+        expect(page.locator("#view h2")).to_contain_text("Ask your instructor to resume your mission")
+        expect(page.locator(".survey")).to_have_count(0)        # no feedback while the mission can still be resumed
+        expect(page.locator("#resumeWait")).to_be_visible()     # the page watches for the resume by itself
+        page.reload()                                           # a reload lands on the same paused screen
+        expect(page.locator("#view h2")).to_contain_text("Ask your instructor to resume your mission", timeout=15000)
+        expect(page.locator(".survey")).to_have_count(0)
         shot(page, "02-student-waiting")
-        print("mission ended on tab switches; feedback opened while the student waits for the teacher")
+        print("mission paused on tab switches; the student is asked to get the instructor, no feedback form")
 
         # 2) the teacher resumes from the attention panel (tap twice)
         btn = tpage.locator("#pAttn .del[data-a='resume']")
@@ -97,6 +102,7 @@ try:
         page.locator("#go").click()
         page.locator("#begin").click()
         expect(page.locator("#qtitle")).to_contain_text("True or false")  # back on L0-2; L0-1 stays solved
+        page.wait_for_timeout(1000)                           # the timer shows the full time for a moment, then the server's remaining time
         left = page.locator("#qtime").inner_text()
         mm, ss = left.split(":")
         secs = int(mm) * 60 + int(ss)

@@ -134,9 +134,8 @@ LEVELS = [
         "job": "Make a backup that stays the same when the sheet changes. Then count the sheet, empty it, and remove the friends who paid nothing, without crashing the app.",
         "intel_title": "What you need to know",
         "intel": [
-            "<code>backup = trip.copy()</code> makes a <b>real</b> backup: a second sheet that does not change when trip does.",
-            "<code>len(trip)</code> counts the friends. <code>\"Ravi\" in trip</code> checks the <b>names</b> only, never the amounts.",
-            "<code>trip.clear()</code> empties the sheet but keeps it. <code>trip = {}</code> starts a brand-new sheet instead.",
+            "<code>backup = trip.copy()</code> makes a real backup that does not change when trip does. <code>trip.clear()</code> empties the sheet itself; <code>trip = {}</code> starts a new one.",
+            '<code>len(trip)</code> counts the friends. <code>"Ravi" in trip</code> checks the <b>names</b> only, never the amounts.',
             "Deleting names while you loop over the same sheet crashes. Loop over <code>trip.copy()</code> and delete from <code>trip</code>.",
         ],
         "demo": f'trip = {TRIP}\nkiran = trip.copy()\nkiran["Kiran"] = 2000\nprint(trip)\ntrip.clear()\nprint(trip, len(kiran))',
@@ -163,15 +162,14 @@ LEVELS = [
                  {"line": 4, "say": "Three values: one tuple of three.", "shows": "('Teja', 'Ravi', 'Kiran')"},
                  {"line": 5, "say": "One value: still a tuple, with a comma.", "shows": "('Sai',)"},
                  {"line": 6, "say": "No values: an empty tuple.", "shows": "()"}],
-        "main": ["L3-1", "L3-2", "L3-3", "L3-4", "L3-7"],
+        "main": ["L3-1", "L3-4", "L3-7"],
     },
     {
         "id": "L4", "name": "Who Paid What?", "difficulty": "Hard",
         "job": "Send everyone's name and amount into one function, like Teja=1500, Ravi=800, however many friends there are.",
         "intel_title": "What you need to know",
         "intel": [
-            "Two stars, <code>def mark_paid(**paid):</code>, collect <code>name=value</code> pairs into a <b>dictionary</b>: <code>{'Teja': 1500, 'Ravi': 800}</code>.",
-            "It is a normal dictionary, so <code>paid.items()</code> and <code>\"Ravi\" in paid</code> work on it.",
+            '<code>def mark_paid(**paid):</code> collects name=value pairs into a normal dictionary, so <code>paid.items()</code> and <code>"Ravi" in paid</code> work on it.',
             "Have a dictionary already? <code>room(**data)</code> opens it. Each key must match a parameter's name.",
             "Know exactly how many values there are? Then just name them. Use <code>*</code> and <code>**</code> only when you can't know.",
         ],
@@ -180,16 +178,14 @@ LEVELS = [
         "walk": [{"line": 1, "say": "**paid will collect every name=value argument into a dictionary."},
                  {"line": 4, "say": "Each name becomes a key, each value its value.", "shows": "{'Teja': 1500, 'Ravi': 800}"},
                  {"line": 9, "say": "** opens the dictionary: each key goes to the parameter with its name, whatever the order.", "shows": "Teja C"}],
-        "main": ["L4-1", "L4-2", "L4-4", "L4-6", "L4-7"],
+        "main": ["L4-1", "L4-4", "L4-6", "L4-7"],
     },
     {
         "id": "L5", "name": "Fix Divya's App", "difficulty": "Hard",
-        "job": "Divya's trip app has three bugs. Fix each one so the app works for every friend, not just the examples.",
+        "job": "Divya's trip total stops with TypeError. Fix the call so it works for every sheet, not just the examples.",
         "intel_title": "Before you start",
         "intel": [
-            "Each fix reads input and prints. The sample tests show what it should print.",
-            "Hidden tests try tricky cases, like an empty sheet or a friend who paid nothing.",
-            "Some fixes also check <b>how</b> you solved it, for example that split() really uses <code>*friends</code>.",
+            "Your fix reads input and prints. Sample tests show the output; hidden tests try tricky cases, like an empty sheet or nobody paid.",
         ],
         "demo": f'trip = {{"Teja": 1500, "Kiran": 0, "Ravi": 800, "Sai": 0}}\nbackup = trip.copy()\nfor name in backup.keys():\n    if trip[name] == 0:\n        del trip[name]\nprint(trip)',
         "learn": ["Make a backup that really keeps the old sheet", "Delete safely while looping", "Write and call functions with *args and **kwargs"],
@@ -197,16 +193,15 @@ LEVELS = [
                  {"line": 3, "say": "Walk the copy: it never changes."},
                  {"line": 5, "say": "Delete from the real sheet. Kiran and Sai go."},
                  {"line": 6, "say": "Only the payers are left.", "shows": "{'Teja': 1500, 'Ravi': 800}"}],
-        "main": ["L5-1", "L5-4"],
+        "main": ["L5-4"],
     },
     {
         "id": "BOSS", "name": "Settle the Trip", "difficulty": "Boss",
         "job": "Everything comes together: a backup, a second name, and a function that checks who has paid. Settle the trip.",
         "intel_title": "Before you start",
         "intel": [
-            "Read the program on the left one line at a time.",
-            "For each line, ask: does it <b>change</b> a sheet, or does it give a name to a sheet?",
-            "Last two jobs: tell an AI exactly what you want, then spot what its code gets wrong.",
+            "Read the program on the left line by line. For each line, ask: does it change a sheet, or does it give a name to a sheet?",
+            "Last job: tell an AI exactly what you want, so its code adds up the trip correctly.",
         ],
         "demo": BOSS_SCENARIO,
         "learn": ["Trace names, copies and arguments together", "Fix and rewrite real programs", "Write a spec an AI can follow"],
@@ -216,7 +211,7 @@ LEVELS = [
                  {"line": 10, "say": "\"Kiran\" and \"Sai\" go into names; **trip opens trip into name=value arguments for paid."},
                  {"line": 8, "say": "Kiran is a key in paid: 500. Sai is not: get() gives None.", "shows": "Kiran 500\nSai None"},
                  {"line": 11, "say": "The backup still has 3 rows and Kiran's 0.", "shows": "3 0"}],
-        "main": ["B-1", "B-3", "B-5", "B-6", "B-7"],
+        "main": ["B-1", "B-3", "B-5", "B-6"],
     },
 ]
 
@@ -356,28 +351,6 @@ add(id="L3-1", stage="L3", type="predict", level="Read", concept="args_tuple",
     explain="Every value given to <code>*friends</code> goes into one tuple: three names, one name with its comma, or none at all, <code>()</code>.",
     trap="Thinking <code>*friends</code> packs a list.")
 
-add(id="L3-2", stage="L3", type="land", level="Read", concept="landing",
-    title="Where does each argument of this call land?",
-    code='def split(bill, *friends):\n    print(friends)\n\nsplit(1200, "Teja", "Ravi", "Kiran")',
-    boxes=["bill", "*friends"],
-    args=["1200", '"Teja"', '"Ravi"', '"Kiran"'],
-    mapping=[0, 1, 1, 1],
-    prints="('Teja', 'Ravi', 'Kiran')",
-    hints=["Values with no name fill the named parameters first, left to right."],
-    explain="1200 fills <code>bill</code>, the first named parameter. The names left over go into the tuple <code>friends</code>: it prints <code>('Teja', 'Ravi', 'Kiran')</code>.")
-
-add(id="L3-3", stage="L3", type="predict", level="Read", concept="star_call",
-    title="The names are already in a list. What does this print?",
-    code='def split(bill, *friends):\n    share = bill // len(friends)\n    for name in friends:\n        print(name, share)\n\ntable = ["Teja", "Ravi", "Kiran"]\nsplit(1200, table)',
-    options=["['Teja', 'Ravi', 'Kiran'] 1200", "Teja 400\nRavi 400\nKiran 400", "!TypeError: split() takes 2 positional arguments", "Teja 1200\nRavi 1200\nKiran 1200"],
-    answer=0,
-    why={1: "Without <code>*</code> at the call, the list goes in as <b>one</b> value. friends is a tuple holding one list.",
-         2: "<code>*friends</code> takes any number of values, including one.",
-         3: "There is one item in friends, so the loop prints once."},
-    hints=["Without a * at the call, how many values does split() receive after the bill?"],
-    explain="<code>table</code> is passed as one value, so <code>friends</code> is <code>(['Teja', 'Ravi', 'Kiran'],)</code>. len is 1, the share is 1200, and the one item printed is the whole list. Write <code>split(1200, *table)</code> to open it.",
-    trap="Thinking a list goes in as separate values even without <code>*</code>.")
-
 add(id="L3-4", stage="L3", type="fill", level="Implement", concept="star_call",
     title="Fill the gaps so one split() shares the bill between everyone in the list: Teja 400, Ravi 400, Kiran 400.",
     code='def split(bill, ___friends):\n    share = bill // len(friends)\n    for name in friends:\n        print(name, share)\n\ntable = ["Teja", "Ravi", "Kiran"]\nsplit(1200, ___table)',
@@ -409,19 +382,6 @@ add(id="L4-1", stage="L4", type="predict", level="Read", concept="kwargs_dict",
     hints=["Two stars collect name=value arguments. Into what?"],
     explain="Each <code>name=value</code> becomes a key and its value in one dictionary. With no arguments, paid is an empty dictionary <code>{}</code>.",
     trap="Thinking <code>**paid</code> packs a tuple, like <code>*friends</code>.")
-
-add(id="L4-2", stage="L4", type="predict", level="Read", concept="kwargs_use",
-    title="What does this print?",
-    code='def mark_paid(**paid):\n    for name, amount in paid.items():\n        print(name, "paid", amount)\n    print("Ravi" in paid)\n\nmark_paid(Teja=1500, Ravi=800)',
-    options=["Teja paid 1500\nRavi paid 800\nTrue", "!AttributeError: 'tuple' object has no attribute 'items'",
-             "Teja paid 1500\nRavi paid 800\nFalse", "1500 paid Teja\n800 paid Ravi\nTrue"],
-    answer=0,
-    why={1: "paid is a dictionary, so <code>items()</code> works.",
-         2: "\"Ravi\" is a key in paid, so <code>in</code> gives True.",
-         3: "items() gives (key, value): the name first."},
-    hints=["paid is a dictionary. What works on any dictionary?"],
-    explain="<code>paid</code> is a real dictionary: <code>items()</code> loops over name and amount, and <code>\"Ravi\" in paid</code> checks the keys: True.",
-    trap="Thinking paid is a tuple of values, so <code>items()</code> fails.")
 
 add(id="L4-4", stage="L4", type="predict", level="Read", concept="dstar_call",
     title="The room card is a dictionary, written block first. What does this print?",
@@ -458,25 +418,6 @@ add(id="L4-7", stage="L4", type="categorize", level="Read", concept="when_to_use
     trap="Reaching for *args when the number of values is known.")
 
 # ---------- L5 · Code Breaker ----------
-add(id="L5-1", stage="L5", type="coding", level="Debug", concept="copy",
-    challenge={
-        "title": "Divya's Backup",
-        "statement": "Divya keeps a backup before anyone pays. Read one name and amount and put it on the sheet. Then print the <b>backup</b> and then the sheet. The backup must still show the sheet as it was before the change. The starter's backup is not a backup: fix it.",
-        "input_fmt": "One line: a name and a whole-number amount.",
-        "output_fmt": "Two lines: print(backup), then print(trip).",
-        "starter": f'trip = {TRIP}\nbackup = trip\nname, amount = input().split()\ntrip[name] = int(amount)\nprint(backup)\nprint(trip)\n',
-        "tests": [
-            {"stdin": "Kiran 500", "expected": "{'Teja': 1500, 'Ravi': 800, 'Kiran': 0}\n{'Teja': 1500, 'Ravi': 800, 'Kiran': 500}"},
-            {"stdin": "Ravi 1000", "expected": "{'Teja': 1500, 'Ravi': 800, 'Kiran': 0}\n{'Teja': 1500, 'Ravi': 1000, 'Kiran': 0}"},
-            {"stdin": "Sai 300", "expected": "{'Teja': 1500, 'Ravi': 800, 'Kiran': 0}\n{'Teja': 1500, 'Ravi': 800, 'Kiran': 0, 'Sai': 300}", "hidden": True, "note": "a new name joins"},
-            {"stdin": "Teja 1500", "expected": "{'Teja': 1500, 'Ravi': 800, 'Kiran': 0}\n{'Teja': 1500, 'Ravi': 800, 'Kiran': 0}", "hidden": True, "note": "the same amount again"},
-        ],
-    },
-    solution=f'trip = {TRIP}\nbackup = trip.copy()\nname, amount = input().split()\ntrip[name] = int(amount)\nprint(backup)\nprint(trip)\n',
-    hints=["Run the first sample: why does the backup show 500?", "Change line 2 so backup is a second dictionary."],
-    explain="<code>backup = trip</code> only gave the sheet a second name. <code>backup = trip.copy()</code> makes a second dictionary, so the change on line 4 leaves it as it was.",
-    trap="Copying after the change keeps nothing old.")
-
 add(id="L5-4", stage="L5", type="coding", level="Extend", concept="dstar_call",
     challenge={
         "title": "The Trip Total",
@@ -557,15 +498,6 @@ add(id="B-6", stage="BOSS", type="msq", level="Prompting", concept="when_to_use"
     explain="The AI needs the signature (<code>*amounts</code>, since the count is unknown), what to print, a checkable example and the empty case. \"Short and smart\" changes nothing, and three fixed amounts is the bug we are avoiding.",
     trap="Leaving out the empty case: total() with nothing at all.")
 
-add(id="B-7", stage="BOSS", type="debug", level="Prompting", concept="loop_delete",
-    title="An AI wrote this to remove the unpaid, \"with a backup to loop over\". Python still stops. Tap the line that must be changed, then choose what goes wrong.",
-    code=f'trip = {{"Teja": 1500, "Kiran": 0, "Ravi": 800}}\nbackup = trip\nfor name in backup.keys():\n    if backup[name] == 0:\n        del trip[name]\nprint(trip)',
-    errors=["RuntimeError: dictionary changed size during iteration", "KeyError: 'Kiran'", "Nothing: it prints {'Teja': 1500, 'Ravi': 800}", "TypeError"],
-    line=2, error=0, focus=2,
-    hints=["Is backup a second dictionary, or a second name for trip?"],
-    explain="Line 2 only gives trip a second name, so the loop still walks the dictionary it deletes from, and Python stops with <code>RuntimeError</code>. Change it to <code>backup = trip.copy()</code>.",
-    trap="Trusting the word \"backup\" in the AI's code.")
-
 QUESTIONS = {q["id"]: q for q in Q}
 LEVEL_IDS = [lvl["id"] for lvl in LEVELS]
 LEVEL_BY_ID = {lvl["id"]: lvl for lvl in LEVELS}
@@ -614,7 +546,7 @@ UI = {
 }
 
 assert len(QUESTIONS) == len(Q), "duplicate question id"
-assert TOTAL == len(Q) == 28, TOTAL
+assert TOTAL == len(Q) == 23, TOTAL
 for lvl in LEVELS:
     for qid in lvl["main"]:
         assert QUESTIONS[qid]["stage"] == lvl["id"], qid

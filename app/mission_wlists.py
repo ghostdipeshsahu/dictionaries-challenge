@@ -113,7 +113,6 @@ LEVELS = [
         "job": "Rahul and Anu both say they have Meera's playlist. Use id() to find out who really shares it.",
         "intel_title": "What you need to know",
         "intel": [
-            "Anything you can store in a variable is an <b>object</b>: <code>5</code>, <code>1.25</code>, <code>\"A\"</code>, and every list.",
             "Each object gets a unique <b>id</b> when it is made. It is tied to where the object sits in memory, and it can be a different number every run.",
             "<code>id(playlist)</code> gives that id. <code>id(a) == id(b)</code> is <code>True</code> only when both names point at <b>one</b> object.",
             "Two lists with the same songs are still <b>two</b> lists, with two ids.",
@@ -143,7 +142,7 @@ LEVELS = [
                  {"line": 3, "say": "Index 3 changes from 5 to 4, through list_b."},
                  {"line": 4, "say": "list_a sees it: it is the same list.", "shows": "list a : [1, 2, 3, 4]"},
                  {"line": 5, "say": "And list_b, of course.", "shows": "list b : [1, 2, 3, 4]"}],
-        "main": ["L2-1", "L2-2", "L2-3", "L2-4", "L2-5"],
+        "main": ["L2-1", "L2-2", "L2-3", "L2-5"],
     },
     {
         "id": "L3", "name": "New List or Same List?", "difficulty": "Medium",
@@ -168,8 +167,7 @@ LEVELS = [
         "job": "DJ Karthik keeps a request list that holds Meera's playlist inside it. Work out what follows a change, and what doesn't.",
         "intel_title": "What you need to know",
         "intel": [
-            "A list can hold another list: <code>dj = [\"Intro\", playlist]</code>. dj holds the playlist <b>itself</b> (a reference), not a copy.",
-            "So a change <b>inside</b> that list, like <code>playlist[0] = \"Malhari\"</code>, shows inside dj too.",
+            'A list can hold another list: <code>dj = ["Intro", playlist]</code> holds the playlist itself (a reference), not a copy. So <code>playlist[0] = "Malhari"</code> shows inside <code>dj</code> too.',
             "Numbers and strings can't be changed in place. <code>a = 3</code> points a at a new object; a list that holds the old 2 keeps 2.",
             "<code>+=</code> adds each item of a list: <code>animals += wild_animals</code> adds two items. <code>animals += [wild_animals]</code> adds the whole list as <b>one</b> item.",
         ],
@@ -185,12 +183,10 @@ LEVELS = [
     },
     {
         "id": "L5", "name": "Fix Meera's App", "difficulty": "Hard",
-        "job": "Meera's playlist app has two bugs. Fix each one so the app works for every playlist, not just the examples.",
+        "job": "DJ Karthik's set list in Meera's app is broken. Fix it so it works for every playlist, not just the examples.",
         "intel_title": "Before you start",
         "intel": [
-            "Each fix reads input and prints. The sample tests show what it should print.",
-            "Hidden tests try tricky cases, like an empty playlist or a friend who sends no songs.",
-            "Need a second list with the same songs? <code>+</code> always makes a new list: <code>playlist + []</code>.",
+            "Your fix reads input and prints. Sample tests show the output; hidden tests try tricky cases, like no friends yet or a friend who sends no songs.",
         ],
         "demo": 'set_list = []\nblock = ["Naatu Naatu", "Jai Ho"]\nset_list += [block]\nset_list += block\nprint(set_list)\nprint(len(set_list))',
         "learn": ["Make a backup that really keeps the old songs", "Add a list as one item, and give each item its own list"],
@@ -198,16 +194,15 @@ LEVELS = [
                  {"line": 4, "say": "+= block adds its two songs one by one."},
                  {"line": 5, "say": "One block, then two loose songs.", "shows": "[['Naatu Naatu', 'Jai Ho'], 'Naatu Naatu', 'Jai Ho']"},
                  {"line": 6, "say": "Three items in all.", "shows": "3"}],
-        "main": ["L5-1", "L5-2"],
+        "main": ["L5-2"],
     },
     {
         "id": "BOSS", "name": "Save Fresher's Night", "difficulty": "Boss",
         "job": "Everything comes together: a second name, a new list, a list inside a list, and +=. Save the night.",
         "intel_title": "Before you start",
         "intel": [
-            "Read the program on the left one line at a time.",
-            "For each line, ask: does it <b>change</b> a list, or does it point a name at a list?",
-            "Last two jobs: tell an AI exactly what you want, then spot what its code gets wrong.",
+            "Read the program on the left line by line. For each line, ask: does it change a list, or does it point a name at a list?",
+            "Last job: tell an AI exactly what you want, so its code does not break the playlist.",
         ],
         "demo": BOSS_SCENARIO,
         "learn": ["Trace names, new lists and changes in place together", "Fix and rewrite real programs", "Write a spec an AI can follow"],
@@ -218,7 +213,7 @@ LEVELS = [
                  {"line": 6, "say": "Index 0 changes in the same list."},
                  {"line": 7, "say": "anu still has 3 songs; dj still has 2 items.", "shows": "3 2"},
                  {"line": 8, "say": "The list inside dj shows both changes.", "shows": "['Intro', ['Butta Bomma', 'Jai Ho', 'Malhari']]"}],
-        "main": ["B-1", "B-2", "B-3", "B-4", "B-5"],
+        "main": ["B-1", "B-2", "B-3", "B-4"],
     },
 ]
 
@@ -327,16 +322,6 @@ add(id="L2-3", stage="L2", type="fill", level="Implement", concept="assign_share
     expect="['Naatu Naatu', 'Malhari', 'Kesariya']\n['Naatu Naatu', 'Malhari', 'Kesariya']",
     hints=["rahul must be a second name for the same list.", "Jai Ho sits at index 1."],
     explain="<code>rahul = playlist</code> gives the list a second name, and <code>rahul[1] = \"Malhari\"</code> changes that one list, so both prints show Malhari.")
-
-add(id="L2-4", stage="L2", type="debug", level="Debug", concept="change_item",
-    title="Rahul wants to change the fourth song, and Python stops. Tap the line where it stops, then choose what goes wrong.",
-    code=f'playlist = {SONGS}\nrahul = playlist\nrahul[3] = "Malhari"\nprint(playlist)',
-    errors=["IndexError: list assignment index out of range", "It prints ['Naatu Naatu', 'Jai Ho', 'Kesariya', 'Malhari']",
-            "NameError: name 'rahul' is not defined", "TypeError: 'list' object is not callable"],
-    line=3, error=0, focus=3,
-    hints=["Count the indexes of a three-song list.", "Can = with an index add a new item?"],
-    explain="The list has indexes 0, 1 and 2. <code>rahul[3] = ...</code> asks to change an item that does not exist, so Python stops: <code>IndexError: list assignment index out of range</code>. To add a song, use <code>rahul += [\"Malhari\"]</code>.",
-    trap="Expecting an index to add a new song at the end.")
 
 add(id="L2-5", stage="L2", type="order", level="Implement", concept="shared_change",
     title="Put the lines in order so the program prints [5, 3, 9], then 3.",
@@ -461,25 +446,6 @@ add(id="L4-5", stage="L4", type="categorize", level="Read", concept="nested_muta
     trap="Thinking <code>a = 5</code> reaches inside the list.")
 
 # ---------- L5 · Fix Meera's App ----------
-add(id="L5-1", stage="L5", type="coding", level="Debug", concept="assign_shares",
-    challenge={
-        "title": "Rahul's Real Backup",
-        "statement": "Rahul keeps a backup before a new song is added. Read the playlist, then one new song, and add it. Print the <b>backup</b>, then the playlist. The backup must still show the playlist from before the new song. The starter's backup is not a backup: fix it.",
-        "input_fmt": "First line: N. Then N lines, one song each. Last line: the new song.",
-        "output_fmt": "Two lines: print(backup), then print(playlist).",
-        "starter": 'n = int(input())\nplaylist = []\nfor i in range(n):\n    playlist += [input()]\nbackup = playlist\nplaylist += [input()]\nprint(backup)\nprint(playlist)\n',
-        "tests": [
-            {"stdin": "3\nNaatu Naatu\nJai Ho\nKesariya\nMalhari", "expected": "['Naatu Naatu', 'Jai Ho', 'Kesariya']\n['Naatu Naatu', 'Jai Ho', 'Kesariya', 'Malhari']"},
-            {"stdin": "1\nJai Ho\nKesariya", "expected": "['Jai Ho']\n['Jai Ho', 'Kesariya']"},
-            {"stdin": "0\nMalhari", "expected": "[]\n['Malhari']", "hidden": True, "note": "an empty playlist"},
-            {"stdin": "2\nJai Ho\nNaatu Naatu\nJai Ho", "expected": "['Jai Ho', 'Naatu Naatu']\n['Jai Ho', 'Naatu Naatu', 'Jai Ho']", "hidden": True, "note": "the same song again"},
-        ],
-    },
-    solution='n = int(input())\nplaylist = []\nfor i in range(n):\n    playlist += [input()]\nbackup = playlist + []\nplaylist += [input()]\nprint(backup)\nprint(playlist)\n',
-    hints=["Run the first sample: why does the backup show Malhari?", "Line 5 must make a second list. Which operator always makes a new list?"],
-    explain="<code>backup = playlist</code> only gave the list a second name, so the += on line 6 showed in both. <code>backup = playlist + []</code> builds a new list with the same songs. (Changing line 6 to <code>playlist = playlist + [input()]</code> also works: then playlist moves to a new list and backup keeps the old one.)",
-    trap="Thinking the backup is safe because it was made before the change.")
-
 add(id="L5-2", stage="L5", type="coding", level="Extend", concept="nested_mutable",
     challenge={
         "title": "The DJ's Set List",
@@ -558,16 +524,6 @@ add(id="B-4", stage="BOSS", type="msq", level="Prompting", concept="concat_new",
     explain="The AI needs the rule (a new list), an example it can test, the tools your class knows, and the empty case. \"Look professional\" changes nothing, and <code>backup = playlist</code> is exactly the bug: a second name, not a backup.",
     trap="Telling the AI to write backup = playlist.")
 
-add(id="B-5", stage="BOSS", type="debug", level="Prompting", concept="reassign",
-    title="An AI wrote this to add Anu's songs \"so that everyone sees them\". Rahul still sees the old playlist. Tap the line that must change, then choose what the code prints.",
-    code='playlist = ["Naatu Naatu", "Jai Ho"]\nrahul = playlist\nanu = ["Malhari", "Kesariya"]\nplaylist = playlist + anu\nprint(rahul)',
-    errors=["It prints ['Naatu Naatu', 'Jai Ho']", "It prints ['Naatu Naatu', 'Jai Ho', 'Malhari', 'Kesariya']",
-            "It prints ['Naatu Naatu', 'Jai Ho', ['Malhari', 'Kesariya']]", "TypeError: can only concatenate list (not \"str\") to list"],
-    line=4, error=0, focus=4,
-    hints=["Does line 4 change the shared list, or build a new one?"],
-    explain="Line 4 builds a new list with + and moves only the name playlist to it, so rahul still prints <code>['Naatu Naatu', 'Jai Ho']</code>. Change it to <code>playlist += anu</code>.",
-    trap="Trusting the AI's comment instead of tracing the names.")
-
 QUESTIONS = {q["id"]: q for q in Q}
 LEVEL_IDS = [lvl["id"] for lvl in LEVELS]
 LEVEL_BY_ID = {lvl["id"]: lvl for lvl in LEVELS}
@@ -636,7 +592,7 @@ UI = {
 }
 
 assert len(QUESTIONS) == len(Q), "duplicate question id"
-assert TOTAL == len(Q) == 28, TOTAL
+assert TOTAL == len(Q) == 25, TOTAL
 for lvl in LEVELS:
     for qid in lvl["main"]:
         assert QUESTIONS[qid]["stage"] == lvl["id"], qid

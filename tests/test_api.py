@@ -434,18 +434,21 @@ def test_split_the_bill_must_use_star_friends(client):
 def test_landing_question_is_graded_per_argument(client):
     h = login(client)
     start(client, h)
-    for lid in ("L0", "L1", "L2"):
+    for lid in ("L0", "L1", "L2", "L3"):
         clear_stage(client, h, lid)
-    for qid in ("L3-1",):
+    for qid in ("L4-1", "L4-4"):
         solve(client, h, qid)
-    q = C.QUESTIONS["L3-2"]
-    wrong = [1, 1, 1, 1]  # 1200 put in the tuple too
-    r = ans(client, h, "L3-2", wrong).json()
-    assert not r["correct"] and r["detail"]["per_item"] == [False, True, True, True] and r["detail"]["right_count"] == 3
+    q = C.QUESTIONS["L4-6"]
+    nobox = len(q["boxes"])  # one past the last box means "no box"
+    wrong = list(q["mapping"])
+    wrong[0] = next(b for b in range(nobox + 1) if b != wrong[0])  # first argument in the wrong place
+    per = [w == m for w, m in zip(wrong, q["mapping"])]
+    r = ans(client, h, "L4-6", wrong).json()
+    assert not r["correct"] and r["detail"]["per_item"] == per and r["detail"]["right_count"] == sum(per)
     assert "solution" not in r
-    assert ans(client, h, "L3-2", [0, 1, 1, 9]).status_code == 422   # 9 is not a box
-    assert ans(client, h, "L3-2", [0, 1, 1]).status_code == 422      # one argument left unplaced
-    r = ans(client, h, "L3-2", q["mapping"]).json()
+    assert ans(client, h, "L4-6", wrong[:-1] + [nobox + 1]).status_code == 422  # not a box
+    assert ans(client, h, "L4-6", wrong[:-1]).status_code == 422                # one argument left unplaced
+    r = ans(client, h, "L4-6", q["mapping"]).json()
     assert r["correct"]
 
 
@@ -455,7 +458,7 @@ def test_landing_no_box_and_reveal_gives_the_printed_line(client):
     start(client, h)
     for lid in ("L0", "L1", "L2", "L3"):
         clear_stage(client, h, lid)
-    for qid in ("L4-1", "L4-2", "L4-4"):
+    for qid in ("L4-1", "L4-4"):
         solve(client, h, qid)
     nobox = len(C.QUESTIONS["L4-6"]["boxes"])
     ans(client, h, "L4-6", [0, 0])
@@ -830,14 +833,38 @@ def test_feedback_opens_only_after_the_mission_ends(client, clock):
     assert r.status_code == 200 and r.json()["already"] is True
 
 
+def test_tab_switch_stop_waits_for_the_teacher_not_the_feedback(client, clock):
+    """Three tab switches pause the mission: the student is asked to get the teacher to resume it. Feedback opens
+    only when the mission is over for good: every stage cleared, or the clock ran out with no resume."""
+    h = login(client)
+    start(client, h)
+    end_by_tab_switches(client, h)
+    st = client.get("/api/dicts/mission", headers=h).json()["state"]
+    assert st["ended_reason"] == "proctor" and st["feedback_open"] is False
+    r = client.post("/api/dicts/feedback", json=FB, headers=h)
+    assert r.status_code == 409 and "instructor" in r.json()["detail"]
+    # the teacher resumes: the mission runs again, still no feedback
+    t = teacher(client)
+    assert client.post(f"/api/teacher/dicts/{sid_of(client, h)}/resume", headers=t).status_code == 200
+    st = client.get("/api/dicts/mission", headers=h).json()["state"]
+    assert st["ended_at"] is None and st["feedback_open"] is False
+    # paused again, and this time nobody resumes before the clock is over: now the feedback opens
+    end_by_tab_switches(client, h)
+    clock.t += MISSION_S / 2
+    assert client.get("/api/dicts/mission", headers=h).json()["state"]["feedback_open"] is False
+    clock.t += MISSION_S
+    assert client.get("/api/dicts/mission", headers=h).json()["state"]["feedback_open"] is True
+    assert client.post("/api/dicts/feedback", json=FB, headers=h).status_code == 200
+
+
 @pytest.mark.parametrize("bad", [
     {"enjoy": 0}, {"enjoy": 6}, {"confidence": None}, {"toughest": ""}, {"toughest": "BONUS"}, {"favourite": "L99"},
     {"difficulty": "meh"}, {"pace": ""}, {"tech": ""}, {"helped": ["nope"]},
 ])
-def test_feedback_is_validated(client, bad):
+def test_feedback_is_validated(client, clock, bad):
     h = login(client)
     start(client, h)
-    end_by_tab_switches(client, h)
+    clock.t += MISSION_S + 1
     r = client.post("/api/dicts/feedback", json=dict(FB, **bad), headers=h)
     assert r.status_code == 422, (bad, r.text)
     assert client.get("/api/dicts/mission", headers=h).json()["state"]["feedback_done"] is False
@@ -850,6 +877,7 @@ def test_feedback_reaches_the_teacher_dashboard_and_csv(client, clock):
     start(client, h2)
     end_by_tab_switches(client, h)
     end_by_tab_switches(client, h2)
+    clock.t += MISSION_S + 1   # nobody resumed them and the clock ran out: feedback opens
     assert client.post("/api/dicts/feedback", json=FB, headers=h).status_code == 200
     t = teacher(client)
     d = client.get("/api/teacher/dicts", headers=t).json()
@@ -863,7 +891,7 @@ def test_feedback_reaches_the_teacher_dashboard_and_csv(client, clock):
     assert r["name"] == "Asha Rao" and r["contact"] == "9876543210" and r["university"] == "NIAT Hyderabad"
     assert r["toughest_label"] == C.LEVELS[2]["name"] and r["pace_label"] == "Needed more time"
     assert r["difficulty_label"] == "Just right" and r["tech_label"] == "Yes, small ones" and len(r["helped"]) == 2
-    assert r["reached"].startswith("0/") and r["status_label"] == "Ended: tab switches"
+    assert r["reached"].startswith("0/") and r["status_label"] == "Paused: tab switches"
     assert {s["name"]: s["feedback_sent"] for s in d["students"]} == {"Asha Rao": True, "Not Done Yet": False}
     csv_text = client.get("/api/teacher/dicts/feedback.csv", headers=t).text
     assert "Asha Rao" in csv_text and "More coding time" in csv_text and "Not Done Yet" not in csv_text
@@ -879,6 +907,7 @@ def test_feedback_survives_a_resume_and_reset_clears_it(client, clock):
     h = login(client)
     start(client, h)
     end_by_tab_switches(client, h)
+    clock.t += MISSION_S + 1
     assert client.post("/api/dicts/feedback", json=FB, headers=h).status_code == 200
     t = teacher(client)
     sid = sid_of(client, h)

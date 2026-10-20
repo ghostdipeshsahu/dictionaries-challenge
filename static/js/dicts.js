@@ -131,7 +131,7 @@ function rollXP(){const el=$('#xpNum'),from=shownXP,to=ST.xp;shownXP=to;if(reduc
 function hud(){
   if(!ST)return;$('#xpNum').textContent=shownXP;$('#comboNum').textContent=ST.combo;$('#comboStat').classList.toggle('hot',ST.combo>=3);
   const p=ST.progress;$('#mprog').style.transform=`scaleX(${p.total?p.done/p.total:0})`;
-  $('#clock').hidden=!ST.started_at;tickClock();
+  $('#clock').hidden=!ST.started_at||isPaused();tickClock();   // a paused mission shows no 0:00: its time is kept
 }
 function tickClock(){
   if(!ST||!ST.started_at)return;
@@ -230,6 +230,7 @@ async function checkResume(byHand){
   const b=$('#checkResume');if(byHand&&b){b.disabled=true;b.textContent='Checking…'}
   let m;try{m=await api('GET','/mission')}catch(e){if(b){b.disabled=false;b.textContent='Check again'}return}
   if(m.state.ended_at){
+    if(isPaused()&&m.state.feedback_open){adopt(m.state);return renderSurvey()}   // the clock ran out before a resume
     if(m.state.ended_reason==='complete'||!['time','proctor'].includes(m.state.ended_reason))clearInterval(resumeTimer);
     if(b){b.disabled=false;b.textContent='Check again'}if(byHand)toast('Not resumed yet. Ask your teacher.','err');return}
   clearInterval(resumeTimer);resumeTimer=null;overHandled=false;
@@ -254,7 +255,7 @@ function showRules(onAccept){
     <ul class="rules-list">
       <li>${ICON.clock}<span>You have <b>${r.mission_minutes} minutes</b> for the whole mission. The clock starts when you press Start and keeps running even if you leave.</span></li>
       <li>${ICON.clock}<span>Every question has its <b>own countdown</b>. When it reaches zero you see the answer and an explanation, and the question closes.</span></li>
-      <li>${ICON.eye}<span><b>Stay on this tab.</b> Leaving it or switching windows is recorded. ${r.max_tab_switches?`After <b>${r.max_tab_switches}</b> switches your mission ends.`:''}</span></li>
+      <li>${ICON.eye}<span><b>Stay on this tab.</b> Leaving it or switching windows is recorded. ${r.max_tab_switches?`After <b>${r.max_tab_switches}</b> switches your mission pauses, and only your instructor can resume it.`:''}</span></li>
       <li>${ICON.shield}<span><b>Copy, paste and right-click are turned off.</b> Open the mission in one tab only.</span></li>
       <li>${ICON.bulb}<span><b>Hints are allowed</b> and point you to the concept. The solution opens after ${r.reveal_after} wrong tries.</span></li>
     </ul>
@@ -283,7 +284,7 @@ async function comeBack(){
   modal.dataset.locked='1';
   openModal(`<div class="ghead"><h2>${ICON.eye} You left the mission tab</h2></div>
     <p class="warnline">This was switch <b>${r.tab_switches}</b>${r.max?` of <b>${r.max}</b>`:''}. It has been recorded for your teacher.</p>
-    ${left!==null?`<p class="${left<=1?'warnline bad':''}">${left===1?'<b>One more switch will end your mission.</b>':`${left} more switches will end your mission.`}</p>`:''}
+    ${left!==null?`<p class="${left<=1?'warnline bad':''}">${left===1?'<b>One more switch will pause your mission until your instructor resumes it.</b>':`${left} more switches will pause your mission.`}</p>`:''}
     <p class="muted">The timers kept running while you were away.</p>
     <div class="power-row"><button class="btn primary" id="okBack" type="button">Back to the mission</button></div>`,()=>{modal.dataset.locked=''});
   $('#okBack',modal).onclick=()=>{modal.dataset.locked='';modal.close()};
@@ -1206,7 +1207,8 @@ async function finishMission(){
    Opens by itself when the mission ends (time, tab switches, Final Boss / bonus cleared, or Finish) and must be sent
    before the report. Five short steps about the practice only: name, roll number, section, university and contact
    come from the sign-in. A draft is kept in this browser so a reload does not lose answers. */
-const needSurvey=()=>!!(ST&&ST.ended_at&&!ST.feedback_done);
+const needSurvey=()=>!!(ST&&ST.ended_at&&ST.feedback_open&&!ST.feedback_done);
+const isPaused=()=>!!(ST&&ST.ended_reason==='proctor'&&!ST.feedback_open&&!ST.feedback_done);
 const ENJOY=[['😴','Not at all'],['😕','Not much'],['🙂','It was okay'],['😄','Liked it'],['🤩','Loved it']];
 const CONF=['Not confident','A little','Getting there','Confident','Very confident'];
 const DIFF=[['easy','🥱','Too easy'],['right','👌','Just right'],['hard','🥵','Too hard']];
@@ -1276,7 +1278,7 @@ function renderSurvey(){
   if(!SV)svLoad();
   const i=SV.step,st=SV_STEPS[i],last=i===SV_STEPS.length-1,reason=ST.ended_reason;
   const head=reason==='time'?`<div class="endbanner time">${ICON.clock}<div><b>Time's up! Your progress is saved.</b><p>Every answer you checked is saved on the server. One last step: a quick feedback (about 2 minutes), then your report.</p></div></div>`
-    :reason==='proctor'?`<div class="endbanner proctor">${ICON.eye}<div><b>Mission ended: you left the mission tab ${ST.proctor.tab_switches} times.</b><p>Your work is saved. One last step: a quick feedback, then your report.</p></div></div>`
+    :reason==='proctor'?`<div class="endbanner proctor">${ICON.eye}<div><b>Time's up. Your mission was paused after ${ST.proctor.tab_switches} tab switches.</b><p>Your work is saved. One last step: a quick feedback, then your report.</p></div></div>`
     :`<div class="endbanner done">${ICON.trophy.replace('width="26" height="26"','width="22" height="22"')}<div><b>Mission complete! Brilliant work.</b><p>One last step: a quick feedback (about 2 minutes), then your report.</p></div></div>`;
   view.innerHTML=`<section class="survey enter">
     ${i===0?head:''}
@@ -1342,6 +1344,7 @@ async function sendSurvey(){
 }
 async function renderSummary(){
   if(needSurvey())return renderSurvey();
+  if(isPaused())return renderPaused();
   R=null;Q=null;stopQTimer();closeDrawer();
   let rev={items:[]};try{rev=await api('GET','/review')}catch(e){}
   const ent=Object.values(ST.questions),firstTry=ent.filter(v=>v.solved&&!v.wrong).length,attempted=ent.filter(v=>v.solved||v.revealed||v.timed_out).length;
@@ -1374,6 +1377,20 @@ async function renderSummary(){
   if(reason==='complete'){rain(120)}
 }
 
+/* A mission stopped by tab switches waits for the instructor: no report and no feedback until it is resumed
+   (or its clock runs out, when the feedback opens). This page checks every few seconds and moves on by itself. */
+function renderPaused(){
+  R=null;Q=null;stopQTimer();closeDrawer();
+  const pr=ST.proctor,p=ST.progress;
+  view.innerHTML=`<section class="report enter">
+    <div class="eyebrow">Mission paused</div>
+    <h2>Ask your instructor to resume your mission</h2>
+    <div class="endbanner proctor">${ICON.eye}<div><b>You left the mission tab ${pr.tab_switches} times.</b><p>The limit is ${pr.max_tab_switches}, so your mission is paused. Your XP and the ${p.done} of ${p.total} challenges you cleared are saved.</p></div></div>
+    <div class="resumewait" id="resumeWait"><span class="rwdot" aria-hidden="true"></span><div><b>Raise your hand and ask your instructor to resume your mission.</b><p>You continue from where you stopped, with the time you had left. This page checks every few seconds and continues by itself.</p></div><button class="btn" id="checkResume" type="button">Check again</button></div>
+  </section>`;
+  $('#checkResume').onclick=()=>checkResume(true);watchResume();window.scrollTo(0,0);mark('paused');
+}
+
 /* ---------- field guide (cheatsheet + comparison table) ---------- */
 const guide=$('#guide');
 function openGuide(){
@@ -1401,7 +1418,7 @@ let CLASS_CODE=false;
 function renderLogin(msg){
   closeDrawer();stopQTimer();R=null;Q=null;
   view.innerHTML=`<section class="power enter login">
-    <div class="eyebrow">Dictionaries: The Python Challenge</div>
+    <div class="eyebrow">${esc(document.title)}</div>
     <h2>Join the mission</h2>
     <p class="loginlead">Sign in with your class details. Use your own roll number: it can be signed in on <b>one device at a time</b>, and each student gets <b>one attempt</b> at the mission.</p>
     <form id="loginForm" class="loginf" novalidate>
@@ -1429,7 +1446,7 @@ async function renderProfile(){
   if(needSurvey())return renderSurvey();
   R=null;Q=null;stopQTimer();closeDrawer();
   const u=API.user||{},p=ST.progress,stages=ST.levels.filter(l=>l.done).length,reason=ST.ended_reason;
-  const status=reason==='complete'?'Completed':reason==='time'?'Time ran out':reason==='proctor'?'Ended: tab switches':ST.started_at?'In progress':'Not started';
+  const status=reason==='complete'?'Completed':reason==='time'?'Time ran out':reason==='proctor'?'Paused: tab switches':ST.started_at?'In progress':'Not started';
   const initials=String(u.name||'?').trim().split(/\s+/).map(w=>w[0]).slice(0,2).join('').toUpperCase();
   view.innerHTML=`<section class="profile enter">
     ${backBar()}

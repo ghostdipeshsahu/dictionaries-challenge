@@ -121,9 +121,7 @@ LEVELS = [
         "job": "Runs vanish inside one of Meera's functions and pile up inside another. Find out which changes reach her list.",
         "intel_title": "What you need to know",
         "intel": [
-            "A number is <b>immutable</b>. <code>runs += 4</code> inside a function makes a <b>new</b> number there. The caller's <code>runs</code> does not change.",
-            "A list is <b>mutable</b>. The parameter and the caller's name point at the <b>same</b> list, so <code>over += [4]</code> changes it for both.",
-            "<code>over = over + [4]</code> builds a <b>new</b> list and points only the parameter at it. The caller's list is not touched.",
+            "A number is immutable: <code>runs += 4</code> inside a function changes nothing for the caller. A list is mutable: <code>over += [4]</code> changes the caller's list too, but <code>over = over + [4]</code> only points the parameter at a new list.",
             "A default list is made <b>once</b>, when the function is defined. <code>def add_four(over=[])</code> keeps one list for every call.",
             "Recap: a parameter with no default cannot come after one with a default. Python stops with <b>SyntaxError</b>.",
         ],
@@ -134,15 +132,14 @@ LEVELS = [
                  {"line": 9, "say": "The 6 reached Meera's over.", "shows": "[1, 0, 6]"},
                  {"line": 5, "say": "+ builds a new list. Only balls points at it."},
                  {"line": 11, "say": "over has no second 6: the new list was thrown away.", "shows": "[1, 0, 6]"}],
-        "main": ["L1-1", "L1-2", "L1-3", "L1-4", "L1-5"],
+        "main": ["L1-1", "L1-3", "L1-4", "L1-5"],
     },
     {
         "id": "L2", "name": "Top Score, Low Score", "difficulty": "Easy+",
         "job": "Find the top score, the lowest score and the team total for Meera's board, without writing a single loop.",
         "intel_title": "What you need to know",
         "intel": [
-            "<code>min(runs)</code> gives the smallest item of a list. <code>min(3, 5, 4)</code> gives the smallest of the values: 3.",
-            "<code>max()</code> works the same way for the largest. <code>sum(runs)</code> adds up every number in the list.",
+            "<code>min(runs)</code> and <code>max(runs)</code> give the smallest and largest item; <code>min(3, 5, 4)</code> also works on separate values. <code>sum(runs)</code> adds up every number.",
             "Strings are compared character by character, by unicode value. <code>min(\"Python\", \"Java\")</code> is <code>'Java'</code>: J is 74, P is 80. Capital letters come before small ones.",
             "<code>max</code> is a name like any other. <code>max = max(runs)</code> hides the function, and the next <code>max(...)</code> fails.",
         ],
@@ -153,15 +150,14 @@ LEVELS = [
                  {"line": 3, "say": "The team total.", "shows": "104"},
                  {"line": 4, "say": "min() also takes separate values.", "shows": "3"},
                  {"line": 5, "say": "J (74) comes before P (80).", "shows": "Java"}],
-        "main": ["L2-1", "L2-2", "L2-3", "L2-4", "L2-5"],
+        "main": ["L2-1", "L2-2", "L2-3", "L2-5"],
     },
     {
         "id": "L3", "name": "The Leaderboard", "difficulty": "Medium",
         "job": "Build the leaderboard, high to low, and keep the batting order safe in a real backup.",
         "intel_title": "What you need to know",
         "intel": [
-            "<code>sorted(runs)</code> returns a <b>new</b> list from low to high. <code>runs</code> keeps its order.",
-            "<code>sorted(runs, reverse=True)</code> gives high to low. <code>reverse</code> is a default argument: its default is <code>False</code>.",
+            "<code>sorted(runs)</code> returns a new list, low to high, and <code>runs</code> keeps its order. <code>sorted(runs, reverse=True)</code> gives high to low: <code>reverse</code> is a default argument, False unless you pass it.",
             "<code>backup = list(runs)</code> makes an <b>independent copy</b>. <code>backup = runs</code> is only a second name for the same list.",
             "<code>runs.reverse()</code> flips the list <b>in place</b>. It gives back <code>None</code>, not a list.",
         ],
@@ -180,8 +176,7 @@ LEVELS = [
         "job": "Check each over: did every ball score? Was it a maiden? Then read the over backwards and number the batters.",
         "intel_title": "What you need to know",
         "intel": [
-            "<code>all(over)</code> is <code>True</code> when <b>every</b> item is true. 0 counts as false, so one dot ball makes it <code>False</code>.",
-            "<code>any(over)</code> is <code>True</code> when <b>at least one</b> item is true. If <code>any(over)</code> is <code>False</code>, no ball scored: a maiden over.",
+            "<code>all(over)</code> is True when every item is true (0 counts as false). <code>any(over)</code> is True when at least one is, so <code>any(over)</code> False means a maiden over.",
             "<code>reversed(seq)</code> walks a string or a list from the end. Wrap it in <code>list()</code> to see it as a list.",
             "<code>enumerate(names)</code> gives each position with its item: <code>for i, name in enumerate(names):</code>. Positions start at 0.",
         ],
@@ -195,12 +190,11 @@ LEVELS = [
     },
     {
         "id": "L5", "name": "Fix Meera's App", "difficulty": "Hard",
-        "job": "Two parts of Meera's app are broken. Fix the over summary, then finish the batting card.",
+        "job": "Meera's batting card only prints the names. Extend it so it works for every team, not just the examples.",
         "intel_title": "Before you start",
         "intel": [
-            "Each fix reads input and prints. The sample tests show what it should print.",
-            "Hidden tests try tricky cases, like an over with only one digit or a full team of 11.",
-            "Some fixes also check <b>how</b> you solved it, for example that the card really uses <code>enumerate()</code>.",
+            "Your code reads input and prints. Sample tests show the output; hidden tests try tricky cases, like only one batter or a full team of 11.",
+            "The check also looks at <b>how</b> you solved it: the card must really use <code>enumerate()</code>.",
         ],
         "demo": 'notes = "1W4.6"\nruns = []\nfor ch in notes:\n    if ch in "0123456789":\n        runs += [int(ch)]\nprint(sum(runs), min(runs), max(runs))',
         "learn": ["Pick the digits out of a string", "Use sum(), min() and max() on what you collect", "Number a list with enumerate()"],
@@ -208,15 +202,14 @@ LEVELS = [
                  {"line": 4, "say": "Keep only the characters that are digits."},
                  {"line": 5, "say": "int() turns the digit into a number before it goes in the list."},
                  {"line": 6, "say": "Runs 1, 4 and 6.", "shows": "11 1 6"}],
-        "main": ["L5-1", "L5-2"],
+        "main": ["L5-2"],
     },
     {
         "id": "BOSS", "name": "The Final Over", "difficulty": "Boss",
         "job": "The last over of the final. Everything comes together: functions, copies, the leaderboard and the over report.",
         "intel_title": "Before you start",
         "intel": [
-            "Read the program on the left one line at a time.",
-            "For each line, ask: does it <b>change</b> a list, make a <b>new</b> one, or only read it?",
+            "Read the program on the left line by line. For each line, ask: does it change a list, make a new one, or only read it?",
             "Last two jobs: tell an AI exactly what you want, then spot what its code gets wrong.",
         ],
         "demo": BOSS_SCENARIO,
@@ -267,18 +260,6 @@ add(id="L1-1", stage="L1", type="numeric", level="Read", concept="immutable_arg"
     hints=["A number cannot change. What does runs += 4 do inside the function?"],
     explain="Inside the function, <code>runs += 4</code> makes a new number, 56, for the function's own <code>runs</code>. The <code>runs</code> outside still points at 52.",
     trap="Answering 56, as if the function had changed the outside runs.")
-
-add(id="L1-2", stage="L1", type="predict", level="Read", concept="mutable_arg",
-    title="What does this print?",
-    code='def add_ball(over, run):\n    over += [run]\n\nover = [1, 0, 6]\nadd_ball(over, 4)\nprint(over)',
-    options=["[1, 0, 6, 4]", "[1, 0, 6]", "[4]", "!NameError: name 'run' is not defined"],
-    answer=0,
-    why={1: "A list is mutable. The function's <code>over</code> is the same list, so <code>+=</code> adds the 4 to it.",
-         2: "<code>+=</code> adds to the list. It does not replace what is already there.",
-         3: "<code>run</code> is a parameter, so it gets the 4 from the call."},
-    hints=["Do over outside and over inside point at one list or two?"],
-    explain="The list goes into the function as itself, not as a copy. <code>over += [run]</code> adds the 4 to that one list, so Meera's over is <code>[1, 0, 6, 4]</code>.",
-    trap="Thinking a function can never change what you pass in.")
 
 add(id="L1-3", stage="L1", type="categorize", level="Read", concept="mutable_arg",
     title="Each f(over) is called on over = [1, 0]. What does print(over) show afterwards?",
@@ -342,15 +323,6 @@ add(id="L2-3", stage="L2", type="predict", level="Read", concept="min_str",
     hints=["Compare the first letters: T, K, R. Which comes first in unicode?"],
     explain="Strings are compared character by character by unicode value. K (75) &lt; R (82) &lt; T (84), so <code>min</code> is Kiran and <code>max</code> is Teja.",
     trap="Comparing the names by length.")
-
-add(id="L2-4", stage="L2", type="msq", level="Read", concept="min_str",
-    title="Which of these are True?",
-    options=['min("Python", "Java") == "Java"', "max([1, -2, 4, 2]) == 4", 'min("apple", "Banana") == "apple"',
-             "sum([1, -2, 4, 2]) == 5", "max(3, 5, 4) == 4"],
-    answers=[0, 1, 3],
-    hints=["Capital letters have smaller unicode values than small letters.", "max() looks at every value, not the last one."],
-    explain="J (74) comes before P (80), so Java is the smallest. The largest of [1, -2, 4, 2] is 4 and they add up to 5. Capital B (66) comes before small a (97), so <code>min(\"apple\", \"Banana\")</code> is <code>'Banana'</code>. <code>max(3, 5, 4)</code> is 5.",
-    trap="Thinking a and A are equal, so apple comes first.")
 
 add(id="L2-5", stage="L2", type="debug", level="Debug", concept="max",
     title="Meera saves the top score in a variable named max. Day two crashes. Tap the line where Python stops, then choose what goes wrong.",
@@ -458,26 +430,6 @@ add(id="L4-4", stage="L4", type="predict", level="Read", concept="reversed",
     trap="Mixing up reversed() with sorted(..., reverse=True).")
 
 # ---------- L5 · Fix Meera's App ----------
-add(id="L5-1", stage="L5", type="coding", level="Debug", concept="sum",
-    challenge={
-        "title": "Over Summary",
-        "statement": "From class: <b>Extract Digits</b>. Meera's notes mix letters and digits, like <code>C0d1n8</code>. Pick out every digit and print their <b>sum</b>, the <b>smallest</b> and the <b>largest</b>. The starter stops with <code>TypeError</code>: fix it.",
-        "input_fmt": "One line: a string with at least one digit.",
-        "output_fmt": "Three lines: the sum, the minimum and the maximum of the digits.",
-        "starter": 'notes = input()\ndigits = []\nfor ch in notes:\n    if ch in "0123456789":\n        digits += [ch]\nprint(sum(digits))\nprint(min(digits))\nprint(max(digits))\n',
-        "tests": [
-            {"stdin": "C0d1n8", "expected": "9\n0\n8"},
-            {"stdin": "Pr08ra3mi2g", "expected": "13\n0\n8"},
-            {"stdin": "1np4t-0u7p4t", "expected": "16\n0\n7", "hidden": True, "note": "the third example from class"},
-            {"stdin": "W.W.6W", "expected": "6\n6\n6", "hidden": True, "note": "only one digit"},
-            {"stdin": "4nb46W1", "expected": "15\n1\n6", "hidden": True, "note": "the same digit twice"},
-        ],
-    },
-    solution='notes = input()\ndigits = []\nfor ch in notes:\n    if ch in "0123456789":\n        digits += [int(ch)]\nprint(sum(digits))\nprint(min(digits))\nprint(max(digits))\n',
-    hints=["Run the first sample. Which line stops, and what is inside digits?", "sum() needs numbers. Turn each digit into a number before you add it to the list."],
-    explain="The starter stores the digits as strings like <code>'0'</code>, and <code>sum()</code> cannot add strings: <code>TypeError</code>. <code>digits += [int(ch)]</code> stores numbers, so sum, min and max all work.",
-    trap="Writing <code>digits += int(ch)</code> without the brackets: += on a list needs a list.")
-
 add(id="L5-2", stage="L5", type="coding", level="Extend", concept="enumerate",
     challenge={
         "title": "Batting Card",
@@ -643,7 +595,7 @@ UI = {
 }
 
 assert len(QUESTIONS) == len(Q), "duplicate question id"
-assert TOTAL == len(Q) == 28, TOTAL
+assert TOTAL == len(Q) == 25, TOTAL
 for lvl in LEVELS:
     for qid in lvl["main"]:
         assert QUESTIONS[qid]["stage"] == lvl["id"], qid

@@ -125,6 +125,16 @@ def deadline(state, rules):
     return state["started_at"] + rules.mission_seconds + state["paused"] + state["grace"]
 
 
+def feedback_open(state, rules, now):
+    """Feedback is asked only when the mission is over for good: every stage cleared, or the clock ran out.
+    A mission stopped by tab switches waits for the teacher's Resume; it opens feedback only once its clock is over."""
+    if not state["ended_at"]:
+        return False
+    if state["ended_reason"] != "proctor":
+        return True
+    return now >= deadline(state, rules)
+
+
 def qst(state, qid):
     return state["q"].setdefault(qid, {"wrong": 0, "hints": 0, "solved": False, "revealed": False,
                                         "timed_out": False, "first": None, "deadline": None, "xp": 0})
@@ -214,6 +224,7 @@ def public_state(state, rules, now=None):
         "progress": {"done": done, "total": C.TOTAL},
         "core_done": bool(state.get("core_done_at")),
         "feedback_done": bool(state.get("feedback")),
+        "feedback_open": feedback_open(state, rules, now),
         "levels": levels,
         "questions": {qid: {"solved": s["solved"], "wrong": s["wrong"], "revealed": s["revealed"],
                             "timed_out": s["timed_out"], "hint": s["hints"] > 0} for qid, s in state["q"].items() if qid in C.QUESTIONS},
@@ -617,7 +628,7 @@ def review(state):
     return {"items": items}
 
 
-STATUS_LABEL = {"complete": "Completed", "time": "Time ran out", "proctor": "Ended: tab switches",
+STATUS_LABEL = {"complete": "Completed", "time": "Time ran out", "proctor": "Paused: tab switches",
                 "in progress": "In progress", "not started": "Not started"}
 
 
@@ -659,6 +670,8 @@ def feedback(state, rules, fb, now=None):
     now = now or time.time()
     if not state["ended_at"]:
         raise MissionError("Feedback opens when your mission ends.", 409)
+    if not feedback_open(state, rules, now):
+        raise MissionError("Feedback opens when your mission ends. Ask your instructor to resume your mission.", 409)
     if state.get("feedback"):
         return {"state": public_state(state, rules, now), "already": True}
     stages = [l["id"] for l in C.LEVELS if not l.get("bonus")]

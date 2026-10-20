@@ -117,9 +117,8 @@ LEVELS = [
         "job": "Volunteers are signing up: one at a time, a whole team at once, and one who must stand near the front. Add each of them the right way.",
         "intel_title": "What you need to know",
         "intel": [
-            "<code>team.append(x)</code> adds <b>one</b> item at the end. In a loop it builds a list: <code>[1, 2, 3]</code>.",
+            '<code>team.append(x)</code> adds one item at the end. Careful: <code>team.append(["Sai", "Meena"])</code> adds the whole list as <b>one</b> item.',
             "<code>team.extend(other)</code> adds <b>every</b> item of another list at the end: <code>[1, 2, 3]</code> extended with <code>[4, 5, 6]</code> is <code>[1, 2, 3, 4, 5, 6]</code>.",
-            "Careful: <code>team.append([\"Sai\", \"Meena\"])</code> adds the whole list as <b>one</b> item: a list inside the list.",
             "<code>team.insert(1, x)</code> puts x at index 1 and moves the rest right: <code>[1, 2, 3]</code> becomes <code>[1, 4, 2, 3]</code> after <code>insert(1, 4)</code>.",
         ],
         "demo": 'list_a = []\nfor x in range(1, 4):\n    list_a.append(x)\nprint(list_a)\nlist_b = [4, 5, 6]\nlist_a.extend(list_b)\nprint(list_a)\nlist_c = [1, 2, 3]\nlist_c.insert(1, 4)\nprint(list_c)',
@@ -137,10 +136,9 @@ LEVELS = [
         "job": "Some volunteers drop out. Remove the right person each time: the last one in, a named one, or everyone once the fest is over. Don't crash the app.",
         "intel_title": "What you need to know",
         "intel": [
-            "<code>team.pop()</code> removes the <b>last</b> item and gives it back, so you can keep it: <code>gone = team.pop()</code>.",
-            "<code>team.remove(\"Anu\")</code> removes the <b>first</b> \"Anu\" only. <code>[1, 3, 2, 3]</code> after <code>remove(3)</code> is <code>[1, 2, 3]</code>.",
+            "<code>team.pop()</code> removes the last item and gives it back: <code>gone = team.pop()</code>. On an empty list it stops with IndexError.",
+            '<code>team.remove("Anu")</code> removes the first "Anu" only. If the name is not in the list, it stops with ValueError.',
             "<code>team.clear()</code> removes every item: <code>[]</code>. The list itself is still there.",
-            "Name not in the list? <code>remove()</code> stops with <b>ValueError</b>. Nothing left? <code>pop()</code> stops with <b>IndexError</b>.",
         ],
         "demo": 'list_a = [1, 3, 2, 3]\nlist_a.remove(3)\nprint(list_a)\nlast = list_a.pop()\nprint(last, list_a)\nlist_a.clear()\nprint(list_a)',
         "learn": ["Remove the last item with pop() and keep it", "Remove the first match with remove()", "Empty a list with clear(), and spot the errors"],
@@ -150,7 +148,7 @@ LEVELS = [
                  {"line": 5, "say": "last holds the removed item.", "shows": "3 [1, 2]"},
                  {"line": 6, "say": "clear() removes everything that is left."},
                  {"line": 7, "say": "An empty list, still named list_a.", "shows": "[]"}],
-        "main": ["L2-1", "L2-2", "L2-3", "L2-4", "L2-5"],
+        "main": ["L2-1", "L2-2", "L2-4", "L2-5"],
     },
     {
         "id": "L3", "name": "Find and Count", "difficulty": "Medium",
@@ -178,7 +176,6 @@ LEVELS = [
             "<code>team.sort()</code> sorts the list <b>itself</b>, smallest first (A to Z for names). The old order is gone.",
             "<code>sorted(team)</code> makes a <b>new</b> sorted list and leaves team as it was. <code>sorted(list_a)</code> alone, with nothing to keep it, changes nothing.",
             "Methods that change the list, like <code>sort()</code>, <code>append()</code> and <code>insert()</code>, give back <b>None</b>. So <code>print(team.sort())</code> prints <code>None</code>.",
-            "Need both orders? Keep the new list: <code>gate = sorted(team)</code>.",
         ],
         "demo": 'list_a = [1, 3, 2]\nsorted(list_a)\nprint(list_a)\nnew = sorted(list_a)\nprint(new, list_a)\nprint(list_a.sort())\nprint(list_a)',
         "learn": ["Sort a list with sort()", "Keep the old order with sorted()", "Know which methods give back None"],
@@ -192,13 +189,11 @@ LEVELS = [
     },
     {
         "id": "L5", "name": "Fix the Fest Apps", "difficulty": "Hard",
-        "job": "Sneha's sign-up app crashes, and the coding club's Fibonacci stall needs a better screen. Fix the one and extend the other, so both work for every input.",
+        "job": "The coding club's Fibonacci stall needs a better screen. Extend it so it works for every N, not just the examples.",
         "intel_title": "Before you start",
         "intel": [
-            "Each program reads input and prints. The sample tests show what it should print.",
-            "Hidden tests try tricky cases, like nobody signing up, or N = 0.",
-            "Some fixes also check <b>how</b> you solved it, for example that the list is built with <code>append()</code>.",
-            "One question is a recap from last class: recursion and its base case.",
+            "Your code reads input and prints. Sample tests show the output; hidden tests try tricky cases, like N = 0 or N = 1.",
+            "A recap from last class: recursion and its base case. Build the list of terms with <code>append()</code>.",
         ],
         "demo": 'team = []\nfor name in ["Ravi", "Anu"]:\n    team.append(name)\nprint(team)\nfib = [0, 1]\nfor i in range(2, 7):\n    fib.append(fib[i - 1] + fib[i - 2])\nprint(fib)',
         "learn": ["Fix a list that turns into None", "Build a list with append() in a loop", "Find a wrong base case"],
@@ -207,15 +202,14 @@ LEVELS = [
                  {"line": 5, "say": "The first two Fibonacci terms are 0 and 1."},
                  {"line": 7, "say": "Each new term is the sum of the two before it."},
                  {"line": 8, "say": "f(0) to f(6).", "shows": "[0, 1, 1, 2, 3, 5, 8]"}],
-        "main": ["L5-1", "L5-2", "L5-3"],
+        "main": ["L5-3"],
     },
     {
         "id": "BOSS", "name": "Fest Day", "difficulty": "Boss",
         "job": "Fest day: late sign-ups, a guest at the front, drop-outs, and the gate wants its A to Z list. Run the desk.",
         "intel_title": "Before you start",
         "intel": [
-            "Read the program on the left one line at a time.",
-            "For each line, ask: does it <b>change</b> team, or make a <b>new</b> list?",
+            "Read the program on the left line by line. For each line, ask: does it change <code>team</code>, or make a new list?",
             "Last two jobs: tell an AI exactly what you want, then spot what its code gets wrong.",
         ],
         "demo": BOSS_SCENARIO,
@@ -330,16 +324,6 @@ add(id="L2-2", stage="L2", type="fill", level="Implement", concept="pop",
     hints=["Which method removes the last item?", "It must also give the removed name back, so gone can hold it."],
     explain="<code>team.pop()</code> removes the last item and gives it back, so <code>gone</code> is \"Kiran\". <code>clear()</code> or <code>remove()</code> give back None.",
     trap="Thinking pop() gives back None, like remove().")
-
-add(id="L2-3", stage="L2", type="debug", level="Debug", concept="errors",
-    title="Sneha removes Sai, but Sai never signed up. Tap the line where Python stops, then choose what goes wrong.",
-    code=f'team = {TEAM}\nteam.append("Meena")\nteam.remove("Sai")\nprint(team)',
-    errors=["ValueError: list.remove(x): x not in list", "IndexError: list index out of range",
-            "Nothing: it prints ['Ravi', 'Anu', 'Kiran', 'Meena']", "KeyError: 'Sai'"],
-    line=3, error=0, focus=3,
-    hints=["Is Sai anywhere in the list?", "What does remove() do when it finds no match?"],
-    explain="Sai is not in the list, so <code>remove(\"Sai\")</code> on line 3 stops with <code>ValueError: list.remove(x): x not in list</code>. Check first: <code>if \"Sai\" in team:</code>.",
-    trap="Expecting remove() to quietly do nothing.")
 
 add(id="L2-4", stage="L2", type="categorize", level="Read", concept="clear",
     title=f'Each line starts from team = {TEAM}. What does it do?',
@@ -456,35 +440,6 @@ add(id="L4-4", stage="L4", type="categorize", level="Read", concept="returns_non
     trap="Storing x = team.append(...) or x = team.sort() and expecting a list.")
 
 # ---------- L5 · Fix the Fest Apps ----------
-add(id="L5-1", stage="L5", type="coding", level="Debug", concept="returns_none",
-    challenge={
-        "title": "The Sign-up Desk",
-        "statement": "Sneha's desk app reads the volunteers as they walk up, then prints the list. It crashes on the second name. Fix it so the list keeps every name, in the order they came.",
-        "input_fmt": "First line: N, the number of volunteers. Then N lines, one name each.",
-        "output_fmt": "One line: print(team).",
-        "starter": 'n = int(input())\nteam = []\nfor i in range(n):\n    name = input()\n    team = team.append(name)\nprint(team)\n',
-        "tests": [
-            {"stdin": "3\nRavi\nAnu\nKiran", "expected": "['Ravi', 'Anu', 'Kiran']"},
-            {"stdin": "1\nSai", "expected": "['Sai']"},
-            {"stdin": "0", "expected": "[]", "hidden": True, "note": "nobody signed up yet"},
-            {"stdin": "4\nAnu\nRavi\nAnu\nMeena", "expected": "['Anu', 'Ravi', 'Anu', 'Meena']", "hidden": True, "note": "the same name twice"},
-        ],
-    },
-    rules=[{"require": r"\.append\s*\(", "msg": "Add each name with append()."},
-           {"forbid": r"team\s*=\s*team\s*\.\s*append", "msg": "append() gives back None: call it, don't store what it gives back."}],
-    solution='n = int(input())\nteam = []\nfor i in range(n):\n    name = input()\n    team.append(name)\nprint(team)\n',
-    hints=["Run the second sample: why does it print None?", "append() changes team and gives back None. Don't store that."],
-    explain="<code>team = team.append(name)</code> stores what append() gives back, which is None. The next time round, <code>None.append</code> crashes. Write <code>team.append(name)</code> on its own.",
-    trap="Thinking append() gives back the new list.")
-
-add(id="L5-2", stage="L5", type="numeric", level="Debug", concept="recap",
-    title="Recap from last class. sum_of_numbers(4) should be 4 + 3 + 2 + 1 = 10. What number does this print?",
-    code='def sum_of_numbers(n):\n    if n == 0:\n        return 1\n    else:\n        return n + sum_of_numbers(n - 1)\n\nprint(sum_of_numbers(4))',
-    value=11,
-    hints=["The calls go 4, 3, 2, 1, then 0. What does the call with 0 give back?"],
-    explain="The calls add 4 + 3 + 2 + 1, and the base case <code>n == 0</code> adds 1 more: 11. The mistake is the base case: <code>return 0</code> there, or stop at <code>n == 1</code> with <code>return 1</code>, gives 10.",
-    trap="Answering 10 without tracing the base case.")
-
 add(id="L5-3", stage="L5", type="coding", level="Extend", concept="recap",
     challenge={
         "title": "The Fibonacci Stall",
@@ -637,7 +592,7 @@ UI = {
 }
 
 assert len(QUESTIONS) == len(Q), "duplicate question id"
-assert TOTAL == len(Q) == 28, TOTAL
+assert TOTAL == len(Q) == 25, TOTAL
 for lvl in LEVELS:
     for qid in lvl["main"]:
         assert QUESTIONS[qid]["stage"] == lvl["id"], qid

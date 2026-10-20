@@ -72,7 +72,7 @@ for lvl in C.LEVELS:
     ok("\n".join(shows) == out.rstrip("\n"), f"{lvl['id']} walk shows {shows!r} but Python prints {out!r}")
     nlines = len(lvl["demo"].split("\n"))
     ok(all(1 <= w["line"] <= nlines and lvl["demo"].split("\n")[w["line"] - 1].strip() for w in lvl["walk"]), f"{lvl['id']} walk points at a blank or missing line")
-    ok(bool(lvl.get("learn")) and bool(lvl.get("job")) and bool(lvl.get("intel_title")) and len(lvl["intel"]) >= 3, f"{lvl['id']} needs learn, job, intel_title and intel")
+    ok(bool(lvl.get("learn")) and bool(lvl.get("job")) and bool(lvl.get("intel_title")) and 1 <= len(lvl["intel"]) <= 3, f"{lvl['id']} needs learn, job, intel_title and intel")
     for k in ("name", "difficulty"):
         ok(bool(lvl.get(k)), f"{lvl['id']} needs {k}")
 ok([l["id"] for l in C.LEVELS] == ["L0", "L1", "L2", "L3", "L4", "L5", "BOSS"], "seven stages, L0 to BOSS")
@@ -174,26 +174,6 @@ for i, expr in enumerate(q["left"]):
 ok(sorted(q["mapping"]) == list(range(len(q["right"]))) and q["code"] == q["setup"], "L3-4 mapping one-to-one, code shown = code checked")
 
 # ---------- debug missions ----------
-q = Q["L2-4"]
-_, et, em, line, _ = run(q["code"])
-ok(line == q["line"], f"L2-4 stops on line {line}, keyed {q['line']}")
-ok(q["errors"][q["error"]] == f"{et}: {em}", f"L2-4 error {et}: {em!r} vs {q['errors'][q['error']]!r}")
-ok(shown(q["code"].replace('rahul[3] = "Malhari"', 'rahul += ["Malhari"]')) == "['Naatu Naatu', 'Jai Ho', 'Kesariya', 'Malhari']", "L2-4 the fix in the explanation works")
-for qid, bad, fix, want in (("L4-3", "animals += wild_animals", "animals += [wild_animals]", "['cat', 'dog', ['Tiger', 'Fox']]"),
-                            ("B-5", "playlist = playlist + anu", "playlist += anu", "['Naatu Naatu', 'Jai Ho', 'Malhari', 'Kesariya']")):
-    q = Q[qid]
-    _, et, _, _, _ = run(q["code"])
-    ok(et is None, f"{qid} runs without an error")
-    ok(q["errors"][q["error"]] == "It prints " + shown(q["code"]), f"{qid} keyed {q['errors'][q['error']]!r} vs prints {shown(q['code'])!r}")
-    ok(all(e != "It prints " + shown(q["code"]) for i, e in enumerate(q["errors"]) if i != q["error"]), f"{qid} a distractor is the real output")
-    ok(q["code"].split("\n")[q["line"] - 1].strip() == bad, f"{qid} keyed line is the one to change")
-    ok(shown(q["code"].replace(bad, fix)) == want, f"{qid} fix works: {shown(q['code'].replace(bad, fix))!r}")
-    ok(q["focus"] == q["line"], f"{qid} focus on the keyed line")
-ok(Q["L4-3"]["title"].count("['cat', 'dog', ['Tiger', 'Fox']]") == 1, "L4-3 states the Daily Challenge's expected output")
-for q in Q.values():
-    if q["type"] == "debug":
-        ok(1 <= q["line"] <= len(q["code"].split("\n")) and 0 <= q["error"] < len(q["errors"]), f"{q['id']} line and error in range")
-        ok(len(set(q["errors"])) == len(q["errors"]), f"{q['id']} duplicate errors")
 
 # ---------- coding: reference passes every test; the starter fails one or breaks a rule ----------
 for q in Q.values():
@@ -217,11 +197,6 @@ for q in Q.values():
     ok(q["solution"] != ch["starter"], f"{q['id']} solution differs from the starter")
     ok(q["time"] == 360, f"{q['id']} gets 6 minutes")
 
-# L5-1: the starter's backup follows the new song; the other fix (playlist = playlist + [...]) also passes
-q = Q["L5-1"]
-ok(shown(q["challenge"]["starter"], "1\nJai Ho\nKesariya").split("\n")[0] == "['Jai Ho', 'Kesariya']", "L5-1 starter shows the = trap")
-alt = q["challenge"]["starter"].replace("playlist += [input()]\nprint", "playlist = playlist + [input()]\nprint")
-ok(alt != q["challenge"]["starter"] and all(passes(alt, t) for t in q["challenge"]["tests"]), "L5-1 the second fix in the explanation passes")
 # L5-2: two bugs; fixing only one still fails a sample
 q = Q["L5-2"]
 st = q["challenge"]["starter"]
@@ -242,7 +217,7 @@ cheat = st.replace("print(rahul)", "rahul = playlist\nprint(rahul)")
 ok(all(passes(cheat, t) for t in q["challenge"]["tests"]) and check_rules(q, cheat), "B-3 the trap passes the tests but breaks a rule")
 alt = q["solution"].replace("playlist += [song]", "rahul += [song]")
 ok(all(passes(alt, t) for t in q["challenge"]["tests"]) and not check_rules(q, alt), "B-3 rahul += [song] is also accepted")
-ok(sum(q["type"] == "coding" for q in Q.values()) == 3, "three coding challenges")
+ok(sum(q["type"] == "coding" for q in Q.values()) == 2, "two coding challenges")
 ok({q["stage"] for q in Q.values() if q["type"] == "coding"} == {"L5", "BOSS"}, "coding sits in L5 and the Boss")
 
 # ---------- prompting msq: the spec's example is true for a real backup, and the wrong line is the bug ----------
@@ -353,7 +328,7 @@ for q in Q.values():
 ok({q["level"] for q in Q.values()} == LEVELS_OK, "every cognitive level used")
 ok({q["concept"] for q in Q.values()} == set(C.CONCEPTS), f"unused concepts {set(C.CONCEPTS) - {q['concept'] for q in Q.values()}}")
 ok({q["type"] for q in Q.values()} == set(C.TYPE_LABEL), f"unused types {set(C.TYPE_LABEL) - {q['type'] for q in Q.values()}}")
-ok(C.TOTAL == len(Q) == 28, f"TOTAL {C.TOTAL}")
+ok(C.TOTAL == len(Q) == 25, f"TOTAL {C.TOTAL}")
 ok(Q["L0-1"]["type"] == "mcq" and Q["L0-1"]["answer"] == 0, "L0-1 is an mcq keyed 0 (the generic tests need it)")
 ok(Q["L0-2"]["type"] == "tf" and Q["L0-2"]["value"] is True, "L0-2 is a tf keyed True (the generic tests need it)")
 ok(Q["L1-1"]["stage"] == "L1" and C.LEVEL_BY_ID["L1"]["main"][0] == "L1-1", "L1-1 opens L1")
@@ -380,7 +355,7 @@ for q in Q.values():
     ok(q["time"] == C.timer(q) == S30.timer(q) and q["time"] >= C.FLOOR.get(q["type"], 0), f"{q['id']} timer {q['time']} s")
 ok(all(q["time"] == 360 for q in Q.values() if q["type"] == "coding"), "coding gets 6 minutes")
 worst = sum(q["time"] for q in Q.values())
-ok(45 * 60 <= worst <= 52 * 60, f"every timer used in full is {worst / 60:.1f} min: the clock, not the timers, ends a slow mission")
+ok(worst <= 38 * 60, f"every timer used in full is {worst / 60:.1f} min: it fits the 45-minute clock, with time to read each stage")
 
 print(f"\n{N[0]} checks, {len(FAILS)} failed")
 sys.exit(1 if FAILS else 0)

@@ -154,10 +154,6 @@ ok(q["options"] == C.AR_OPTIONS, "L3-5 uses AR_OPTIONS")
 for q in Q.values():
     if q["type"] == "numeric":
         ok(shown(q["code"]) == str(q["value"]), f"{q['id']} numeric {shown(q['code'])!r} vs {q['value']}")
-# L5-2: the deck's two fixes of the Daily Challenge both give the expected 10
-code = Q["L5-2"]["code"]
-ok(shown(code.replace("return 1\n", "return 0\n", 1)) == "10", "L5-2 fix 1: return 0")
-ok(shown(code.replace("if n == 0:", "if n == 1:")) == "10", "L5-2 fix 2: stop at 1")
 ok(shown("def sum_of_numbers(n):\n    return n + sum_of_numbers(n - 1)\nsum_of_numbers(3)").startswith("!RecursionError"), "deck: no base case -> RecursionError")
 ok(shown("def multiply(n):\n    if n == 1:\n        return 1\n    return n * multiply(n - 1)\nprint(multiply(5))") == "120", "deck: multiply(5)")
 
@@ -230,13 +226,12 @@ ok(shown(ref.replace("team.append(name)", "team.append(name)\n        team.sort(
 ok(q["answers"] == [0, 1, 2, 3], "B-3 keyed spec lines")
 
 # ---------- debug missions ----------
-for qid in ("L2-3", "L3-3"):
+for qid in ("L3-3",):
     q = Q[qid]
     _, et, em, line, _ = run(q["code"])
     ok(line == q["line"], f"{qid} stops on line {line}, keyed {q['line']}")
     ok(q["errors"][q["error"]] == f"{et}: {em}", f"{qid} error {et}: {em!r} vs {q['errors'][q['error']]!r}")
     ok(q["focus"] == q["line"], f"{qid} focus")
-ok(shown(Q["L2-3"]["code"].replace('team.remove("Sai")', 'if "Sai" in team:\n    team.remove("Sai")')) == "['Ravi', 'Anu', 'Kiran', 'Meena']", "L2-3 the in-check fix works")
 ok(shown(Q["L3-3"]["code"].replace("place = queue.index(name)\n", "if name in queue:\n    place = queue.index(name)\nelse:\n    place = -1\n")) == "Sai is at -1", "L3-3 the in-check fix works")
 q = Q["B-4"]
 _, et, em, line, _ = run(q["code"])
@@ -273,11 +268,6 @@ for q in Q.values():
     ok(all(("expected" in t) == (not t["hidden"]) for t in pub["challenge"]["tests"]), f"{q['id']} hidden expected outputs stay secret")
 
 # the starters fail the way their statements say
-r = run(Q["L5-1"]["challenge"]["starter"], "3\nRavi\nAnu\nKiran")
-ok(r[1] == "AttributeError" and r[2] == "'NoneType' object has no attribute 'append'" and r[3] == 5, f"L5-1 starter crashes on the second name: {r[1]}: {r[2]} line {r[3]}")
-ok(shown(Q["L5-1"]["challenge"]["starter"], "1\nSai") == "None", "L5-1 starter prints None for one name")
-ok(check_rules(Q["L5-1"], Q["L5-1"]["challenge"]["starter"]) == ["append() gives back None: call it, don't store what it gives back."], "L5-1 rule catches team = team.append")
-ok(check_rules(Q["L5-1"], 'n = int(input())\nteam = []\nfor i in range(n):\n    team += [input()]\nprint(team)\n') == ["Add each name with append()."], "L5-1 rule asks for append()")
 ok(shown(Q["L5-3"]["challenge"]["starter"], "9") == "34", "L5-3 starter prints f(N) only (deck: 9 -> 34)")
 ok(shown(Q["L5-3"]["challenge"]["starter"], "3") == "2", "L5-3 deck: 3 -> 2")
 ok(Q["L5-3"]["challenge"]["tests"][0]["expected"].endswith("\n34") and Q["L5-3"]["challenge"]["tests"][1]["expected"].endswith("\n2"), "L5-3 samples are the deck's I/O")
@@ -359,9 +349,9 @@ ok({q["level"] for q in Q.values()} == LEVELS_OK, "every cognitive level used")
 ok({q["concept"] for q in Q.values()} == set(C.CONCEPTS), f"unused concepts {set(C.CONCEPTS) - {q['concept'] for q in Q.values()}}")
 ok({q["type"] for q in Q.values()} == set(C.TYPE_LABEL), f"unused types {set(C.TYPE_LABEL) - {q['type'] for q in Q.values()}}")
 ok(not {"land", "board"} & set(C.TYPE_LABEL), "no S29/S30-only types")
-ok(sum(q["type"] == "coding" for q in Q.values()) == 3, "three coding challenges")
-ok([q["stage"] for q in Q.values() if q["type"] == "coding"] == ["L5", "L5", "BOSS"], "coding in L5 and BOSS")
-ok(C.TOTAL == 28 == len(Q), "28 questions")
+ok(sum(q["type"] == "coding" for q in Q.values()) == 2, "two coding challenges")
+ok([q["stage"] for q in Q.values() if q["type"] == "coding"] == ["L5", "BOSS"], "coding in L5 and BOSS")
+ok(C.TOTAL == 25 == len(Q), "25 questions")
 ok(sum(q["concept"] == "recap" for q in Q.values()) <= 3, "the recursion recap is at most 3 questions")
 ok(Q["L0-1"]["type"] == "mcq" and Q["L0-2"]["type"] == "tf" and C.LEVEL_BY_ID["L0"]["main"][:2] == ["L0-1", "L0-2"], "L0 opens with the mcq and the tf")
 ok(len(C.LEVEL_BY_ID["L0"]["main"]) + len(C.LEVEL_BY_ID["L1"]["main"]) >= 5, "L0 + L1 can earn the 5-combo")
@@ -379,7 +369,7 @@ for q in Q.values():
     ok(q["time"] == C.timer(q) and q["time"] >= C.FLOOR.get(q["type"], 0), f"{q['id']} timer {q['time']} s")
 ok(all(q["time"] == 360 for q in Q.values() if q["type"] == "coding"), "coding gets 6 minutes")
 worst = sum(q["time"] for q in Q.values())
-ok(45 * 60 <= worst <= 52 * 60, f"every timer used in full is {worst / 60:.1f} min: the clock, not the timers, ends a slow mission")
+ok(worst <= 38 * 60, f"every timer used in full is {worst / 60:.1f} min: it fits the 45-minute clock, with time to read each stage")
 
 print(f"\n{N[0]} checks, {len(FAILS)} failed")
 sys.exit(1 if FAILS else 0)
