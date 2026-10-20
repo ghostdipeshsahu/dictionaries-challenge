@@ -28,8 +28,8 @@ ROOT = Path(__file__).resolve().parent.parent
 STATIC = ROOT / "static"
 
 CLASS_CODE = os.environ.get("CLASS_CODE", "").strip()
-# Set TEACHER_PASSWORD in the environment. The fallback is for a laptop demo only.
-TEACHER_PASSWORD = os.environ.get("TEACHER_PASSWORD") or "change-me"
+# Set TEACHER_PASSWORD in the environment. Without it, teacher sign-in is refused.
+TEACHER_PASSWORD = os.environ.get("TEACHER_PASSWORD", "")
 def _rules(key):
     return E.Rules(mission_minutes=float(os.environ.get("MISSION_MINUTES") or getattr(C.module(key), "MISSION_MINUTES", 45)),
                    max_tab_switches=int(os.environ.get("MAX_TAB_SWITCHES", "3")),
@@ -397,6 +397,8 @@ def leaderboard(s=Depends(student)):
 # ---------- teacher ----------
 @app.post("/api/teacher/login")
 def teacher_login(body: TeacherLoginIn):
+    if not TEACHER_PASSWORD:
+        raise HTTPException(503, "Teacher sign-in is off: set TEACHER_PASSWORD on the server.")
     if not hmac.compare_digest(body.password.encode(), TEACHER_PASSWORD.encode()):
         raise HTTPException(401, "That password is not right.")
     token = secrets.token_urlsafe(24)

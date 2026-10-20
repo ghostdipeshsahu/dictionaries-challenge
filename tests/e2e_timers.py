@@ -29,7 +29,7 @@ def cleanup(base, prefix):
     dashboard only shows real students."""
     import json
     import urllib.request
-    pw = os.environ.get("TEACHER_PASSWORD", "change-me")
+    pw = os.environ["TEACHER_PASSWORD"]
     req = urllib.request.Request(base + "/api/teacher/login", data=json.dumps({"password": pw}).encode(),
                                  headers={"Content-Type": "application/json"})
     tok = json.load(urllib.request.urlopen(req))["token"]

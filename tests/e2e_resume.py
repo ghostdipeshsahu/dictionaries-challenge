@@ -41,7 +41,7 @@ try:
             pg.on("pageerror", lambda e, l=label: errors.append(f"{l}: {e}"))
             pg.on("console", lambda m, l=label: m.type == "error" and errors.append(f"{l}: {m.text}"))
         tpage.goto(BASE + "/teacher")
-        tpage.locator("#pw").fill(os.environ.get("TEACHER_PASSWORD", "change-me"))
+        tpage.locator("#pw").fill(os.environ["TEACHER_PASSWORD"])
         tpage.locator("#tl button[type=submit]").click()
         expect(tpage.locator("#pAttn")).to_contain_text("Everyone is moving", timeout=15000)
 

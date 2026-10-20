@@ -125,7 +125,7 @@ try:
         tpage = b.new_context(viewport={"width": 1440, "height": 900}).new_page()
         tpage.on("pageerror", lambda e: errors.append(f"teacher: {e}"))
         tpage.goto(BASE + "/teacher")
-        tpage.locator("#pw").fill(os.environ.get("TEACHER_PASSWORD", "change-me"))
+        tpage.locator("#pw").fill(os.environ["TEACHER_PASSWORD"])
         tpage.locator("#tl button[type=submit]").click()
         expect(tpage.locator("#fbCount")).to_have_text("1", timeout=15000)
         expect(tpage.locator("#pFb")).to_contain_text("More coding questions please")

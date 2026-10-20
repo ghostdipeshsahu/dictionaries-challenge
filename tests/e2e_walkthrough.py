@@ -153,7 +153,7 @@ def cleanup(base, prefix):
     dashboard only shows real students."""
     import json
     import urllib.request
-    pw = os.environ.get("TEACHER_PASSWORD", "change-me")
+    pw = os.environ["TEACHER_PASSWORD"]
     req = urllib.request.Request(base + "/api/teacher/login", data=json.dumps({"password": pw}).encode(),
                                  headers={"Content-Type": "application/json"})
     tok = json.load(urllib.request.urlopen(req))["token"]
@@ -179,7 +179,7 @@ def main():
         tpage = tctx.new_page()
         watch(tpage, "teacher")
         tpage.goto(BASE + "/teacher")
-        tpage.locator("#pw").fill(os.environ.get("TEACHER_PASSWORD", "change-me"))
+        tpage.locator("#pw").fill(os.environ["TEACHER_PASSWORD"])
         tpage.locator("#tl button[type=submit]").click()
         expect(tpage.locator("#updated")).to_contain_text("Live", timeout=15000)
         log("teacher dashboard live")

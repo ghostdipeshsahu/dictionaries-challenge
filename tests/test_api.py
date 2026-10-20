@@ -519,6 +519,12 @@ def test_copy_paste_and_second_tab_are_recorded(client):
 
 
 # ---------------------------------------------------------------- teacher dashboard
+def test_teacher_login_refused_without_password(client):
+    main.TEACHER_PASSWORD = ""
+    assert client.post("/api/teacher/login", json={"password": ""}).status_code == 503
+    assert client.post("/api/teacher/login", json={"password": "change-me"}).status_code == 503
+
+
 def test_teacher_dashboard_columns_and_current_question(client):
     t = teacher(client)
     assert client.post("/api/teacher/login", json={"password": "nope"}).status_code == 401

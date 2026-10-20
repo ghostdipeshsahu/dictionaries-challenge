@@ -36,14 +36,14 @@ python scripts/vendor_pyodide.py          # optional: local copy of Python-in-th
 uvicorn app.main:app --port 8000
 ```
 
-Open http://localhost:8000. The teacher password comes from `TEACHER_PASSWORD` (if it is not set, it is `change-me`,
-which is only for trying it on a laptop; always set your own).
+Open http://localhost:8000. The teacher password comes from `TEACHER_PASSWORD`; there is no default, so teacher sign-in
+is refused until you set it (for example `TEACHER_PASSWORD=pick-one uvicorn app.main:app --port 8000`).
 
 ## Configuration (environment variables)
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `TEACHER_PASSWORD` | `change-me` | Teacher dashboard password (always set it) |
+| `TEACHER_PASSWORD` | none (required) | Teacher dashboard password; teacher sign-in is refused until it is set |
 | `CLASS_CODE` | empty | If set, students must also type this code |
 | `MISSION_MINUTES` | `45` | Mission clock |
 | `MAX_TAB_SWITCHES` | `3` | The mission ends at this many tab switches (`0` = record only) |
